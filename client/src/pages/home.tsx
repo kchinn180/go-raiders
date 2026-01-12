@@ -121,6 +121,16 @@ export default function Home() {
   const handleJoinLobby = useCallback((lobby: Lobby) => {
     if (!user) return;
     
+    // Prevent joining if already in a lobby
+    if (activeLobby) {
+      toast({ 
+        title: "Already in a Lobby", 
+        description: "Leave your current lobby before joining another",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     const myPlayer: Player = {
       id: user.id,
       name: user.name,
@@ -132,11 +142,20 @@ export default function Home() {
     };
 
     joinLobbyMutation.mutate({ lobbyId: lobby.id, player: myPlayer });
-  }, [user, joinLobbyMutation]);
+  }, [user, joinLobbyMutation, activeLobby, toast]);
 
   const handleHostLobby = useCallback((lobby: Lobby) => {
+    // Prevent hosting if already in a lobby
+    if (activeLobby) {
+      toast({ 
+        title: "Already in a Lobby", 
+        description: "Leave your current lobby before hosting a new raid",
+        variant: "destructive"
+      });
+      return;
+    }
     createLobbyMutation.mutate(lobby);
-  }, [createLobbyMutation]);
+  }, [createLobbyMutation, activeLobby, toast]);
 
   const handleLeaveLobby = useCallback(() => {
     if (!user || !activeLobby) return;
