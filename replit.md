@@ -19,6 +19,7 @@ GO Raiders is a Pokémon GO raid coordination application that allows trainers t
 - **TanStack Query** for data fetching
 - **Shadcn/ui** components with Tailwind CSS
 - **Theme/User contexts** for global state
+- **Capacitor** for native mobile deployment
 
 ### Backend (`server/`)
 - **Express** server
@@ -41,8 +42,55 @@ GO Raiders is a Pokémon GO raid coordination application that allows trainers t
 ## Running the App
 The application runs with `npm run dev` which starts both the Express backend and Vite frontend on port 5000.
 
+## Mobile Deployment (App Store / Play Store)
+
+### PWA Features
+- **manifest.json**: App name, icons, theme colors, standalone display mode
+- **Mobile viewport**: Configured for notched devices with safe-area-inset support
+- **iOS standalone**: Full screen app experience on iOS devices
+
+### Capacitor Configuration
+The app uses Capacitor to wrap the web app for native deployment:
+
+```bash
+# Build the web app first
+npm run build
+
+# Add native platforms
+npx cap add ios
+npx cap add android
+
+# Sync web assets to native projects
+npx cap sync
+
+# Open in Xcode (for iOS)
+npx cap open ios
+
+# Open in Android Studio (for Android)
+npx cap open android
+```
+
+### App Store Requirements
+1. **Apple Developer Program** ($99/year)
+2. **Bundle ID**: `com.goraiders.app`
+3. **App Icons**: 1024x1024 for App Store, various sizes in `client/public/icons/`
+4. **Screenshots**: 6.5" and 5.5" iPhone screenshots required
+5. **Privacy Policy**: Required before submission
+6. **Age Rating**: 4+ (no objectionable content)
+
+### Play Store Requirements
+1. **Google Play Console** ($25 one-time)
+2. **Package Name**: `com.goraiders.app`
+3. **App Icons**: 512x512 feature graphic
+4. **Screenshots**: Phone screenshots required
+5. **Privacy Policy**: Required URL
+6. **Content Rating**: Complete questionnaire
+
 ## Recent Changes
 - Initial MVP implementation with full raid coordination features
 - Dark/Light theme support
 - Team-based styling (Valor/Mystic/Instinct colors)
 - Premium subscription UI mockup
+- PWA manifest and mobile viewport configuration
+- Capacitor integration for native iOS/Android builds
+- Safe-area padding for notched devices
