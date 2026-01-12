@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CloudLightning, Plus, Crown, Lock } from "lucide-react";
+import { CloudLightning, Plus, Sparkles, Lock, Flame, Shield, Zap, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -7,15 +7,23 @@ import { SafeImage } from "@/components/safe-image";
 import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
 import { BOSSES, TEAMS } from "@shared/schema";
-import type { Lobby, Player } from "@shared/schema";
+import type { Lobby, Player, TeamId } from "@shared/schema";
 
 interface HostViewProps {
   onHost: (lobby: Lobby) => void;
 }
 
+const teamIcons = {
+  valor: Flame,
+  mystic: Shield,
+  instinct: Zap,
+  neutral: Users,
+};
+
 export function HostView({ onHost }: HostViewProps) {
   const { user } = useUser();
   const [selectedBoss, setSelectedBoss] = useState<string>(BOSSES[0].id);
+  const [selectedGymTeam, setSelectedGymTeam] = useState<TeamId>("valor");
   const [minLevel, setMinLevel] = useState(1);
   const [weather, setWeather] = useState(false);
 
@@ -29,6 +37,7 @@ export function HostView({ onHost }: HostViewProps) {
       team: user.team,
       isReady: true,
       isHost: true,
+      isPremium: user.isPremium,
       friendCode: user.code,
     };
 
@@ -40,8 +49,8 @@ export function HostView({ onHost }: HostViewProps) {
       hostRating: "5.0",
       players: [hostPlayer],
       maxPlayers: 6,
-      team: user.team,
-      minLevel,
+      team: selectedGymTeam,
+      minLevel: user.isPremium ? minLevel : 1,
       weather,
       createdAt: Date.now(),
       timeLeft: 45,
@@ -51,7 +60,7 @@ export function HostView({ onHost }: HostViewProps) {
   };
 
   const selectedBossData = BOSSES.find((b) => b.id === selectedBoss);
-  const selectedTeam = TEAMS.find((t) => t.id === user.team) || TEAMS[0];
+  const selectedTeamData = TEAMS.find((t) => t.id === selectedGymTeam) || TEAMS[0];
 
   return (
     <div className="p-4 space-y-6 pb-28">
@@ -74,7 +83,7 @@ export function HostView({ onHost }: HostViewProps) {
               className={cn(
                 "p-3 rounded-xl border-2 flex flex-col items-center transition-all duration-200",
                 selectedBoss === boss.id
-                  ? `${selectedTeam.border} bg-card shadow-lg scale-105`
+                  ? `${selectedTeamData.border} bg-card shadow-lg scale-105`
                   : "border-card-border bg-card opacity-70 hover:opacity-100"
               )}
               data-testid={`boss-${boss.id}`}
@@ -95,7 +104,7 @@ export function HostView({ onHost }: HostViewProps) {
       </div>
 
       {selectedBossData && (
-        <div className={cn("p-4 rounded-2xl border-2", selectedTeam.border, selectedTeam.tint)}>
+        <div className={cn("p-4 rounded-2xl border-2", selectedTeamData.border, selectedTeamData.tint)}>
           <div className="flex items-center gap-4">
             <SafeImage
               src={selectedBossData.image}
@@ -125,6 +134,35 @@ export function HostView({ onHost }: HostViewProps) {
         </div>
       )}
 
+      {/* Gym Team Selection */}
+      <div className="space-y-3">
+        <label className="text-xs font-bold text-muted-foreground uppercase block">
+          Gym Controlled By
+        </label>
+        <div className="grid grid-cols-4 gap-2">
+          {TEAMS.map((team) => {
+            const TeamIcon = teamIcons[team.id as keyof typeof teamIcons] || Users;
+            const isSelected = selectedGymTeam === team.id;
+            return (
+              <button
+                key={team.id}
+                onClick={() => setSelectedGymTeam(team.id as TeamId)}
+                className={cn(
+                  "flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all duration-200",
+                  isSelected
+                    ? `${team.bg} ${team.border} text-white`
+                    : "bg-card border-card-border text-muted-foreground hover:opacity-80"
+                )}
+                data-testid={`gym-team-${team.id}`}
+              >
+                <TeamIcon className="w-5 h-5" fill={isSelected ? "currentColor" : "none"} />
+                <span className="text-[10px] font-bold">{team.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="space-y-4 bg-card p-4 rounded-2xl border border-card-border">
         <div className={cn(
           "flex items-center justify-between",
@@ -134,7 +172,7 @@ export function HostView({ onHost }: HostViewProps) {
             <label className="font-semibold block flex items-center gap-2">
               Minimum Level
               {user.isPremium ? (
-                <Crown className="w-4 h-4 text-amber-500" />
+                <Sparkles className="w-4 h-4 text-yellow-400" />
               ) : (
                 <Lock className="w-3 h-3 text-muted-foreground" />
               )}
@@ -175,7 +213,7 @@ export function HostView({ onHost }: HostViewProps) {
 
       <Button
         onClick={handleHost}
-        className={cn("w-full py-6 text-lg font-black rounded-2xl", selectedTeam.bg)}
+        className={cn("w-full py-6 text-lg font-black rounded-2xl", selectedTeamData.bg)}
         data-testid="button-create-lobby"
       >
         <Plus className="w-5 h-5 mr-2" />

@@ -1,4 +1,4 @@
-import { X, Crown, Zap, Radar, Users, Star, Clock, ShieldCheck, Check } from "lucide-react";
+import { X, Sparkles, Zap, Radar, Users, Star, Clock, ShieldCheck, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
@@ -46,7 +46,7 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
 
         <div className="text-center mb-6">
           <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-xl">
-            <Crown className="w-8 h-8 text-white" />
+            <Sparkles className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-2xl font-black">GO Raiders Elite</h2>
           <p className="text-muted-foreground text-sm">
@@ -87,11 +87,11 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
               className="w-full py-6 text-lg font-black rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500"
               data-testid="button-confirm-upgrade"
             >
-              <Crown className="w-5 h-5 mr-2" />
+              <Sparkles className="w-5 h-5 mr-2" />
               UPGRADE NOW
             </Button>
             <p className="text-center text-xs text-muted-foreground mt-3">
-              Cancel anytime. No commitment required.
+              In-app purchase. Cancel anytime in App Store or Play Store settings.
             </p>
           </>
         )}

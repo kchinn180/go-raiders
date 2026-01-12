@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   User,
-  Crown,
+  Sparkles,
   Bell,
   Moon,
   Sun,
@@ -243,7 +243,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
       <Card className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold flex items-center gap-2">
-            <Crown className="w-4 h-4 text-amber-500" />
+            <Sparkles className="w-4 h-4 text-yellow-400" />
             Subscription
           </h3>
           {user.isPremium && (
@@ -328,9 +328,12 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
               onClick={onPremiumClick}
               data-testid="button-upgrade"
             >
-              <Crown className="w-4 h-4 mr-2" />
+              <Sparkles className="w-4 h-4 mr-2" />
               Upgrade to Elite - $19.99/mo
             </Button>
+            <p className="text-xs text-muted-foreground text-center">
+              In-app purchase via App Store or Play Store
+            </p>
           </div>
         )}
       </Card>

@@ -34,6 +34,7 @@ export const playerSchema = z.object({
   team: z.enum(['valor', 'mystic', 'instinct', 'neutral']),
   isReady: z.boolean(),
   isHost: z.boolean().optional(),
+  isPremium: z.boolean().optional(),
   friendCode: z.string().optional(),
   hasSentRequest: z.boolean().optional()
 });

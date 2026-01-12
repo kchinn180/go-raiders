@@ -113,6 +113,7 @@ export default function Home() {
       level: user.level,
       team: user.team,
       isReady: false,
+      isPremium: user.isPremium,
       friendCode: user.code,
     };
 
@@ -169,16 +170,17 @@ export default function Home() {
         id: `autojoin-${Date.now()}`,
         bossId: boss.id,
         hostId: "priority-host",
-        hostName: "Priority_Host",
+        hostName: "EliteHost",
         hostRating: "5.0",
         players: [
           {
             id: "priority-host",
-            name: "Priority_Host",
+            name: "EliteHost",
             level: 50,
             team: "valor",
             isReady: true,
             isHost: true,
+            isPremium: true,
             friendCode: "1234 5678 9012",
           },
           {
@@ -187,6 +189,7 @@ export default function Home() {
             level: user.level,
             team: user.team,
             isReady: false,
+            isPremium: user.isPremium,
             friendCode: user.code,
           },
         ],

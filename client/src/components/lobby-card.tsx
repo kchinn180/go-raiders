@@ -1,4 +1,4 @@
-import { Lock, Users, CloudLightning, Timer, Shield, Flame, Zap } from "lucide-react";
+import { Lock, Users, CloudLightning, Timer, Shield, Flame, Zap, Sparkles } from "lucide-react";
 import { SafeImage } from "@/components/safe-image";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,8 @@ export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
 
   const playerCount = lobby.players.length;
   const spotsLeft = lobby.maxPlayers - playerCount;
+  const hostPlayer = lobby.players.find(p => p.isHost);
+  const isHostElite = hostPlayer?.isPremium || false;
 
   return (
     <button
@@ -89,7 +91,15 @@ export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
         <div className="flex items-center gap-3 text-muted-foreground">
           <div className="flex items-center gap-1">
             <TeamIcon className={cn("w-3 h-3", team.color)} />
-            <span className="text-[10px] font-semibold">{lobby.hostName}</span>
+            <span className={cn(
+              "text-[10px] font-semibold",
+              isHostElite && "text-yellow-400 elite-name-glow"
+            )}>
+              {lobby.hostName}
+            </span>
+            {isHostElite && (
+              <Sparkles className="w-3 h-3 text-yellow-400" />
+            )}
           </div>
           <div className="flex items-center gap-1">
             <Users className="w-3 h-3" />

@@ -7,7 +7,7 @@ import {
   Users,
   CloudLightning,
   Timer,
-  Crown,
+  Sparkles,
   Send,
   Flame,
   Shield,
@@ -144,7 +144,7 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewPr
           <div className={cn("p-4 rounded-2xl border-2", team.border, team.tint)}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Crown className="w-5 h-5 text-yellow-500" />
+                <Sparkles className="w-5 h-5 text-yellow-400" />
                 <span className="font-bold">Host's Friend Code</span>
               </div>
               <span className="text-xs text-muted-foreground">
@@ -197,8 +197,12 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewPr
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
-                        <span className="font-bold text-sm truncate">{player.name}</span>
-                        {player.isHost && <Crown className="w-3 h-3 text-yellow-500" />}
+                        <span className={cn(
+                          "font-bold text-sm truncate",
+                          player.isPremium && "text-yellow-400 elite-name-glow"
+                        )}>{player.name}</span>
+                        {player.isPremium && <Sparkles className="w-3 h-3 text-yellow-400" />}
+                        {player.isHost && !player.isPremium && <span className="text-[10px] text-muted-foreground">(Host)</span>}
                       </div>
                       <span className="text-xs text-muted-foreground">Lv. {player.level}</span>
                     </div>
