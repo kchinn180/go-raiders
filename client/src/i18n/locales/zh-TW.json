@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "尋找",
+    "host": "建立",
+    "shop": "商店",
+    "profile": "個人資料",
+    "lobby": "大廳"
+  },
+  "common": {
+    "loading": "載入中...",
+    "save": "儲存",
+    "cancel": "取消",
+    "confirm": "確認",
+    "back": "返回",
+    "next": "下一步",
+    "done": "完成",
+    "error": "錯誤",
+    "success": "成功",
+    "leave": "離開",
+    "stay": "留下"
+  },
+  "onboarding": {
+    "welcome": "歡迎，訓練師！",
+    "enterName": "輸入你的訓練師名稱",
+    "selectTeam": "選擇你的隊伍",
+    "enterLevel": "訓練師等級",
+    "enterFriendCode": "好友代碼",
+    "continue": "繼續",
+    "startRaiding": "開始團戰！"
+  },
+  "join": {
+    "title": "尋找團戰",
+    "autoJoin": "自動加入",
+    "noLobbies": "沒有可用的團戰",
+    "noLobbiesDesc": "稍後再來或建立自己的團戰！",
+    "spotsLeft": "剩餘{{count}}個位置",
+    "spotsLeft_plural": "剩餘{{count}}個位置",
+    "full": "已滿",
+    "locked": "已鎖定",
+    "tier": "{{tier}}級",
+    "filters": {
+      "all": "全部",
+      "mega": "超級",
+      "shadow": "暗影",
+      "max": "極巨"
+    }
+  },
+  "host": {
+    "title": "建立團戰",
+    "selectBoss": "選擇Boss",
+    "gymTeam": "道館佔領隊伍",
+    "minLevel": "最低等級",
+    "minLevelDesc": "設定參與者等級要求",
+    "eliteFeature": "精英功能",
+    "weatherBoosted": "天氣加成",
+    "weatherDesc": "Boss處於天氣加成狀態",
+    "createLobby": "建立大廳"
+  },
+  "lobby": {
+    "raiders": "團戰者",
+    "ready": "準備就緒",
+    "waiting": "等待中...",
+    "hostCode": "房主的好友代碼",
+    "addHostFirst": "請先添加房主！",
+    "codeCopied": "代碼已複製！",
+    "copyFailed": "複製失敗",
+    "tapReady": "準備好後點擊",
+    "readyButton": "準備就緒！",
+    "sentRequest": "已發送好友請求",
+    "requestSent": "請求已發送",
+    "markedSent": "已標記為已發送",
+    "hostNotified": "已通知房主",
+    "leaveRoom": "離開房間",
+    "leaveTitle": "離開這個團戰？",
+    "leaveDesc": "確定要離開嗎？您需要重新加入才能參與。",
+    "boosted": "加成",
+    "alreadyInLobby": "已在大廳中",
+    "leaveFirst": "加入其他大廳前請先離開目前大廳",
+    "leaveBeforeHost": "建立新團戰前請先離開目前大廳"
+  },
+  "shop": {
+    "title": "精英會員",
+    "subtitle": "解鎖進階功能",
+    "features": {
+      "autoJoin": "自動加入",
+      "autoJoinDesc": "一鍵自動加入團戰",
+      "noWait": "無需等待",
+      "noWaitDesc": "跳過佇列立即加入",
+      "minLevel": "設定最低等級",
+      "minLevelDesc": "控制誰可以加入",
+      "priority": "優先佇列",
+      "priorityDesc": "更快找到團戰"
+    },
+    "upgrade": "升級為精英",
+    "alreadyElite": "您已是精英！",
+    "manageSubscription": "在應用程式商店設定中管理訂閱"
+  },
+  "settings": {
+    "title": "設定",
+    "account": "帳戶",
+    "trainerName": "訓練師名稱",
+    "team": "隊伍",
+    "level": "等級",
+    "friendCode": "好友代碼",
+    "subscription": "訂閱",
+    "currentPlan": "目前方案",
+    "elite": "精英",
+    "free": "免費",
+    "manageSubscription": "管理訂閱",
+    "upgradeElite": "升級為精英",
+    "notifications": "通知",
+    "raidAlerts": "團戰提醒",
+    "raidAlertsDesc": "接收新團戰通知",
+    "lobbyUpdates": "大廳更新",
+    "lobbyUpdatesDesc": "玩家加入時通知",
+    "language": "語言",
+    "selectLanguage": "選擇語言",
+    "legal": "法律資訊",
+    "privacyPolicy": "隱私權政策",
+    "termsOfService": "服務條款",
+    "about": "關於"
+  },
+  "premium": {
+    "title": "成為精英",
+    "subtitle": "解鎖進階功能",
+    "subscribe": "訂閱",
+    "monthly": "/月",
+    "restore": "恢復購買"
+  },
+  "toast": {
+    "joinedLobby": "已加入！",
+    "joinedRaid": "您已加入{{name}}團戰",
+    "failedJoin": "加入失敗",
+    "lobbyFull": "大廳可能已滿",
+    "raidPublished": "團戰已發布！",
+    "raidVisible": "您的大廳現在對其他訓練師可見",
+    "failedCreate": "建立失敗",
+    "profileUpdated": "個人資料已更新",
+    "changesApplied": "您的變更已套用"
+  }
+}

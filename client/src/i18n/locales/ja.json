@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "探す",
+    "host": "作成",
+    "shop": "ショップ",
+    "profile": "プロフィール",
+    "lobby": "ロビー"
+  },
+  "common": {
+    "loading": "読み込み中...",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "back": "戻る",
+    "next": "次へ",
+    "done": "完了",
+    "error": "エラー",
+    "success": "成功",
+    "leave": "退出",
+    "stay": "残る"
+  },
+  "onboarding": {
+    "welcome": "ようこそ、トレーナー！",
+    "enterName": "トレーナー名を入力",
+    "selectTeam": "チームを選択",
+    "enterLevel": "トレーナーレベル",
+    "enterFriendCode": "フレンドコード",
+    "continue": "続ける",
+    "startRaiding": "レイド開始！"
+  },
+  "join": {
+    "title": "レイドを探す",
+    "autoJoin": "オート参加",
+    "noLobbies": "レイドがありません",
+    "noLobbiesDesc": "後で確認するか、自分でレイドを作成してください！",
+    "spotsLeft": "残り{{count}}枠",
+    "spotsLeft_plural": "残り{{count}}枠",
+    "full": "満員",
+    "locked": "ロック中",
+    "tier": "ティア {{tier}}",
+    "filters": {
+      "all": "すべて",
+      "mega": "メガ",
+      "shadow": "シャドウ",
+      "max": "マックス"
+    }
+  },
+  "host": {
+    "title": "レイドを作成",
+    "selectBoss": "ボスを選択",
+    "gymTeam": "ジムの占拠チーム",
+    "minLevel": "最低レベル",
+    "minLevelDesc": "参加者のレベル条件を設定",
+    "eliteFeature": "エリート機能",
+    "weatherBoosted": "天候ブースト",
+    "weatherDesc": "ボスが天候ブースト中",
+    "createLobby": "ロビーを作成"
+  },
+  "lobby": {
+    "raiders": "レイダー",
+    "ready": "準備完了",
+    "waiting": "待機中...",
+    "hostCode": "ホストのフレンドコード",
+    "addHostFirst": "まずホストを追加！",
+    "codeCopied": "コードをコピー！",
+    "copyFailed": "コピー失敗",
+    "tapReady": "準備ができたらタップ",
+    "readyButton": "準備完了！",
+    "sentRequest": "フレンドリクエスト送信済み",
+    "requestSent": "リクエスト送信済み",
+    "markedSent": "送信済みとしてマーク",
+    "hostNotified": "ホストに通知されました",
+    "leaveRoom": "ルームを退出",
+    "leaveTitle": "このレイドを退出しますか？",
+    "leaveDesc": "本当に退出しますか？参加するには再度入室する必要があります。",
+    "boosted": "ブースト",
+    "alreadyInLobby": "既にロビーに参加中",
+    "leaveFirst": "別のロビーに参加する前に現在のロビーを退出してください",
+    "leaveBeforeHost": "新しいレイドを作成する前に現在のロビーを退出してください"
+  },
+  "shop": {
+    "title": "エリートメンバーシップ",
+    "subtitle": "プレミアム機能をアンロック",
+    "features": {
+      "autoJoin": "オート参加",
+      "autoJoinDesc": "ワンタップで自動参加",
+      "noWait": "待ち時間なし",
+      "noWaitDesc": "キューをスキップして即座に参加",
+      "minLevel": "最低レベル設定",
+      "minLevelDesc": "参加者を制限",
+      "priority": "優先キュー",
+      "priorityDesc": "より早くレイドを見つける"
+    },
+    "upgrade": "エリートにアップグレード",
+    "alreadyElite": "エリートです！",
+    "manageSubscription": "アプリストアの設定でサブスクリプションを管理"
+  },
+  "settings": {
+    "title": "設定",
+    "account": "アカウント",
+    "trainerName": "トレーナー名",
+    "team": "チーム",
+    "level": "レベル",
+    "friendCode": "フレンドコード",
+    "subscription": "サブスクリプション",
+    "currentPlan": "現在のプラン",
+    "elite": "エリート",
+    "free": "無料",
+    "manageSubscription": "サブスクリプション管理",
+    "upgradeElite": "エリートにアップグレード",
+    "notifications": "通知",
+    "raidAlerts": "レイドアラート",
+    "raidAlertsDesc": "新しいレイドの通知を受け取る",
+    "lobbyUpdates": "ロビー更新",
+    "lobbyUpdatesDesc": "プレイヤーが参加した時に通知",
+    "language": "言語",
+    "selectLanguage": "言語を選択",
+    "legal": "法的情報",
+    "privacyPolicy": "プライバシーポリシー",
+    "termsOfService": "利用規約",
+    "about": "アプリについて"
+  },
+  "premium": {
+    "title": "エリートになる",
+    "subtitle": "プレミアム機能をアンロック",
+    "subscribe": "登録する",
+    "monthly": "/月",
+    "restore": "購入を復元"
+  },
+  "toast": {
+    "joinedLobby": "参加しました！",
+    "joinedRaid": "{{name}}レイドに参加しました",
+    "failedJoin": "参加に失敗",
+    "lobbyFull": "ロビーが満員の可能性があります",
+    "raidPublished": "レイド公開！",
+    "raidVisible": "ロビーが他のトレーナーに表示されます",
+    "failedCreate": "作成に失敗",
+    "profileUpdated": "プロフィール更新",
+    "changesApplied": "変更が適用されました"
+  }
+}

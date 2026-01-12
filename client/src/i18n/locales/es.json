@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "Buscar",
+    "host": "Crear",
+    "shop": "Tienda",
+    "profile": "Perfil",
+    "lobby": "Sala"
+  },
+  "common": {
+    "loading": "Cargando...",
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "back": "Atrás",
+    "next": "Siguiente",
+    "done": "Hecho",
+    "error": "Error",
+    "success": "Éxito",
+    "leave": "Salir",
+    "stay": "Quedarse"
+  },
+  "onboarding": {
+    "welcome": "¡Bienvenido, Entrenador!",
+    "enterName": "Ingresa tu nombre de entrenador",
+    "selectTeam": "Selecciona Tu Equipo",
+    "enterLevel": "Nivel de Entrenador",
+    "enterFriendCode": "Código de Amigo",
+    "continue": "Continuar",
+    "startRaiding": "¡Empezar a Raidear!"
+  },
+  "join": {
+    "title": "Buscar Incursiones",
+    "autoJoin": "Unión Auto",
+    "noLobbies": "No hay incursiones disponibles",
+    "noLobbiesDesc": "¡Vuelve pronto o crea tu propia incursión!",
+    "spotsLeft": "{{count}} lugar disponible",
+    "spotsLeft_plural": "{{count}} lugares disponibles",
+    "full": "Lleno",
+    "locked": "Bloqueado",
+    "tier": "Nivel {{tier}}",
+    "filters": {
+      "all": "Todos",
+      "mega": "Mega",
+      "shadow": "Oscuro",
+      "max": "Max"
+    }
+  },
+  "host": {
+    "title": "Crear Incursión",
+    "selectBoss": "Seleccionar Jefe",
+    "gymTeam": "Gimnasio Controlado Por",
+    "minLevel": "Nivel Mínimo",
+    "minLevelDesc": "Establece el nivel requerido",
+    "eliteFeature": "Función Elite",
+    "weatherBoosted": "Potenciado por Clima",
+    "weatherDesc": "El jefe está potenciado",
+    "createLobby": "Crear Sala"
+  },
+  "lobby": {
+    "raiders": "Raiders",
+    "ready": "Listo",
+    "waiting": "Esperando...",
+    "hostCode": "Código del Anfitrión",
+    "addHostFirst": "¡Agrega al anfitrión primero!",
+    "codeCopied": "¡Código Copiado!",
+    "copyFailed": "Error al copiar",
+    "tapReady": "Toca Cuando Estés Listo",
+    "readyButton": "¡Listo!",
+    "sentRequest": "Envié Solicitud de Amistad",
+    "requestSent": "Solicitud enviada",
+    "markedSent": "Marcado como Enviado",
+    "hostNotified": "El anfitrión ha sido notificado",
+    "leaveRoom": "Salir de la Sala",
+    "leaveTitle": "¿Salir de esta incursión?",
+    "leaveDesc": "¿Estás seguro de que quieres salir? Tendrás que volver a unirte para participar.",
+    "boosted": "Potenciado",
+    "alreadyInLobby": "Ya estás en una Sala",
+    "leaveFirst": "Sal de tu sala actual antes de unirte a otra",
+    "leaveBeforeHost": "Sal de tu sala actual antes de crear una nueva"
+  },
+  "shop": {
+    "title": "Membresía Elite",
+    "subtitle": "Desbloquea funciones premium",
+    "features": {
+      "autoJoin": "Unión Automática",
+      "autoJoinDesc": "Únete automáticamente con un toque",
+      "noWait": "Sin Espera",
+      "noWaitDesc": "Salta la cola y únete al instante",
+      "minLevel": "Establecer Nivel Mínimo",
+      "minLevelDesc": "Controla quién puede unirse",
+      "priority": "Cola Prioritaria",
+      "priorityDesc": "Encuentra incursiones más rápido"
+    },
+    "upgrade": "Actualizar a Elite",
+    "alreadyElite": "¡Eres Elite!",
+    "manageSubscription": "Administra tu suscripción en la configuración de tu tienda de apps"
+  },
+  "settings": {
+    "title": "Configuración",
+    "account": "Cuenta",
+    "trainerName": "Nombre de Entrenador",
+    "team": "Equipo",
+    "level": "Nivel",
+    "friendCode": "Código de Amigo",
+    "subscription": "Suscripción",
+    "currentPlan": "Plan Actual",
+    "elite": "Elite",
+    "free": "Gratis",
+    "manageSubscription": "Administrar Suscripción",
+    "upgradeElite": "Actualizar a Elite",
+    "notifications": "Notificaciones",
+    "raidAlerts": "Alertas de Incursión",
+    "raidAlertsDesc": "Recibe notificaciones de nuevas incursiones",
+    "lobbyUpdates": "Actualizaciones de Sala",
+    "lobbyUpdatesDesc": "Notificaciones cuando se unen jugadores",
+    "language": "Idioma",
+    "selectLanguage": "Seleccionar Idioma",
+    "legal": "Legal",
+    "privacyPolicy": "Política de Privacidad",
+    "termsOfService": "Términos de Servicio",
+    "about": "Acerca de"
+  },
+  "premium": {
+    "title": "Hazte Elite",
+    "subtitle": "Desbloquea funciones premium",
+    "subscribe": "Suscribirse",
+    "monthly": "/mes",
+    "restore": "Restaurar Compra"
+  },
+  "toast": {
+    "joinedLobby": "¡Te Uniste!",
+    "joinedRaid": "Te uniste a la incursión de {{name}}",
+    "failedJoin": "Error al unirse",
+    "lobbyFull": "La sala puede estar llena",
+    "raidPublished": "¡Incursión Publicada!",
+    "raidVisible": "Tu sala es visible para otros entrenadores",
+    "failedCreate": "Error al crear sala",
+    "profileUpdated": "Perfil Actualizado",
+    "changesApplied": "Tus cambios han sido aplicados"
+  }
+}

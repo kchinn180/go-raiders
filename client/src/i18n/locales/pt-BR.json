@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "Buscar",
+    "host": "Criar",
+    "shop": "Loja",
+    "profile": "Perfil",
+    "lobby": "Sala"
+  },
+  "common": {
+    "loading": "Carregando...",
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "back": "Voltar",
+    "next": "Próximo",
+    "done": "Feito",
+    "error": "Erro",
+    "success": "Sucesso",
+    "leave": "Sair",
+    "stay": "Ficar"
+  },
+  "onboarding": {
+    "welcome": "Bem-vindo, Treinador!",
+    "enterName": "Digite seu nome de treinador",
+    "selectTeam": "Selecione Seu Time",
+    "enterLevel": "Nível do Treinador",
+    "enterFriendCode": "Código de Amigo",
+    "continue": "Continuar",
+    "startRaiding": "Começar a Raidar!"
+  },
+  "join": {
+    "title": "Encontrar Raids",
+    "autoJoin": "Auto Entrar",
+    "noLobbies": "Nenhuma raid disponível",
+    "noLobbiesDesc": "Volte em breve ou crie sua própria raid!",
+    "spotsLeft": "{{count}} vaga restante",
+    "spotsLeft_plural": "{{count}} vagas restantes",
+    "full": "Lotado",
+    "locked": "Bloqueado",
+    "tier": "Nível {{tier}}",
+    "filters": {
+      "all": "Todos",
+      "mega": "Mega",
+      "shadow": "Sombra",
+      "max": "Max"
+    }
+  },
+  "host": {
+    "title": "Criar uma Raid",
+    "selectBoss": "Selecionar Chefe",
+    "gymTeam": "Ginásio Controlado Por",
+    "minLevel": "Nível Mínimo",
+    "minLevelDesc": "Defina o nível necessário",
+    "eliteFeature": "Recurso Elite",
+    "weatherBoosted": "Potenciado pelo Clima",
+    "weatherDesc": "O chefe está potenciado",
+    "createLobby": "Criar Sala"
+  },
+  "lobby": {
+    "raiders": "Raiders",
+    "ready": "Pronto",
+    "waiting": "Aguardando...",
+    "hostCode": "Código do Anfitrião",
+    "addHostFirst": "Adicione o anfitrião primeiro!",
+    "codeCopied": "Código Copiado!",
+    "copyFailed": "Falha ao copiar",
+    "tapReady": "Toque Quando Pronto",
+    "readyButton": "Pronto!",
+    "sentRequest": "Enviei Pedido de Amizade",
+    "requestSent": "Pedido enviado",
+    "markedSent": "Marcado como Enviado",
+    "hostNotified": "O anfitrião foi notificado",
+    "leaveRoom": "Sair da Sala",
+    "leaveTitle": "Sair desta raid?",
+    "leaveDesc": "Tem certeza que deseja sair? Você precisará entrar novamente para participar.",
+    "boosted": "Potenciado",
+    "alreadyInLobby": "Já está em uma Sala",
+    "leaveFirst": "Saia da sua sala atual antes de entrar em outra",
+    "leaveBeforeHost": "Saia da sua sala atual antes de criar uma nova"
+  },
+  "shop": {
+    "title": "Assinatura Elite",
+    "subtitle": "Desbloqueie recursos premium",
+    "features": {
+      "autoJoin": "Entrada Automática",
+      "autoJoinDesc": "Entre automaticamente com um toque",
+      "noWait": "Sem Espera",
+      "noWaitDesc": "Pule a fila e entre instantaneamente",
+      "minLevel": "Definir Nível Mínimo",
+      "minLevelDesc": "Controle quem pode entrar",
+      "priority": "Fila Prioritária",
+      "priorityDesc": "Encontre raids mais rápido"
+    },
+    "upgrade": "Atualizar para Elite",
+    "alreadyElite": "Você é Elite!",
+    "manageSubscription": "Gerencie sua assinatura nas configurações da loja de apps"
+  },
+  "settings": {
+    "title": "Configurações",
+    "account": "Conta",
+    "trainerName": "Nome do Treinador",
+    "team": "Time",
+    "level": "Nível",
+    "friendCode": "Código de Amigo",
+    "subscription": "Assinatura",
+    "currentPlan": "Plano Atual",
+    "elite": "Elite",
+    "free": "Grátis",
+    "manageSubscription": "Gerenciar Assinatura",
+    "upgradeElite": "Atualizar para Elite",
+    "notifications": "Notificações",
+    "raidAlerts": "Alertas de Raid",
+    "raidAlertsDesc": "Receba notificações de novas raids",
+    "lobbyUpdates": "Atualizações da Sala",
+    "lobbyUpdatesDesc": "Notificações quando jogadores entram",
+    "language": "Idioma",
+    "selectLanguage": "Selecionar Idioma",
+    "legal": "Legal",
+    "privacyPolicy": "Política de Privacidade",
+    "termsOfService": "Termos de Serviço",
+    "about": "Sobre"
+  },
+  "premium": {
+    "title": "Seja Elite",
+    "subtitle": "Desbloqueie recursos premium",
+    "subscribe": "Assinar",
+    "monthly": "/mês",
+    "restore": "Restaurar Compra"
+  },
+  "toast": {
+    "joinedLobby": "Você Entrou!",
+    "joinedRaid": "Você entrou na raid de {{name}}",
+    "failedJoin": "Falha ao entrar",
+    "lobbyFull": "A sala pode estar cheia",
+    "raidPublished": "Raid Publicada!",
+    "raidVisible": "Sua sala está visível para outros treinadores",
+    "failedCreate": "Falha ao criar sala",
+    "profileUpdated": "Perfil Atualizado",
+    "changesApplied": "Suas alterações foram aplicadas"
+  }
+}

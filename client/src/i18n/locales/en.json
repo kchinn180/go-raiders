@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "Find",
+    "host": "Host",
+    "shop": "Shop",
+    "profile": "Profile",
+    "lobby": "Lobby"
+  },
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "error": "Error",
+    "success": "Success",
+    "leave": "Leave",
+    "stay": "Stay"
+  },
+  "onboarding": {
+    "welcome": "Welcome, Trainer!",
+    "enterName": "Enter your trainer name",
+    "selectTeam": "Select Your Team",
+    "enterLevel": "Trainer Level",
+    "enterFriendCode": "Friend Code",
+    "continue": "Continue",
+    "startRaiding": "Start Raiding!"
+  },
+  "join": {
+    "title": "Find Raids",
+    "autoJoin": "Auto Join",
+    "noLobbies": "No raids available",
+    "noLobbiesDesc": "Check back soon or host your own raid!",
+    "spotsLeft": "{{count}} spot left",
+    "spotsLeft_plural": "{{count}} spots left",
+    "full": "Full",
+    "locked": "Locked",
+    "tier": "Tier {{tier}}",
+    "filters": {
+      "all": "All",
+      "mega": "Mega",
+      "shadow": "Shadow",
+      "max": "Max"
+    }
+  },
+  "host": {
+    "title": "Host a Raid",
+    "selectBoss": "Select Boss",
+    "gymTeam": "Gym Controlled By",
+    "minLevel": "Minimum Level",
+    "minLevelDesc": "Set level requirement for raiders",
+    "eliteFeature": "Elite feature",
+    "weatherBoosted": "Weather Boosted",
+    "weatherDesc": "Boss is weather boosted",
+    "createLobby": "Create Lobby"
+  },
+  "lobby": {
+    "raiders": "Raiders",
+    "ready": "Ready",
+    "waiting": "Waiting...",
+    "hostCode": "Host's Friend Code",
+    "addHostFirst": "Add host first!",
+    "codeCopied": "Code Copied!",
+    "copyFailed": "Copy failed",
+    "tapReady": "Tap When Ready",
+    "readyButton": "Ready!",
+    "sentRequest": "I Sent Friend Request",
+    "requestSent": "Request sent",
+    "markedSent": "Marked as Sent",
+    "hostNotified": "Host has been notified",
+    "leaveRoom": "Leave Room",
+    "leaveTitle": "Leave this raid?",
+    "leaveDesc": "Are you sure you want to leave this lobby? You'll need to rejoin if you want to participate in this raid.",
+    "boosted": "Boosted",
+    "alreadyInLobby": "Already in a Lobby",
+    "leaveFirst": "Leave your current lobby before joining another",
+    "leaveBeforeHost": "Leave your current lobby before hosting a new raid"
+  },
+  "shop": {
+    "title": "Elite Membership",
+    "subtitle": "Unlock premium features",
+    "features": {
+      "autoJoin": "Auto Join",
+      "autoJoinDesc": "Automatically join raids with one tap",
+      "noWait": "No Wait Time",
+      "noWaitDesc": "Skip the queue and join instantly",
+      "minLevel": "Set Minimum Level",
+      "minLevelDesc": "Control who can join your raids",
+      "priority": "Priority Queue",
+      "priorityDesc": "Get matched with raids faster"
+    },
+    "upgrade": "Upgrade to Elite",
+    "alreadyElite": "You're Elite!",
+    "manageSubscription": "Manage your subscription in your device's app store settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "account": "Account",
+    "trainerName": "Trainer Name",
+    "team": "Team",
+    "level": "Level",
+    "friendCode": "Friend Code",
+    "subscription": "Subscription",
+    "currentPlan": "Current Plan",
+    "elite": "Elite",
+    "free": "Free",
+    "manageSubscription": "Manage Subscription",
+    "upgradeElite": "Upgrade to Elite",
+    "notifications": "Notifications",
+    "raidAlerts": "Raid Alerts",
+    "raidAlertsDesc": "Get notified about new raids",
+    "lobbyUpdates": "Lobby Updates",
+    "lobbyUpdatesDesc": "Get notified when players join",
+    "language": "Language",
+    "selectLanguage": "Select Language",
+    "legal": "Legal",
+    "privacyPolicy": "Privacy Policy",
+    "termsOfService": "Terms of Service",
+    "about": "About"
+  },
+  "premium": {
+    "title": "Go Elite",
+    "subtitle": "Unlock premium raid features",
+    "subscribe": "Subscribe",
+    "monthly": "/month",
+    "restore": "Restore Purchase"
+  },
+  "toast": {
+    "joinedLobby": "Joined Lobby!",
+    "joinedRaid": "You joined {{name}} raid",
+    "failedJoin": "Failed to join",
+    "lobbyFull": "The lobby may be full",
+    "raidPublished": "Raid Published!",
+    "raidVisible": "Your lobby is now visible to other trainers",
+    "failedCreate": "Failed to create lobby",
+    "profileUpdated": "Profile Updated",
+    "changesApplied": "Your changes have been applied"
+  }
+}

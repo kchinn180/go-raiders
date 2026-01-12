@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "查找",
+    "host": "创建",
+    "shop": "商店",
+    "profile": "个人资料",
+    "lobby": "大厅"
+  },
+  "common": {
+    "loading": "加载中...",
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "back": "返回",
+    "next": "下一步",
+    "done": "完成",
+    "error": "错误",
+    "success": "成功",
+    "leave": "离开",
+    "stay": "留下"
+  },
+  "onboarding": {
+    "welcome": "欢迎，训练师！",
+    "enterName": "输入你的训练师名称",
+    "selectTeam": "选择你的队伍",
+    "enterLevel": "训练师等级",
+    "enterFriendCode": "好友代码",
+    "continue": "继续",
+    "startRaiding": "开始团战！"
+  },
+  "join": {
+    "title": "查找团战",
+    "autoJoin": "自动加入",
+    "noLobbies": "没有可用的团战",
+    "noLobbiesDesc": "稍后再来或创建自己的团战！",
+    "spotsLeft": "剩余{{count}}个位置",
+    "spotsLeft_plural": "剩余{{count}}个位置",
+    "full": "已满",
+    "locked": "已锁定",
+    "tier": "{{tier}}级",
+    "filters": {
+      "all": "全部",
+      "mega": "超级",
+      "shadow": "暗影",
+      "max": "极巨"
+    }
+  },
+  "host": {
+    "title": "创建团战",
+    "selectBoss": "选择Boss",
+    "gymTeam": "道馆占领队伍",
+    "minLevel": "最低等级",
+    "minLevelDesc": "设置参与者等级要求",
+    "eliteFeature": "精英功能",
+    "weatherBoosted": "天气加成",
+    "weatherDesc": "Boss处于天气加成状态",
+    "createLobby": "创建大厅"
+  },
+  "lobby": {
+    "raiders": "团战者",
+    "ready": "准备就绪",
+    "waiting": "等待中...",
+    "hostCode": "房主的好友代码",
+    "addHostFirst": "请先添加房主！",
+    "codeCopied": "代码已复制！",
+    "copyFailed": "复制失败",
+    "tapReady": "准备好后点击",
+    "readyButton": "准备就绪！",
+    "sentRequest": "已发送好友请求",
+    "requestSent": "请求已发送",
+    "markedSent": "已标记为已发送",
+    "hostNotified": "已通知房主",
+    "leaveRoom": "离开房间",
+    "leaveTitle": "离开这个团战？",
+    "leaveDesc": "确定要离开吗？您需要重新加入才能参与。",
+    "boosted": "加成",
+    "alreadyInLobby": "已在大厅中",
+    "leaveFirst": "加入其他大厅前请先离开当前大厅",
+    "leaveBeforeHost": "创建新团战前请先离开当前大厅"
+  },
+  "shop": {
+    "title": "精英会员",
+    "subtitle": "解锁高级功能",
+    "features": {
+      "autoJoin": "自动加入",
+      "autoJoinDesc": "一键自动加入团战",
+      "noWait": "无需等待",
+      "noWaitDesc": "跳过队列立即加入",
+      "minLevel": "设置最低等级",
+      "minLevelDesc": "控制谁可以加入",
+      "priority": "优先队列",
+      "priorityDesc": "更快找到团战"
+    },
+    "upgrade": "升级为精英",
+    "alreadyElite": "您已是精英！",
+    "manageSubscription": "在应用商店设置中管理订阅"
+  },
+  "settings": {
+    "title": "设置",
+    "account": "账户",
+    "trainerName": "训练师名称",
+    "team": "队伍",
+    "level": "等级",
+    "friendCode": "好友代码",
+    "subscription": "订阅",
+    "currentPlan": "当前套餐",
+    "elite": "精英",
+    "free": "免费",
+    "manageSubscription": "管理订阅",
+    "upgradeElite": "升级为精英",
+    "notifications": "通知",
+    "raidAlerts": "团战提醒",
+    "raidAlertsDesc": "接收新团战通知",
+    "lobbyUpdates": "大厅更新",
+    "lobbyUpdatesDesc": "玩家加入时通知",
+    "language": "语言",
+    "selectLanguage": "选择语言",
+    "legal": "法律信息",
+    "privacyPolicy": "隐私政策",
+    "termsOfService": "服务条款",
+    "about": "关于"
+  },
+  "premium": {
+    "title": "成为精英",
+    "subtitle": "解锁高级功能",
+    "subscribe": "订阅",
+    "monthly": "/月",
+    "restore": "恢复购买"
+  },
+  "toast": {
+    "joinedLobby": "已加入！",
+    "joinedRaid": "您已加入{{name}}团战",
+    "failedJoin": "加入失败",
+    "lobbyFull": "大厅可能已满",
+    "raidPublished": "团战已发布！",
+    "raidVisible": "您的大厅现在对其他训练师可见",
+    "failedCreate": "创建失败",
+    "profileUpdated": "个人资料已更新",
+    "changesApplied": "您的更改已应用"
+  }
+}

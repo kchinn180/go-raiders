@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "찾기",
+    "host": "만들기",
+    "shop": "상점",
+    "profile": "프로필",
+    "lobby": "로비"
+  },
+  "common": {
+    "loading": "로딩 중...",
+    "save": "저장",
+    "cancel": "취소",
+    "confirm": "확인",
+    "back": "뒤로",
+    "next": "다음",
+    "done": "완료",
+    "error": "오류",
+    "success": "성공",
+    "leave": "나가기",
+    "stay": "머무르기"
+  },
+  "onboarding": {
+    "welcome": "환영합니다, 트레이너!",
+    "enterName": "트레이너 이름을 입력하세요",
+    "selectTeam": "팀을 선택하세요",
+    "enterLevel": "트레이너 레벨",
+    "enterFriendCode": "친구 코드",
+    "continue": "계속",
+    "startRaiding": "레이드 시작!"
+  },
+  "join": {
+    "title": "레이드 찾기",
+    "autoJoin": "자동 참가",
+    "noLobbies": "레이드가 없습니다",
+    "noLobbiesDesc": "나중에 다시 확인하거나 직접 레이드를 만드세요!",
+    "spotsLeft": "{{count}}자리 남음",
+    "spotsLeft_plural": "{{count}}자리 남음",
+    "full": "가득 참",
+    "locked": "잠김",
+    "tier": "티어 {{tier}}",
+    "filters": {
+      "all": "전체",
+      "mega": "메가",
+      "shadow": "그림자",
+      "max": "맥스"
+    }
+  },
+  "host": {
+    "title": "레이드 만들기",
+    "selectBoss": "보스 선택",
+    "gymTeam": "체육관 점령 팀",
+    "minLevel": "최소 레벨",
+    "minLevelDesc": "참가자 레벨 요구 설정",
+    "eliteFeature": "엘리트 기능",
+    "weatherBoosted": "날씨 부스트",
+    "weatherDesc": "보스가 날씨 부스트 중",
+    "createLobby": "로비 만들기"
+  },
+  "lobby": {
+    "raiders": "레이더",
+    "ready": "준비 완료",
+    "waiting": "대기 중...",
+    "hostCode": "호스트의 친구 코드",
+    "addHostFirst": "먼저 호스트를 추가하세요!",
+    "codeCopied": "코드 복사됨!",
+    "copyFailed": "복사 실패",
+    "tapReady": "준비되면 탭하세요",
+    "readyButton": "준비 완료!",
+    "sentRequest": "친구 요청 보냄",
+    "requestSent": "요청 보냄",
+    "markedSent": "보낸 것으로 표시",
+    "hostNotified": "호스트에게 알림",
+    "leaveRoom": "방 나가기",
+    "leaveTitle": "이 레이드를 나가시겠습니까?",
+    "leaveDesc": "정말 나가시겠습니까? 참여하려면 다시 입장해야 합니다.",
+    "boosted": "부스트",
+    "alreadyInLobby": "이미 로비에 있습니다",
+    "leaveFirst": "다른 로비에 참가하기 전에 현재 로비를 나가세요",
+    "leaveBeforeHost": "새 레이드를 만들기 전에 현재 로비를 나가세요"
+  },
+  "shop": {
+    "title": "엘리트 멤버십",
+    "subtitle": "프리미엄 기능 잠금 해제",
+    "features": {
+      "autoJoin": "자동 참가",
+      "autoJoinDesc": "한 번의 탭으로 자동 참가",
+      "noWait": "대기 시간 없음",
+      "noWaitDesc": "대기열을 건너뛰고 즉시 참가",
+      "minLevel": "최소 레벨 설정",
+      "minLevelDesc": "참가자 제한",
+      "priority": "우선 대기열",
+      "priorityDesc": "더 빠르게 레이드 찾기"
+    },
+    "upgrade": "엘리트로 업그레이드",
+    "alreadyElite": "엘리트입니다!",
+    "manageSubscription": "앱 스토어 설정에서 구독 관리"
+  },
+  "settings": {
+    "title": "설정",
+    "account": "계정",
+    "trainerName": "트레이너 이름",
+    "team": "팀",
+    "level": "레벨",
+    "friendCode": "친구 코드",
+    "subscription": "구독",
+    "currentPlan": "현재 플랜",
+    "elite": "엘리트",
+    "free": "무료",
+    "manageSubscription": "구독 관리",
+    "upgradeElite": "엘리트로 업그레이드",
+    "notifications": "알림",
+    "raidAlerts": "레이드 알림",
+    "raidAlertsDesc": "새 레이드 알림 받기",
+    "lobbyUpdates": "로비 업데이트",
+    "lobbyUpdatesDesc": "플레이어 참가 시 알림",
+    "language": "언어",
+    "selectLanguage": "언어 선택",
+    "legal": "법적 정보",
+    "privacyPolicy": "개인정보 처리방침",
+    "termsOfService": "서비스 약관",
+    "about": "앱 정보"
+  },
+  "premium": {
+    "title": "엘리트 되기",
+    "subtitle": "프리미엄 기능 잠금 해제",
+    "subscribe": "구독하기",
+    "monthly": "/월",
+    "restore": "구매 복원"
+  },
+  "toast": {
+    "joinedLobby": "참가했습니다!",
+    "joinedRaid": "{{name}} 레이드에 참가했습니다",
+    "failedJoin": "참가 실패",
+    "lobbyFull": "로비가 가득 찼을 수 있습니다",
+    "raidPublished": "레이드 공개!",
+    "raidVisible": "로비가 다른 트레이너에게 표시됩니다",
+    "failedCreate": "생성 실패",
+    "profileUpdated": "프로필 업데이트됨",
+    "changesApplied": "변경 사항이 적용되었습니다"
+  }
+}

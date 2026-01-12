@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "بحث",
+    "host": "إنشاء",
+    "shop": "متجر",
+    "profile": "الملف الشخصي",
+    "lobby": "الردهة"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "confirm": "تأكيد",
+    "back": "رجوع",
+    "next": "التالي",
+    "done": "تم",
+    "error": "خطأ",
+    "success": "نجاح",
+    "leave": "مغادرة",
+    "stay": "البقاء"
+  },
+  "onboarding": {
+    "welcome": "مرحباً أيها المدرب!",
+    "enterName": "أدخل اسم المدرب",
+    "selectTeam": "اختر فريقك",
+    "enterLevel": "مستوى المدرب",
+    "enterFriendCode": "رمز الصديق",
+    "continue": "متابعة",
+    "startRaiding": "ابدأ الغارات!"
+  },
+  "join": {
+    "title": "البحث عن غارات",
+    "autoJoin": "انضمام تلقائي",
+    "noLobbies": "لا توجد غارات متاحة",
+    "noLobbiesDesc": "عد لاحقاً أو أنشئ غارتك الخاصة!",
+    "spotsLeft": "{{count}} مكان متاح",
+    "spotsLeft_plural": "{{count}} أماكن متاحة",
+    "full": "ممتلئ",
+    "locked": "مقفل",
+    "tier": "المستوى {{tier}}",
+    "filters": {
+      "all": "الكل",
+      "mega": "ميجا",
+      "shadow": "الظل",
+      "max": "ماكس"
+    }
+  },
+  "host": {
+    "title": "إنشاء غارة",
+    "selectBoss": "اختر الزعيم",
+    "gymTeam": "الفريق المسيطر على الصالة",
+    "minLevel": "الحد الأدنى للمستوى",
+    "minLevelDesc": "حدد متطلبات المستوى",
+    "eliteFeature": "ميزة النخبة",
+    "weatherBoosted": "معزز بالطقس",
+    "weatherDesc": "الزعيم معزز بالطقس",
+    "createLobby": "إنشاء ردهة"
+  },
+  "lobby": {
+    "raiders": "المغيرون",
+    "ready": "جاهز",
+    "waiting": "في الانتظار...",
+    "hostCode": "رمز صديق المضيف",
+    "addHostFirst": "أضف المضيف أولاً!",
+    "codeCopied": "تم نسخ الرمز!",
+    "copyFailed": "فشل النسخ",
+    "tapReady": "انقر عندما تكون جاهزاً",
+    "readyButton": "جاهز!",
+    "sentRequest": "أرسلت طلب صداقة",
+    "requestSent": "تم إرسال الطلب",
+    "markedSent": "تم التحديد كمرسل",
+    "hostNotified": "تم إخطار المضيف",
+    "leaveRoom": "مغادرة الغرفة",
+    "leaveTitle": "مغادرة هذه الغارة؟",
+    "leaveDesc": "هل أنت متأكد أنك تريد المغادرة؟ ستحتاج للانضمام مجدداً للمشاركة.",
+    "boosted": "معزز",
+    "alreadyInLobby": "أنت بالفعل في ردهة",
+    "leaveFirst": "غادر ردهتك الحالية قبل الانضمام لأخرى",
+    "leaveBeforeHost": "غادر ردهتك الحالية قبل إنشاء غارة جديدة"
+  },
+  "shop": {
+    "title": "عضوية النخبة",
+    "subtitle": "افتح الميزات المميزة",
+    "features": {
+      "autoJoin": "انضمام تلقائي",
+      "autoJoinDesc": "انضم تلقائياً بنقرة واحدة",
+      "noWait": "بدون انتظار",
+      "noWaitDesc": "تخطى الطابور وانضم فوراً",
+      "minLevel": "تعيين الحد الأدنى للمستوى",
+      "minLevelDesc": "تحكم في من يمكنه الانضمام",
+      "priority": "طابور الأولوية",
+      "priorityDesc": "اعثر على الغارات بشكل أسرع"
+    },
+    "upgrade": "الترقية للنخبة",
+    "alreadyElite": "أنت نخبة!",
+    "manageSubscription": "إدارة اشتراكك في إعدادات متجر التطبيقات"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "account": "الحساب",
+    "trainerName": "اسم المدرب",
+    "team": "الفريق",
+    "level": "المستوى",
+    "friendCode": "رمز الصديق",
+    "subscription": "الاشتراك",
+    "currentPlan": "الخطة الحالية",
+    "elite": "نخبة",
+    "free": "مجاني",
+    "manageSubscription": "إدارة الاشتراك",
+    "upgradeElite": "الترقية للنخبة",
+    "notifications": "الإشعارات",
+    "raidAlerts": "تنبيهات الغارات",
+    "raidAlertsDesc": "تلقي إشعارات للغارات الجديدة",
+    "lobbyUpdates": "تحديثات الردهة",
+    "lobbyUpdatesDesc": "إشعار عند انضمام لاعبين",
+    "language": "اللغة",
+    "selectLanguage": "اختر اللغة",
+    "legal": "قانوني",
+    "privacyPolicy": "سياسة الخصوصية",
+    "termsOfService": "شروط الخدمة",
+    "about": "حول"
+  },
+  "premium": {
+    "title": "كن نخبة",
+    "subtitle": "افتح الميزات المميزة",
+    "subscribe": "اشتراك",
+    "monthly": "/شهر",
+    "restore": "استعادة الشراء"
+  },
+  "toast": {
+    "joinedLobby": "انضممت!",
+    "joinedRaid": "انضممت لغارة {{name}}",
+    "failedJoin": "فشل الانضمام",
+    "lobbyFull": "الردهة قد تكون ممتلئة",
+    "raidPublished": "تم نشر الغارة!",
+    "raidVisible": "ردهتك مرئية الآن للمدربين الآخرين",
+    "failedCreate": "فشل الإنشاء",
+    "profileUpdated": "تم تحديث الملف الشخصي",
+    "changesApplied": "تم تطبيق تغييراتك"
+  }
+}

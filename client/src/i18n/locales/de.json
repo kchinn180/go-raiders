@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "Finden",
+    "host": "Erstellen",
+    "shop": "Shop",
+    "profile": "Profil",
+    "lobby": "Lobby"
+  },
+  "common": {
+    "loading": "Laden...",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "confirm": "Bestätigen",
+    "back": "Zurück",
+    "next": "Weiter",
+    "done": "Fertig",
+    "error": "Fehler",
+    "success": "Erfolg",
+    "leave": "Verlassen",
+    "stay": "Bleiben"
+  },
+  "onboarding": {
+    "welcome": "Willkommen, Trainer!",
+    "enterName": "Gib deinen Trainernamen ein",
+    "selectTeam": "Wähle Dein Team",
+    "enterLevel": "Trainer-Level",
+    "enterFriendCode": "Freundescode",
+    "continue": "Weiter",
+    "startRaiding": "Raids starten!"
+  },
+  "join": {
+    "title": "Raids Finden",
+    "autoJoin": "Auto Beitreten",
+    "noLobbies": "Keine Raids verfügbar",
+    "noLobbiesDesc": "Schau später wieder vorbei oder erstelle deinen eigenen Raid!",
+    "spotsLeft": "{{count}} Platz frei",
+    "spotsLeft_plural": "{{count}} Plätze frei",
+    "full": "Voll",
+    "locked": "Gesperrt",
+    "tier": "Stufe {{tier}}",
+    "filters": {
+      "all": "Alle",
+      "mega": "Mega",
+      "shadow": "Schatten",
+      "max": "Max"
+    }
+  },
+  "host": {
+    "title": "Raid Erstellen",
+    "selectBoss": "Boss Auswählen",
+    "gymTeam": "Arena Kontrolliert Von",
+    "minLevel": "Mindestlevel",
+    "minLevelDesc": "Setze die Level-Anforderung",
+    "eliteFeature": "Elite-Funktion",
+    "weatherBoosted": "Wetter-Boost",
+    "weatherDesc": "Boss ist wetterverstärkt",
+    "createLobby": "Lobby Erstellen"
+  },
+  "lobby": {
+    "raiders": "Raiders",
+    "ready": "Bereit",
+    "waiting": "Warten...",
+    "hostCode": "Freundescode des Hosts",
+    "addHostFirst": "Füge den Host zuerst hinzu!",
+    "codeCopied": "Code Kopiert!",
+    "copyFailed": "Kopieren fehlgeschlagen",
+    "tapReady": "Tippe wenn Bereit",
+    "readyButton": "Bereit!",
+    "sentRequest": "Freundschaftsanfrage Gesendet",
+    "requestSent": "Anfrage gesendet",
+    "markedSent": "Als Gesendet Markiert",
+    "hostNotified": "Host wurde benachrichtigt",
+    "leaveRoom": "Lobby Verlassen",
+    "leaveTitle": "Diesen Raid verlassen?",
+    "leaveDesc": "Bist du sicher? Du musst erneut beitreten, um teilzunehmen.",
+    "boosted": "Verstärkt",
+    "alreadyInLobby": "Bereits in einer Lobby",
+    "leaveFirst": "Verlasse deine aktuelle Lobby, bevor du einer anderen beitrittst",
+    "leaveBeforeHost": "Verlasse deine aktuelle Lobby, bevor du einen neuen Raid erstellst"
+  },
+  "shop": {
+    "title": "Elite-Mitgliedschaft",
+    "subtitle": "Premium-Funktionen freischalten",
+    "features": {
+      "autoJoin": "Auto Beitreten",
+      "autoJoinDesc": "Automatisch mit einem Tippen beitreten",
+      "noWait": "Keine Wartezeit",
+      "noWaitDesc": "Überspringe die Warteschlange",
+      "minLevel": "Mindestlevel Setzen",
+      "minLevelDesc": "Kontrolliere, wer beitreten kann",
+      "priority": "Prioritäts-Warteschlange",
+      "priorityDesc": "Finde Raids schneller"
+    },
+    "upgrade": "Auf Elite Upgraden",
+    "alreadyElite": "Du bist Elite!",
+    "manageSubscription": "Verwalte dein Abo in den App-Store-Einstellungen"
+  },
+  "settings": {
+    "title": "Einstellungen",
+    "account": "Konto",
+    "trainerName": "Trainername",
+    "team": "Team",
+    "level": "Level",
+    "friendCode": "Freundescode",
+    "subscription": "Abonnement",
+    "currentPlan": "Aktueller Plan",
+    "elite": "Elite",
+    "free": "Kostenlos",
+    "manageSubscription": "Abo Verwalten",
+    "upgradeElite": "Auf Elite Upgraden",
+    "notifications": "Benachrichtigungen",
+    "raidAlerts": "Raid-Benachrichtigungen",
+    "raidAlertsDesc": "Benachrichtigungen für neue Raids",
+    "lobbyUpdates": "Lobby-Updates",
+    "lobbyUpdatesDesc": "Benachrichtigungen wenn Spieler beitreten",
+    "language": "Sprache",
+    "selectLanguage": "Sprache Auswählen",
+    "legal": "Rechtliches",
+    "privacyPolicy": "Datenschutzrichtlinie",
+    "termsOfService": "Nutzungsbedingungen",
+    "about": "Über"
+  },
+  "premium": {
+    "title": "Werde Elite",
+    "subtitle": "Premium-Funktionen freischalten",
+    "subscribe": "Abonnieren",
+    "monthly": "/Monat",
+    "restore": "Kauf Wiederherstellen"
+  },
+  "toast": {
+    "joinedLobby": "Beigetreten!",
+    "joinedRaid": "Du bist dem {{name}} Raid beigetreten",
+    "failedJoin": "Beitritt fehlgeschlagen",
+    "lobbyFull": "Die Lobby ist möglicherweise voll",
+    "raidPublished": "Raid Veröffentlicht!",
+    "raidVisible": "Deine Lobby ist jetzt sichtbar",
+    "failedCreate": "Erstellung fehlgeschlagen",
+    "profileUpdated": "Profil Aktualisiert",
+    "changesApplied": "Deine Änderungen wurden übernommen"
+  }
+}

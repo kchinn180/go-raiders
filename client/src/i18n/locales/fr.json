@@ -1,0 +1,141 @@
+{
+  "nav": {
+    "find": "Trouver",
+    "host": "Créer",
+    "shop": "Boutique",
+    "profile": "Profil",
+    "lobby": "Salon"
+  },
+  "common": {
+    "loading": "Chargement...",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "back": "Retour",
+    "next": "Suivant",
+    "done": "Terminé",
+    "error": "Erreur",
+    "success": "Succès",
+    "leave": "Quitter",
+    "stay": "Rester"
+  },
+  "onboarding": {
+    "welcome": "Bienvenue, Dresseur !",
+    "enterName": "Entrez votre nom de dresseur",
+    "selectTeam": "Sélectionnez Votre Équipe",
+    "enterLevel": "Niveau de Dresseur",
+    "enterFriendCode": "Code Ami",
+    "continue": "Continuer",
+    "startRaiding": "Commencer les Raids !"
+  },
+  "join": {
+    "title": "Trouver des Raids",
+    "autoJoin": "Rejoindre Auto",
+    "noLobbies": "Aucun raid disponible",
+    "noLobbiesDesc": "Revenez bientôt ou créez votre propre raid !",
+    "spotsLeft": "{{count}} place restante",
+    "spotsLeft_plural": "{{count}} places restantes",
+    "full": "Complet",
+    "locked": "Verrouillé",
+    "tier": "Niveau {{tier}}",
+    "filters": {
+      "all": "Tous",
+      "mega": "Méga",
+      "shadow": "Obscur",
+      "max": "Max"
+    }
+  },
+  "host": {
+    "title": "Créer un Raid",
+    "selectBoss": "Sélectionner le Boss",
+    "gymTeam": "Arène Contrôlée Par",
+    "minLevel": "Niveau Minimum",
+    "minLevelDesc": "Définir le niveau requis",
+    "eliteFeature": "Fonction Elite",
+    "weatherBoosted": "Boosté par la Météo",
+    "weatherDesc": "Le boss est boosté",
+    "createLobby": "Créer le Salon"
+  },
+  "lobby": {
+    "raiders": "Raiders",
+    "ready": "Prêt",
+    "waiting": "En attente...",
+    "hostCode": "Code Ami de l'Hôte",
+    "addHostFirst": "Ajoutez l'hôte d'abord !",
+    "codeCopied": "Code Copié !",
+    "copyFailed": "Échec de la copie",
+    "tapReady": "Appuyez Quand Prêt",
+    "readyButton": "Prêt !",
+    "sentRequest": "J'ai Envoyé la Demande",
+    "requestSent": "Demande envoyée",
+    "markedSent": "Marqué comme Envoyé",
+    "hostNotified": "L'hôte a été notifié",
+    "leaveRoom": "Quitter le Salon",
+    "leaveTitle": "Quitter ce raid ?",
+    "leaveDesc": "Êtes-vous sûr de vouloir quitter ? Vous devrez rejoindre à nouveau pour participer.",
+    "boosted": "Boosté",
+    "alreadyInLobby": "Déjà dans un Salon",
+    "leaveFirst": "Quittez votre salon actuel avant d'en rejoindre un autre",
+    "leaveBeforeHost": "Quittez votre salon actuel avant d'en créer un nouveau"
+  },
+  "shop": {
+    "title": "Abonnement Elite",
+    "subtitle": "Débloquez les fonctions premium",
+    "features": {
+      "autoJoin": "Rejoindre Auto",
+      "autoJoinDesc": "Rejoignez automatiquement en un clic",
+      "noWait": "Sans Attente",
+      "noWaitDesc": "Passez la file et rejoignez instantanément",
+      "minLevel": "Définir Niveau Minimum",
+      "minLevelDesc": "Contrôlez qui peut rejoindre",
+      "priority": "File Prioritaire",
+      "priorityDesc": "Trouvez des raids plus rapidement"
+    },
+    "upgrade": "Passer à Elite",
+    "alreadyElite": "Vous êtes Elite !",
+    "manageSubscription": "Gérez votre abonnement dans les paramètres de votre magasin d'apps"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "account": "Compte",
+    "trainerName": "Nom de Dresseur",
+    "team": "Équipe",
+    "level": "Niveau",
+    "friendCode": "Code Ami",
+    "subscription": "Abonnement",
+    "currentPlan": "Plan Actuel",
+    "elite": "Elite",
+    "free": "Gratuit",
+    "manageSubscription": "Gérer l'Abonnement",
+    "upgradeElite": "Passer à Elite",
+    "notifications": "Notifications",
+    "raidAlerts": "Alertes de Raid",
+    "raidAlertsDesc": "Recevez des notifications pour les nouveaux raids",
+    "lobbyUpdates": "Mises à Jour du Salon",
+    "lobbyUpdatesDesc": "Notifications quand des joueurs rejoignent",
+    "language": "Langue",
+    "selectLanguage": "Sélectionner la Langue",
+    "legal": "Légal",
+    "privacyPolicy": "Politique de Confidentialité",
+    "termsOfService": "Conditions d'Utilisation",
+    "about": "À Propos"
+  },
+  "premium": {
+    "title": "Devenez Elite",
+    "subtitle": "Débloquez les fonctions premium",
+    "subscribe": "S'abonner",
+    "monthly": "/mois",
+    "restore": "Restaurer l'Achat"
+  },
+  "toast": {
+    "joinedLobby": "Vous avez Rejoint !",
+    "joinedRaid": "Vous avez rejoint le raid {{name}}",
+    "failedJoin": "Échec de la connexion",
+    "lobbyFull": "Le salon est peut-être complet",
+    "raidPublished": "Raid Publié !",
+    "raidVisible": "Votre salon est visible pour les autres dresseurs",
+    "failedCreate": "Échec de la création",
+    "profileUpdated": "Profil Mis à Jour",
+    "changesApplied": "Vos modifications ont été appliquées"
+  }
+}
