@@ -1,0 +1,850 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { 
+  Search, Lock, Crown, Users, Zap, Star,
+  Menu, X, Check, RefreshCw, MapPin, CloudLightning, Shield,
+  Copy, ExternalLink, ArrowLeft, Camera, UploadCloud,
+  ScanLine, BrainCircuit, CheckCircle2, Send, Edit3, Settings, Bell, 
+  Timer, ChevronRight, Filter, ShoppingBag, LogOut, Info, AlertTriangle,
+  FileText, ShieldCheck, Smartphone, Loader2, Minus, Plus, Flame, Trash2, UserMinus, Radar, PawPrint
+} from 'lucide-react';
+
+// --- CONFIGURATION ---
+const TEAMS = [
+  { id: 'valor', name: 'Valor', color: 'text-red-600', bg: 'bg-red-600', border: 'border-red-600', gradient: 'from-red-600 to-red-950', tint: 'bg-red-500/10', icon: Flame },
+  { id: 'mystic', name: 'Mystic', color: 'text-blue-600', bg: 'bg-blue-600', border: 'border-blue-600', gradient: 'from-blue-600 to-blue-950', tint: 'bg-blue-500/10', icon: Shield },
+  { id: 'instinct', name: 'Instinct', color: 'text-yellow-500', bg: 'bg-yellow-500', border: 'border-yellow-500', gradient: 'from-yellow-500 to-yellow-950', tint: 'bg-yellow-500/10', icon: Zap },
+  { id: 'neutral', name: 'Neutral', color: 'text-slate-400', bg: 'bg-slate-500', border: 'border-slate-500', gradient: 'from-slate-800 to-slate-900', tint: 'bg-slate-500/10', icon: Users }
+];
+
+// STRICT ROTATION (No fake/unavailable bosses)
+const BOSSES = [
+  { id: 'ray', name: 'Rayquaza', tier: 5, cp: 49808, image: 'https://img.pokemondb.net/sprites/home/normal/rayquaza.png', isShadow: false, isDynamax: false },
+  { id: 'mewtwo', name: 'Mewtwo', tier: 5, cp: 54148, image: 'https://img.pokemondb.net/sprites/home/normal/mewtwo.png', isShadow: false, isDynamax: false },
+  { id: 'groudon', name: 'Primal Groudon', tier: 6, cp: 92860, image: 'https://img.pokemondb.net/sprites/home/normal/groudon-primal.png', isShadow: false, isDynamax: false },
+  { id: 'kyogre', name: 'Primal Kyogre', tier: 6, cp: 92860, image: 'https://img.pokemondb.net/sprites/home/normal/kyogre-primal.png', isShadow: false, isDynamax: false },
+  { id: 'lugia', name: 'Shadow Lugia', tier: 5, cp: 45000, image: 'https://img.pokemondb.net/sprites/home/normal/lugia.png', isShadow: true, isDynamax: false },
+  { id: 'beldum', name: 'Beldum (Max)', tier: 1, cp: 5000, image: 'https://img.pokemondb.net/sprites/home/normal/beldum.png', isShadow: false, isDynamax: true }
+];
+
+const FILTERS = ['all', '1', '3', '5', 'mega', 'max', 'shadow'];
+const SUBSCRIPTION_PRICE = "$19.99/mo";
+
+// --- SAFE IMAGE COMPONENT ---
+const SafeImage = ({ src, alt, className, fallbackChar, theme }) => {
+  const [error, setError] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div className={`${className} relative overflow-hidden bg-slate-800`}>
+      {!loaded && !error && (
+        <div className="absolute inset-0 bg-slate-700 animate-pulse" />
+      )}
+      {error ? (
+        <div className="w-full h-full flex items-center justify-center font-black text-slate-600 text-lg select-none">
+          {fallbackChar || '?'}
+        </div>
+      ) : (
+        <img 
+          src={src} 
+          alt={alt} 
+          className={`w-full h-full object-contain transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`} 
+          onLoad={() => setLoaded(true)}
+          onError={() => setError(true)} 
+        />
+      )}
+    </div>
+  );
+};
+
+// --- TOAST COMPONENT ---
+const Toast = ({ msg, type, theme }) => (
+  <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-top-4 fade-in pointer-events-none w-max max-w-[90%]">
+    <div className={`px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border backdrop-blur-md ${
+      type === 'error' 
+        ? (theme === 'dark' ? 'bg-red-950/90 border-red-800 text-red-100' : 'bg-red-100 border-red-200 text-red-900') 
+        : (theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800 text-white' : 'bg-white/90 border-gray-200 text-black')
+    }`}>
+      {type === 'error' ? <X className="w-5 h-5"/> : <Check className="w-5 h-5 text-emerald-400"/>}
+      <span className="font-bold text-sm truncate">{msg}</span>
+    </div>
+  </div>
+);
+
+// --- MAIN APPLICATION ---
+export default function App() {
+  const [user, setUser] = useState(null); 
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+  const [view, setView] = useState('join');
+  const [lobbies, setLobbies] = useState([]);
+  const [loadingLobbies, setLoadingLobbies] = useState(true);
+  const [activeLobby, setActiveLobby] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const [notification, setNotification] = useState(null);
+  const [showPremium, setShowPremium] = useState(false);
+  const [theme, setTheme] = useState('dark');
+  const [showAutoJoin, setShowAutoJoin] = useState(false);
+
+  // --- THEME ENGINE ---
+  const t = {
+    bg: theme === 'dark' ? 'bg-black' : 'bg-gray-50',
+    text: theme === 'dark' ? 'text-white' : 'text-black',
+    textSub: theme === 'dark' ? 'text-zinc-500' : 'text-gray-500',
+    card: theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-gray-200 shadow-sm',
+    input: theme === 'dark' ? 'bg-black border-zinc-800 text-white' : 'bg-gray-50 border-gray-200 text-black',
+    border: theme === 'dark' ? 'border-zinc-800' : 'border-gray-200',
+    nav: theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-white border-gray-200',
+    buttonPrimary: theme === 'dark' ? 'bg-white text-black hover:bg-zinc-200' : 'bg-black text-white hover:bg-gray-800',
+    buttonSecondary: theme === 'dark' ? 'bg-zinc-900 text-white hover:bg-zinc-800' : 'bg-white text-black hover:bg-gray-100 border border-gray-200',
+    modalOverlay: theme === 'dark' ? 'bg-black/90' : 'bg-white/90',
+  };
+
+  const notify = useCallback((msg, type = 'success') => {
+    setNotification({ msg, type });
+    setTimeout(() => setNotification(null), 3000);
+  }, []);
+
+  // --- PERSISTENCE ---
+  useEffect(() => {
+    try {
+      const savedUser = localStorage.getItem('goRaidersUser_v2');
+      if (savedUser) {
+        setUser(JSON.parse(savedUser));
+      }
+    } catch (e) {
+      console.error("Storage error", e);
+    } finally {
+      setIsAuthChecking(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (user) {
+        localStorage.setItem('goRaidersUser_v2', JSON.stringify(user));
+      } else if (isAuthChecking === false) {
+        // Only remove if we've finished checking and user is explicitly null (logged out)
+        localStorage.removeItem('goRaidersUser_v2');
+      }
+    } catch (e) {
+      console.error("Storage save error", e);
+    }
+  }, [user, isAuthChecking]);
+
+  // --- DATA MOCK ---
+  useEffect(() => {
+    const generateLobbies = () => Array.from({ length: 8 }).map((_, i) => ({
+      id: `lobby-${Date.now()}-${i}`,
+      boss: BOSSES[i % BOSSES.length],
+      host: `Trainer_${Math.floor(Math.random() * 9999)}`,
+      hostRating: (3.5 + Math.random() * 1.5).toFixed(1),
+      players: Array.from({ length: Math.floor(Math.random() * 4) + 1 }).map((_, j) => ({
+        id: `p-${i}-${j}`, name: `Raider${j}`, level: 30 + j, team: 'valor', isReady: false
+      })),
+      maxPlayers: 6,
+      team: TEAMS[i % 4].id,
+      minLevel: i % 3 === 0 ? 40 : 1,
+      weather: Math.random() > 0.6,
+      createdAt: Date.now() - (Math.random() * 300000),
+      timeLeft: Math.floor(Math.random() * 40) + 5
+    }));
+
+    setTimeout(() => {
+      setLobbies(generateLobbies());
+      setLoadingLobbies(false);
+    }, 1000);
+
+    const interval = setInterval(() => {
+      setLobbies(prev => {
+        const active = prev.filter(l => (Date.now() - l.createdAt) < 600000);
+        if (Math.random() > 0.5) {
+          const newBoss = BOSSES[Math.floor(Math.random() * BOSSES.length)];
+          const newLobby = {
+            id: `new-${Date.now()}`,
+            boss: newBoss,
+            host: `NewHost_${Math.floor(Math.random() * 100)}`,
+            hostRating: '5.0',
+            players: [{ id: 'host', name: 'NewHost', level: 50, team: 'mystic', isReady: true, isHost: true }],
+            maxPlayers: 6,
+            team: TEAMS[Math.floor(Math.random() * 4)].id,
+            minLevel: 1,
+            weather: false,
+            createdAt: Date.now(),
+            timeLeft: 45
+          };
+          return [newLobby, ...active].slice(0, 20);
+        }
+        return active;
+      });
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // --- AUTO JOIN ---
+  const executeAutoJoin = (boss) => {
+    setShowAutoJoin(false);
+    notify(`Searching for ${boss.name}...`);
+    setTimeout(() => {
+      const autoLobby = {
+        id: `autojoin-${Date.now()}`,
+        boss: boss,
+        host: `Priority_Host`,
+        hostRating: '5.0',
+        players: [{ id: 'host', name: 'Priority_Host', level: 50, team: 'valor', isReady: true, isHost: true }],
+        maxPlayers: 6,
+        team: TEAMS[0].id, 
+        minLevel: 1,
+        weather: true,
+        createdAt: Date.now(),
+        timeLeft: 45
+      };
+      autoLobby.players.push({
+        id: 'me',
+        name: user.name,
+        level: user.level,
+        team: user.team,
+        isReady: false
+      });
+      setActiveLobby(autoLobby);
+      setView('lobby');
+      notify(`Joined ${boss.name} Queue!`, "success");
+    }, 1500);
+  };
+
+  if (isAuthChecking) return <div className="h-screen bg-black flex items-center justify-center text-white"><Loader2 className="w-8 h-8 animate-spin text-zinc-500"/></div>;
+
+  return (
+    <div className={`h-screen ${t.bg} ${t.text} font-sans flex flex-col overflow-hidden relative transition-colors duration-300`}>
+      {!user ? (
+        <Onboarding t={t} theme={theme} onComplete={(u) => { setUser(u); notify("Account Verified"); }} />
+      ) : (
+        <>
+          <Header user={user} t={t} activeView={view} onPremium={() => setShowPremium(true)} />
+          <main className="flex-1 overflow-y-auto scroll-smooth relative no-scrollbar">
+            {view === 'join' && (
+              <JoinFeed 
+                lobbies={lobbies} 
+                loading={loadingLobbies}
+                filter={filter} 
+                setFilter={setFilter} 
+                user={user} 
+                t={t}
+                theme={theme}
+                onJoin={(lobby) => { 
+                  const myPlayer = { id: 'me', name: user.name, level: user.level, team: user.team, isReady: false };
+                  const players = Array.isArray(lobby.players) ? lobby.players : [];
+                  setActiveLobby({...lobby, isHost: false, players: [...players, myPlayer]}); 
+                  setView('lobby'); 
+                }}
+                onNotify={notify}
+                onPremium={() => setShowPremium(true)}
+                onAutoJoin={() => user.isPremium ? setShowAutoJoin(true) : setShowPremium(true)}
+              />
+            )}
+            {view === 'host' && (
+              <HostView 
+                user={user} 
+                t={t}
+                theme={theme}
+                onHost={(newLobby) => { setLobbies([newLobby, ...lobbies]); setActiveLobby(newLobby); setView('lobby'); notify("Raid Published"); }} 
+                onNotify={notify}
+              />
+            )}
+            {view === 'shop' && <ShopView user={user} t={t} onUpgrade={() => setShowPremium(true)} />}
+            {view === 'profile' && <ProfileView user={user} t={t} theme={theme} onLogout={() => { setUser(null); setView('join'); }} toggleTheme={() => setTheme(prev => prev === 'dark' ? 'light' : 'dark')} onPremium={() => setShowPremium(true)} />}
+            {view === 'lobby' && activeLobby && (
+              <LobbyView 
+                lobby={activeLobby} 
+                user={user} 
+                t={t}
+                theme={theme}
+                updateLobby={setActiveLobby}
+                onLeave={() => { setActiveLobby(null); setView('join'); }} 
+                onNotify={notify} 
+              />
+            )}
+          </main>
+          <BottomNav currentView={view} setView={setView} t={t} />
+        </>
+      )}
+      
+      {showPremium && <PremiumModal t={t} onClose={() => setShowPremium(false)} onUpgrade={() => { setUser({...user, isPremium: true}); setShowPremium(false); notify("Welcome to Elite!"); }} />}
+      {showAutoJoin && <AutoJoinModal t={t} theme={theme} onClose={() => setShowAutoJoin(false)} onSelect={executeAutoJoin} />}
+      {notification && <Toast msg={notification.msg} type={notification.type} theme={theme} />}
+    </div>
+  );
+}
+
+// --- ONBOARDING ---
+function Onboarding({ onComplete, t, theme }) {
+  const [step, setStep] = useState('landing');
+  const [data, setData] = useState({ name: '', level: 45, team: 'valor', code: '' });
+  const [showTerms, setShowTerms] = useState(false);
+  
+  if (step === 'landing') return (
+    <div className={`h-full flex flex-col items-center justify-center p-8 bg-black text-center relative overflow-hidden`}>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-indigo-900/40 via-black to-black"/>
+      <div className="relative z-10 space-y-8">
+        <div className="w-32 h-32 bg-zinc-900 border border-zinc-800 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl rotate-6 mb-8">
+          <PawPrint className="w-16 h-16 text-white opacity-80" />
+        </div>
+        <div>
+          <h1 className="text-4xl font-black tracking-tight mb-2 text-white">GO Raiders Elite</h1>
+          <p className="text-zinc-500">The #1 Raid Coordination Tool</p>
+        </div>
+        <div className="space-y-3 pt-8">
+          <button onClick={() => setShowTerms(true)} className="w-full py-4 bg-white text-black font-black rounded-2xl text-lg flex items-center justify-center hover:scale-[1.02] transition-transform">
+            GET STARTED <ChevronRight className="ml-1 w-5 h-5"/>
+          </button>
+          <p className="text-[10px] text-zinc-600">By continuing, you agree to our Terms & Privacy Policy.</p>
+        </div>
+      </div>
+
+      {showTerms && (
+        <div className="absolute inset-0 z-50 bg-black/95 flex items-center justify-center p-6 animate-in fade-in">
+          <div className="bg-zinc-900 w-full max-w-sm rounded-[2rem] p-6 border border-zinc-800 h-[80%] flex flex-col">
+            <h2 className="text-xl font-black text-white mb-4">Terms of Service</h2>
+            <div className="flex-1 overflow-y-auto text-left space-y-4 text-xs text-zinc-400 mb-6 custom-scrollbar pr-2">
+              <p><strong className="text-white">1. No Affiliation:</strong> GO Raiders Elite is a third-party app and is NOT affiliated with, endorsed, sponsored, or specifically approved by Niantic, Nintendo, The Pokémon Company, or their partners.</p>
+              <p><strong className="text-white">2. User Responsibility:</strong> You are responsible for your interactions. Do not share personal info beyond your Friend Code.</p>
+              <p><strong className="text-white">3. Liability Waiver:</strong> We are not liable for any account actions taken by game publishers against your account.</p>
+              <p><strong className="text-white">4. Subscriptions:</strong> Elite Members subscription is $19.99/mo, auto-renewing. Manage in Apple Settings.</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowTerms(false)} className="flex-1 py-3 bg-zinc-800 text-white font-bold rounded-xl">Decline</button>
+              <button onClick={() => { setShowTerms(false); setStep('verify'); }} className="flex-1 py-3 bg-white text-black font-bold rounded-xl">I AGREE</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  const selectedTeamConfig = TEAMS.find(t => t.id === data.team) || TEAMS[3];
+  const accentBorder = selectedTeamConfig.border;
+  const accentBg = selectedTeamConfig.bg;
+
+  return (
+    <div className="h-full p-6 bg-black flex flex-col justify-center animate-in fade-in">
+      <h2 className="text-2xl font-black mb-6 text-center text-white">Setup Profile</h2>
+      <div className={`space-y-6 bg-zinc-900/50 p-6 rounded-3xl border ${accentBorder} transition-colors duration-500 shadow-2xl`}>
+        <div>
+          <label className={`text-xs font-bold text-zinc-500 uppercase mb-2 block`}>Trainer Name</label>
+          <input 
+            value={data.name} 
+            onChange={e => setData({...data, name: e.target.value})} 
+            className={`w-full bg-black border ${accentBorder} p-4 rounded-xl font-bold text-white outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black transition-all`}
+            placeholder="AshKetchum"
+          />
+        </div>
+        <div className="space-y-4">
+          <div>
+             <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block">Team</label>
+             <div className="grid grid-cols-3 gap-3">
+               {TEAMS.slice(0,3).map(team => {
+                 const Icon = team.icon;
+                 return (
+                   <button key={team.id} onClick={() => setData({...data, team: team.id})} className={`py-4 rounded-xl border-2 flex flex-col items-center justify-center transition-all duration-300 ${data.team === team.id ? `bg-black ${team.border} shadow-[0_0_20px_rgba(0,0,0,0.5)] scale-105` : 'bg-zinc-900 border-zinc-800 opacity-60 hover:opacity-100 hover:border-zinc-700'}`}>
+                     <Icon className={`w-8 h-8 mb-2 ${team.color}`} fill="currentColor" />
+                     <span className={`text-[10px] font-black uppercase tracking-widest ${data.team === team.id ? 'text-white' : 'text-zinc-500'}`}>{team.name}</span>
+                   </button>
+                 );
+               })}
+             </div>
+          </div>
+          <div className="flex gap-4">
+             <div className="w-1/3">
+               <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block">Level</label>
+               <input 
+                 type="number" 
+                 value={data.level} 
+                 onChange={e => setData({...data, level: parseInt(e.target.value) || ''})} 
+                 onFocus={(e) => e.target.select()}
+                 onBlur={() => { if (!data.level) setData({...data, level: 1}) }}
+                 className={`w-full bg-black border ${accentBorder} p-3 rounded-xl font-bold text-white outline-none text-center`}
+               />
+             </div>
+             <div className="flex-1">
+               <label className="text-xs font-bold text-zinc-500 uppercase mb-2 block">Friend Code</label>
+               <input placeholder="0000 0000 0000" value={data.code} onChange={e => setData({...data, code: e.target.value})} className={`w-full bg-black border ${accentBorder} p-3 rounded-xl font-mono tracking-widest text-white outline-none`} maxLength={14}/>
+             </div>
+          </div>
+        </div>
+      </div>
+      <button onClick={() => {
+        if(!data.name) return alert('Enter Trainer Name');
+        if(data.code.length < 12) return alert('Invalid Code');
+        const formatted = data.code.replace(/\D/g, '').replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+        onComplete({ ...data, code: formatted, isPremium: false, isVerified: true });
+      }} className={`w-full mt-8 py-4 ${accentBg} text-white font-black rounded-2xl text-lg shadow-lg hover:brightness-110 transition-all`}>
+        COMPLETE SETUP
+      </button>
+    </div>
+  );
+}
+
+// --- HEADER ---
+function Header({ user, t, activeView, onPremium }) {
+  return (
+    <header className={`h-16 px-6 flex items-center justify-between ${t.nav} border-b z-10 shrink-0 transition-colors duration-300`}>
+      <div className="flex items-center space-x-3">
+        <div className={`w-10 h-10 ${t.card} border rounded-xl flex items-center justify-center shadow-sm`}>
+          <PawPrint className="w-6 h-6 opacity-80" />
+        </div>
+        <div>
+          <h1 className="text-lg font-black tracking-tighter leading-none">GO Raiders Elite</h1>
+          <p className={`text-[10px] ${t.textSub} font-bold tracking-wide`}>ULTIMATE</p>
+        </div>
+      </div>
+      <div className="flex items-center space-x-3">
+        <button onClick={onPremium} className={`px-3 py-1 ${t.card} rounded-full border flex items-center active:scale-95 transition-transform`}>
+          <div className={`w-2 h-2 rounded-full mr-2 ${user.isPremium ? 'bg-amber-500 animate-pulse' : 'bg-zinc-500'}`}/>
+          <span className={`text-[10px] font-bold ${t.textSub}`}>{user.isPremium ? 'ELITE' : 'FREE'}</span>
+        </button>
+      </div>
+    </header>
+  );
+}
+
+// --- JOIN FEED ---
+function JoinFeed({ lobbies, loading, filter, setFilter, user, onJoin, onNotify, onPremium, onAutoJoin, t, theme }) {
+  // Skeleton Loader
+  if (loading) return (
+    <div className="p-4 space-y-4">
+      <div className={`w-full h-24 ${t.card} animate-pulse rounded-3xl`}/>
+      <div className="flex gap-2">{[1,2,3,4].map(i => <div key={i} className={`w-16 h-8 ${t.card} animate-pulse rounded-full`}/>)}</div>
+      {[1,2,3].map(i => <div key={i} className={`w-full h-20 ${t.card} animate-pulse rounded-xl`}/>)}
+    </div>
+  );
+
+  return (
+    <div className="p-4 space-y-4 pb-24">
+      {/* Auto Join */}
+      <button onClick={onAutoJoin} className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 p-4 rounded-3xl flex items-center justify-between shadow-xl relative overflow-hidden group active:scale-[0.98] transition-transform">
+        <div className="flex items-center relative z-10">
+          <div className="p-3 bg-white/20 rounded-2xl mr-4 backdrop-blur-sm"><Radar className="w-6 h-6 text-white" /></div>
+          <div className="text-left text-white">
+            <div className="font-black text-lg">Auto Join</div>
+            <div className="text-xs opacity-80 font-medium">Find boss & skip queue instantly</div>
+          </div>
+        </div>
+        <div className="bg-white text-indigo-600 text-xs font-black px-3 py-1 rounded-full relative z-10">{user.isPremium ? 'READY' : 'PRO'}</div>
+      </button>
+
+      {/* Filters */}
+      <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+        {FILTERS.map(f => (
+          <button key={f} onClick={() => setFilter(f)} className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase transition-all ${filter === f ? (theme === 'dark' ? 'bg-white text-black' : 'bg-black text-white') : `${t.card} ${t.textSub}`}`}>
+            {f === 'max' ? 'MAX' : f}
+          </button>
+        ))}
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {lobbies.map(lobby => {
+          if (!lobby || !lobby.boss) return null;
+          
+          if (filter !== 'all') {
+            if (filter === 'mega' && !lobby.boss.image.includes('mega')) return null;
+            else if (filter === 'shadow' && !lobby.boss.isShadow) return null;
+            else if (filter === 'max' && !lobby.boss.isDynamax) return null;
+            else if (!['mega', 'shadow', 'max'].includes(filter) && lobby.boss.tier.toString() !== filter) return null;
+          }
+
+          const isLocked = !user.isPremium && (Date.now() - lobby.createdAt) < 10000;
+          const team = TEAMS.find(t => t.id === lobby.team) || TEAMS[3];
+          
+          return (
+            <div 
+              key={lobby.id} 
+              className={`${t.card} rounded-xl p-2 flex items-center space-x-3 relative overflow-hidden border-l-4 ${team.border} ${team.tint}`}
+            >
+              {isLocked && (
+                <div className={`absolute inset-0 ${t.modalOverlay} z-20 flex flex-col items-center justify-center backdrop-blur-sm`}>
+                  <Lock className={`w-5 h-5 ${t.textSub} mb-1`}/><span className={`text-[10px] font-bold ${t.textSub}`}>Wait 10s...</span>
+                </div>
+              )}
+              
+              <div className={`relative shrink-0 w-14 h-14 rounded-lg border ${t.border} flex items-center justify-center bg-black/5`}>
+                <SafeImage src={lobby.boss.image} className="w-full h-full object-contain p-1" fallbackChar={lobby.boss.name[0]} theme={theme} />
+                <div className="absolute -bottom-1 -right-1 flex space-x-1">
+                  {lobby.weather && <div className="bg-sky-600 text-white text-[7px] p-0.5 rounded font-bold shadow-sm"><CloudLightning className="w-2 h-2"/></div>}
+                </div>
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-center mb-0.5">
+                  <h3 className="font-bold text-base leading-none truncate pr-2">{lobby.boss.name}</h3>
+                  <div className={`flex items-center text-[9px] font-mono ${t.textSub}`}>
+                    <Timer className="w-2 h-2 mr-1"/> {lobby.timeLeft}m
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2 mb-1">
+                  <span className={`text-[9px] font-bold ${t.input} px-1.5 py-0.5 rounded border ${t.border}`}>CP {Math.floor(lobby.boss.cp/1000)}k</span>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase ${team.color} ${t.input} border ${t.border}`}>{team.name}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className={`flex items-center space-x-2 text-[10px] font-medium ${t.textSub}`}>
+                    <span className="truncate max-w-[80px]">{lobby.host}</span>
+                    <span className="flex items-center text-amber-500 font-bold"><Star className="w-2.5 h-2.5 fill-current mr-0.5"/>{lobby.hostRating}</span>
+                  </div>
+                  <span className="text-xs font-bold flex items-center"><Users className={`w-3 h-3 mr-1 ${t.textSub}`}/> {(lobby.players || []).length}/6</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  if (user.level < lobby.minLevel) return onNotify(`Lvl ${lobby.minLevel}+ Required`, 'error');
+                  if (isLocked) return onNotify('Wait for unlock', 'error');
+                  onJoin(lobby);
+                }}
+                disabled={isLocked}
+                className={`h-10 px-4 rounded-lg font-black text-xs shadow-lg shrink-0 flex items-center justify-center transition-colors ${user.level < lobby.minLevel ? `${t.input} ${t.textSub} cursor-not-allowed` : `${t.buttonPrimary}`}`}
+              >
+                {user.level < lobby.minLevel ? `LVL ${lobby.minLevel}` : 'JOIN'}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// --- HOST VIEW ---
+function HostView({ user, onHost, onNotify, t, theme }) {
+  const [config, setConfig] = useState({ boss: null, weather: false, team: 'neutral', minLevel: 1 });
+
+  return (
+    <div className="p-6 space-y-8">
+      <div className="text-center">
+        <h2 className="text-3xl font-black">Host Raid</h2>
+        <p className={`${t.textSub} text-sm`}>Create a lobby and invite others.</p>
+      </div>
+
+      <div className="space-y-3">
+        <label className={`text-xs font-bold ${t.textSub} uppercase ml-1`}>1. Select Boss</label>
+        <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
+          {BOSSES.map(b => (
+            <button key={b.id} onClick={() => setConfig({...config, boss: b})} className={`p-3 rounded-2xl border flex flex-col items-center transition-all ${config.boss?.id === b.id ? (theme === 'dark' ? 'bg-white text-black border-white' : 'bg-black text-white border-black') : `${t.card} hover:opacity-80`}`}>
+              <SafeImage src={b.image} className="w-12 h-12 mb-2 object-contain" fallbackChar={b.name[0]} theme={theme} />
+              <span className="text-xs font-bold truncate w-full text-center">{b.name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <label className={`text-xs font-bold ${t.textSub} uppercase ml-1`}>2. Gym Team (Bonus Balls)</label>
+        <div className="flex gap-2">
+          {TEAMS.map(team => (
+            <button key={team.id} onClick={() => setConfig({...config, team: team.id})} className={`flex-1 py-4 rounded-2xl border flex flex-col items-center justify-center transition-all ${config.team === team.id ? `${team.bg} border-transparent text-white` : `${t.card} opacity-60`}`}>
+              <div className={`w-3 h-3 rounded-full mb-1 ${config.team === team.id ? 'bg-white' : team.bg}`}/>
+              <span className="text-[10px] font-black uppercase">{team.name.substring(0,3)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={`${t.card} p-4 rounded-2xl border space-y-4`}>
+        <div className="flex justify-between items-center">
+          <label className={`text-xs font-bold ${t.textSub} uppercase`}>Weather Boost</label>
+          <button onClick={() => setConfig({...config, weather: !config.weather})} className={`w-12 h-6 rounded-full transition-colors flex items-center px-1 ${config.weather ? 'bg-indigo-600 justify-end' : 'bg-zinc-600 justify-start'}`}>
+            <div className="w-4 h-4 bg-white rounded-full"/>
+          </button>
+        </div>
+        <div className="flex justify-between items-center">
+          <label className={`text-xs font-bold ${t.textSub} uppercase`}>Min Level {user.isPremium ? '' : '(Pro)'}</label>
+          
+          {/* STEPPER DIAL */}
+          <div className="flex items-center gap-2">
+             <button 
+               onClick={() => user.isPremium && setConfig(prev => ({...prev, minLevel: Math.max(1, prev.minLevel - 1)}))}
+               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${!user.isPremium ? 'opacity-30 cursor-not-allowed' : theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+             >
+               <Minus className="w-4 h-4" />
+             </button>
+             
+             <input 
+               type="number" 
+               value={config.minLevel}
+               disabled={!user.isPremium}
+               onChange={(e) => {
+                 let val = parseInt(e.target.value);
+                 if (isNaN(val)) val = 0;
+                 if (val > 80) val = 80;
+                 setConfig({...config, minLevel: val});
+               }}
+               onBlur={(e) => {
+                 let val = parseInt(e.target.value);
+                 if (isNaN(val) || val < 1) val = 1;
+                 setConfig({...config, minLevel: val});
+               }}
+               onFocus={(e) => e.target.select()}
+               className={`w-12 h-8 text-center font-mono font-bold text-sm bg-transparent outline-none ${!user.isPremium ? 'opacity-50' : ''}`}
+             />
+             
+             <button 
+               onClick={() => user.isPremium && setConfig(prev => ({...prev, minLevel: Math.min(80, prev.minLevel + 1)}))}
+               className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${!user.isPremium ? 'opacity-30 cursor-not-allowed' : theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-gray-200 hover:bg-gray-300'}`}
+             >
+               <Plus className="w-4 h-4" />
+             </button>
+          </div>
+        </div>
+      </div>
+
+      <button onClick={() => { 
+        if (!config.boss) return onNotify("Select a Boss", "error"); 
+        onHost({ 
+          id: Date.now(), 
+          boss: config.boss, 
+          host: user.name, 
+          hostRating: user.rating, 
+          players: [{id:'me', name:user.name, level:user.level, team:user.team, isReady:true, isHost:true}], 
+          maxPlayers: 6, 
+          team: config.team, 
+          minLevel: config.minLevel, 
+          weather: config.weather, 
+          createdAt: Date.now(), 
+          timeLeft: 45, 
+          isHost: true, 
+          status: 'waiting' 
+        }); 
+      }} className={`w-full py-4 ${t.buttonPrimary} font-black rounded-2xl text-lg shadow-xl transition-colors`}>
+        CREATE LOBBY
+      </button>
+    </div>
+  );
+}
+
+// --- LOBBY VIEW ---
+function LobbyView({ lobby, user, onLeave, onNotify, t, theme }) {
+  const [status, setStatus] = useState(lobby.status || 'waiting');
+  const [players, setPlayers] = useState(Array.isArray(lobby.players) ? lobby.players : []);
+  const [showRate, setShowRate] = useState(false);
+
+  useEffect(() => {
+    if (lobby.players && Array.isArray(lobby.players)) {
+      setPlayers(lobby.players);
+    }
+  }, [lobby.players]);
+
+  const handleKick = (id) => {
+    const newPlayers = players.filter(p => p.id !== id);
+    setPlayers(newPlayers);
+    onNotify("Player Removed");
+  };
+
+  const handleLeave = () => {
+    if (lobby.isHost) {
+      onNotify("Lobby Closed");
+      onLeave();
+    } else {
+      setShowRate(true);
+    }
+  };
+
+  const handleReady = () => {
+    setPlayers(prev => prev.map(p => p.id === 'me' ? {...p, isReady: !p.isReady} : p));
+    setStatus('ready');
+    onNotify("Host Notified!");
+  };
+
+  return (
+    <div className="h-full flex flex-col p-6 relative">
+      {/* RATING OVERLAY */}
+      {showRate && (
+        <div className={`absolute inset-0 z-50 ${t.modalOverlay} flex items-center justify-center p-6 animate-in fade-in backdrop-blur-sm`}>
+          <div className={`${t.card} w-full max-w-sm rounded-[2rem] p-8 text-center border relative shadow-2xl`}>
+            <h2 className="text-xl font-black mb-6">Rate Host</h2>
+            <div className="flex justify-center gap-2 mb-8">
+              {[1,2,3,4,5].map(s => (
+                <button key={s} onClick={() => { onNotify("Rating Submitted"); onLeave(); }} className="p-2 hover:scale-110 transition-transform">
+                  <Star className="w-8 h-8 text-amber-500 fill-current"/>
+                </button>
+              ))}
+            </div>
+            <button onClick={onLeave} className={`text-sm font-bold ${t.textSub}`}>Skip</button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 space-y-6 overflow-y-auto no-scrollbar">
+        <div className="text-center relative">
+          <div className="w-28 h-28 mx-auto relative mb-4">
+            <div className={`absolute inset-0 rounded-full blur-3xl opacity-30 ${TEAMS.find(t => t.id === lobby.team)?.bg || 'bg-gray-500'}`}></div>
+            <SafeImage src={lobby.boss.image} className="w-full h-full object-contain relative z-10" fallbackChar={lobby.boss.name[0]} theme={theme} />
+          </div>
+          <h2 className="text-3xl font-black uppercase tracking-tight">{lobby.boss.name}</h2>
+          <div className="flex justify-center gap-2 mt-2">
+            {lobby.weather && <span className="px-2 py-1 bg-sky-600 text-white text-[10px] font-bold rounded">WEATHER</span>}
+            <span className={`px-2 py-1 ${t.input} text-[10px] font-bold rounded border ${t.border}`}>CP {lobby.boss.cp}</span>
+          </div>
+        </div>
+
+        <div className={`${t.card} border rounded-3xl p-6 text-center space-y-6 shadow-xl`}>
+          <div>
+            <div className={`text-xs font-bold ${t.textSub} uppercase mb-2`}>Host Code</div>
+            <div onClick={() => onNotify("Copied Code")} className={`text-3xl font-mono tracking-widest font-bold py-4 rounded-xl border ${t.border} ${t.input} cursor-pointer active:scale-95 transition-transform`}>
+              {lobby.isHost ? user.code : '8821 0012 9918'}
+            </div>
+          </div>
+
+          {lobby.isHost ? (
+            <button onClick={() => { setStatus('sent'); onNotify("Players Notified!"); }} disabled={status === 'sent'} className={`w-full py-4 rounded-xl font-black flex items-center justify-center transition-all ${status === 'sent' ? 'bg-emerald-600 text-white' : t.buttonPrimary}`}>
+              {status === 'sent' ? <Check className="mr-2 w-5 h-5"/> : <Send className="mr-2 w-5 h-5"/>}
+              {status === 'sent' ? 'INVITES SENT' : 'NOTIFY PLAYERS'}
+            </button>
+          ) : (
+            <button onClick={handleReady} disabled={status === 'ready'} className={`w-full py-4 rounded-xl font-black transition-all ${status === 'ready' ? 'bg-emerald-600/20 text-emerald-600 border border-emerald-600' : t.buttonPrimary}`}>
+              {status === 'ready' ? 'WAITING FOR INVITE...' : 'I SENT REQUEST'}
+            </button>
+          )}
+        </div>
+
+        {/* PLAYER LIST */}
+        <div>
+          <div className={`text-xs font-bold ${t.textSub} uppercase mb-3 ml-2`}>Players ({players.length}/{lobby.maxPlayers})</div>
+          <div className="space-y-2">
+            {players.map((p) => {
+              const pTeam = TEAMS.find(t => t.id === p.team) || TEAMS[3];
+              const isMe = p.id === 'me';
+              return (
+                <div key={p.id} className={`${t.card} p-3 rounded-xl border flex items-center justify-between`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-full border-2 ${pTeam.border} flex items-center justify-center font-bold text-xs ${t.bg}`}>
+                      {p.name[0]}
+                    </div>
+                    <div>
+                      <div className={`text-sm font-bold ${isMe ? 'text-indigo-500' : ''}`}>{p.name} {isMe && '(You)'}</div>
+                      <div className={`text-[10px] ${t.textSub} font-medium`}>Level {p.level} • {pTeam.name}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {p.isReady && <CheckCircle2 className="w-5 h-5 text-emerald-500" />}
+                    {lobby.isHost && !p.isHost && !isMe && (
+                      <button onClick={() => handleKick(p.id)} className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors">
+                        <UserMinus className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {/* Empty Slots */}
+            {Array.from({ length: Math.max(0, lobby.maxPlayers - players.length) }).map((_, i) => (
+              <div key={i} className={`p-3 rounded-xl border-2 border-dashed ${theme === 'dark' ? 'border-zinc-800' : 'border-gray-200'} flex items-center justify-center`}>
+                <span className={`text-xs font-bold ${t.textSub} opacity-50`}>Waiting for player...</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-3 mt-4 pt-4 border-t border-zinc-800/50">
+        <button className={`w-full py-4 ${t.buttonSecondary} font-bold rounded-xl flex items-center justify-center transition-colors border ${t.border}`}>SWITCH TO GAME <ExternalLink className="ml-2 w-4 h-4"/></button>
+        <button onClick={handleLeave} className="w-full py-3 text-red-500 font-bold text-xs uppercase hover:bg-red-500/10 rounded-lg">{lobby.isHost ? 'CLOSE LOBBY' : 'LEAVE RAID'}</button>
+      </div>
+    </div>
+  );
+}
+
+// --- SHOP VIEW ---
+function ShopView({ user, onUpgrade, t }) {
+  return (
+    <div className="p-6 space-y-6">
+      <div className="text-center space-y-4 py-8">
+        <div className="w-24 h-24 bg-gradient-to-tr from-amber-400 to-yellow-600 rounded-[2.5rem] flex items-center justify-center mx-auto shadow-2xl rotate-12">
+          <Crown className="w-12 h-12 text-white fill-current"/>
+        </div>
+        <h2 className="text-3xl font-black">Elite Members</h2>
+        <p className={t.textSub}>Unlock the ultimate raiding experience.</p>
+      </div>
+
+      <div className={`${t.card} border rounded-3xl p-6 space-y-6`}>
+        {[
+          { title: 'Instant Access', desc: 'Skip the 10s queue timer.' },
+          { title: 'Auto Join', desc: 'Automatically join raids.' },
+          { title: 'Host Controls', desc: 'Set level requirements.' },
+          { title: 'Gold Badge', desc: 'Stand out in lobbies.' }
+        ].map((f, i) => (
+          <div key={i} className="flex items-start">
+            <div className="p-1 bg-emerald-500/20 rounded-full mr-4"><Check className="w-4 h-4 text-emerald-500"/></div>
+            <div>
+              <div className="font-bold">{f.title}</div>
+              <div className={`text-xs ${t.textSub}`}>{f.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-3">
+        <button onClick={onUpgrade} className={`w-full py-4 ${t.buttonPrimary} font-black rounded-2xl text-lg shadow-xl transition-transform active:scale-[0.98]`}>
+          SUBSCRIBE $19.99/mo
+        </button>
+        <p className={`text-[10px] text-center ${t.textSub}`}>Recurring billing. Cancel anytime.</p>
+      </div>
+    </div>
+  );
+}
+
+// --- PROFILE VIEW ---
+function ProfileView({ user, onLogout, t, theme, toggleTheme }) {
+  const teamConfig = TEAMS.find(t => t.id === user.team) || TEAMS[3];
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-end">
+        <button onClick={toggleTheme} className={`p-3 rounded-full ${t.buttonSecondary}`}>
+          {theme === 'dark' ? <Sun className="w-5 h-5"/> : <Moon className="w-5 h-5"/>}
+        </button>
+      </div>
+
+      <div className={`${t.card} border rounded-3xl p-8 text-center relative overflow-hidden`}>
+        <div className={`absolute inset-0 opacity-20 bg-gradient-to-b ${teamConfig.gradient}`}></div>
+        <div className={`w-28 h-28 mx-auto rounded-full ${t.bg} border-4 ${teamConfig.border} flex items-center justify-center text-5xl font-bold mb-4 relative z-10 shadow-2xl`}>{user.name[0].toUpperCase()}{user.isPremium && <div className="absolute top-0 right-0 bg-amber-500 rounded-full p-1.5 border-4 border-slate-900"><Crown className="w-4 h-4 text-white fill-current"/></div>}</div><h2 className="text-2xl font-black relative z-10">{user.name}</h2><div className={`inline-block ${t.input} px-4 py-1.5 rounded-full mt-2 border ${t.border} relative z-10`}><p className="font-mono text-sm tracking-widest font-bold">{user.code}</p></div></div>
+      <div className="grid grid-cols-2 gap-4"><div className={`${t.card} border p-4 rounded-2xl text-center`}><div className={`text-xs font-bold ${t.textSub} uppercase mb-1`}>Level</div><div className="text-3xl font-black text-indigo-500">{user.level}</div></div><div className={`${t.card} border p-4 rounded-2xl text-center`}><div className={`text-xs font-bold ${t.textSub} uppercase mb-1`}>Rating</div><div className="text-3xl font-black text-amber-500 flex items-center justify-center">5.0 <Star className="w-4 h-4 ml-1 fill-current"/></div></div></div>
+      <button onClick={onLogout} className={`w-full py-4 ${t.buttonSecondary} font-bold rounded-2xl text-xs transition-colors border ${t.border} flex items-center justify-center`}><LogOut className="w-4 h-4 mr-2"/> LOG OUT</button>
+    </div>
+  );
+}
+
+// --- BOTTOM NAV ---
+function BottomNav({ currentView, setView, t }) {
+  const NavItem = ({ id, icon: Icon, label }) => (<button onClick={() => setView(id)} className={`flex flex-col items-center transition-all ${currentView === id ? `scale-110 ${t.navIconActive}` : `${t.navIconInactive} hover:opacity-80`}`}><Icon className={`w-6 h-6 ${currentView === id ? 'fill-current' : ''}`} /><span className="text-[10px] font-black mt-1 uppercase">{label}</span></button>);
+  return (<div className={`h-24 ${t.nav} border-t flex justify-around items-center pb-6 px-6 shrink-0 z-30 transition-colors duration-300`}><NavItem id="join" icon={Search} label="Raids" /><NavItem id="host" icon={MapPin} label="Host" /><NavItem id="shop" icon={ShoppingBag} label="Store" /><NavItem id="profile" icon={Users} label="Me" /></div>);
+}
+
+// --- AUTO JOIN MODAL ---
+function AutoJoinModal({ onClose, onSelect, t, theme }) {
+  return (
+    <div className={`absolute inset-0 z-50 ${t.modalOverlay} flex items-center justify-center p-6 animate-in fade-in backdrop-blur-sm`}>
+      <div className={`${t.card} w-full max-w-sm rounded-[2rem] p-6 border relative shadow-2xl h-[80%] flex flex-col`}>
+        <button onClick={onClose} className={`absolute top-4 right-4 ${t.textSub} hover:opacity-100`}><X/></button>
+        <h2 className="text-2xl font-black mb-4 text-center">Auto Join</h2>
+        <p className={`text-center ${t.textSub} text-xs mb-4`}>Select a target. We'll join the next lobby instantly.</p>
+        <div className="flex-1 overflow-y-auto space-y-2 pr-1 custom-scrollbar">{BOSSES.map(boss => (<button key={boss.id} onClick={() => onSelect(boss)} className={`w-full p-3 rounded-xl border ${t.border} flex items-center space-x-4 hover:border-indigo-500 transition-colors ${t.input}`}><SafeImage src={boss.image} className="w-12 h-12 object-contain" fallbackChar={boss.name[0]} theme={theme} /><div className="text-left"><div className="font-bold">{boss.name}</div><div className={`text-[10px] ${t.textSub} uppercase font-bold`}>Tier {boss.tier}</div></div></button>))}</div>
+      </div>
+    </div>
+  );
+}
+
+// --- PREMIUM MODAL ---
+function PremiumModal({ onClose, onUpgrade, t }) {
+  return (
+    <div className={`absolute inset-0 z-50 ${t.modalOverlay} flex items-center justify-center p-6 animate-in fade-in backdrop-blur-sm`}>
+      <div className={`${t.card} w-full max-w-sm rounded-[2rem] p-8 text-center border relative shadow-2xl`}>
+        <button onClick={onClose} className={`absolute top-6 right-6 ${t.textSub} hover:opacity-100`}><X/></button>
+        <div className="w-20 h-20 bg-amber-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-amber-500/30"><Crown className="w-10 h-10 text-amber-500 fill-current"/></div>
+        <h2 className="text-3xl font-black mb-2">Elite Members</h2>
+        <p className={`${t.textSub} text-sm mb-8`}>Join the fastest raid network.</p>
+        <button onClick={onUpgrade} className={`w-full py-4 ${t.buttonPrimary} font-black rounded-2xl transition-colors shadow-lg`}>SUBSCRIBE {SUBSCRIPTION_PRICE}</button>
+        <div className={`mt-4 text-[10px] ${t.textSub} flex justify-between px-4 underline`}><span>Terms of Use</span><span>Privacy Policy</span><span>Restore Purchases</span></div>
+      </div>
+    </div>
+  );
+}
+
