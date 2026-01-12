@@ -38,6 +38,22 @@ export const playerSchema = z.object({
   hasSentRequest: z.boolean().optional()
 });
 
+export const subscriptionSchema = z.object({
+  status: z.enum(['active', 'canceled', 'expired', 'none']),
+  startDate: z.number().nullable(),
+  renewalDate: z.number().nullable(),
+  canceledAt: z.number().nullable(),
+  plan: z.enum(['monthly', 'none']).default('none'),
+  price: z.number().default(0)
+});
+
+export const notificationPrefsSchema = z.object({
+  lobbyAlerts: z.boolean().default(true),
+  friendRequests: z.boolean().default(true),
+  raidReminders: z.boolean().default(true),
+  marketing: z.boolean().default(false)
+});
+
 export const userSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
@@ -45,7 +61,10 @@ export const userSchema = z.object({
   team: z.enum(['valor', 'mystic', 'instinct', 'neutral']),
   code: z.string().min(12),
   isPremium: z.boolean(),
-  isVerified: z.boolean()
+  isVerified: z.boolean(),
+  subscription: subscriptionSchema.optional(),
+  notifications: notificationPrefsSchema.optional(),
+  createdAt: z.number().optional()
 });
 
 export const lobbySchema = z.object({
@@ -71,6 +90,8 @@ export type User = z.infer<typeof userSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Lobby = z.infer<typeof lobbySchema>;
 export type InsertLobby = z.infer<typeof insertLobbySchema>;
+export type Subscription = z.infer<typeof subscriptionSchema>;
+export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
 
 export const FILTERS = ['all', '1', '3', '5', 'mega', 'max', 'shadow'] as const;
 export type FilterType = typeof FILTERS[number];

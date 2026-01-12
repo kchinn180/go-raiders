@@ -8,9 +8,12 @@ import { JoinFeed } from "@/components/join-feed";
 import { HostView } from "@/components/host-view";
 import { LobbyView } from "@/components/lobby-view";
 import { ShopView } from "@/components/shop-view";
-import { ProfileView } from "@/components/profile-view";
+import { SettingsView } from "@/components/settings-view";
 import { PremiumModal } from "@/components/premium-modal";
 import { AutoJoinModal } from "@/components/auto-join-modal";
+import { PrivacyPage } from "@/pages/privacy";
+import { TermsPage } from "@/pages/terms";
+import { AboutPage } from "@/pages/about";
 import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -18,6 +21,7 @@ import { BOSSES } from "@shared/schema";
 import type { Lobby, Player, Boss, FilterType } from "@shared/schema";
 
 type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
+type LegalPage = "privacy" | "terms" | "about" | null;
 
 export default function Home() {
   const { user, isLoading: userLoading } = useUser();
@@ -27,6 +31,7 @@ export default function Home() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [showPremium, setShowPremium] = useState(false);
   const [showAutoJoin, setShowAutoJoin] = useState(false);
+  const [legalPage, setLegalPage] = useState<LegalPage>(null);
 
   const { data: lobbies = [], isLoading: lobbiesLoading, refetch } = useQuery<Lobby[]>({
     queryKey: ["/api/lobbies"],
@@ -199,6 +204,10 @@ export default function Home() {
     }, 1500);
   }, [user, toast]);
 
+  const handleNavigateLegal = useCallback((page: 'privacy' | 'terms' | 'about') => {
+    setLegalPage(page);
+  }, []);
+
   if (userLoading) {
     return (
       <div className="h-screen bg-background flex items-center justify-center">
@@ -209,6 +218,17 @@ export default function Home() {
 
   if (!user) {
     return <Onboarding />;
+  }
+
+  // Show legal pages
+  if (legalPage === 'privacy') {
+    return <PrivacyPage onBack={() => setLegalPage(null)} />;
+  }
+  if (legalPage === 'terms') {
+    return <TermsPage onBack={() => setLegalPage(null)} />;
+  }
+  if (legalPage === 'about') {
+    return <AboutPage onBack={() => setLegalPage(null)} />;
   }
 
   return (
@@ -229,7 +249,12 @@ export default function Home() {
         )}
         {view === "host" && <HostView onHost={handleHostLobby} />}
         {view === "shop" && <ShopView onUpgrade={() => setShowPremium(true)} />}
-        {view === "profile" && <ProfileView onPremiumClick={() => setShowPremium(true)} />}
+        {view === "profile" && (
+          <SettingsView 
+            onNavigate={handleNavigateLegal} 
+            onPremiumClick={() => setShowPremium(true)} 
+          />
+        )}
         {view === "lobby" && activeLobby && (
           <LobbyView
             lobby={activeLobby}

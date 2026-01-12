@@ -1,16 +1,21 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { User } from "@shared/schema";
+import type { User, Subscription, NotificationPrefs } from "@shared/schema";
 
 interface UserContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   isLoading: boolean;
   upgradeToPremium: () => void;
+  cancelSubscription: () => void;
+  updateUser: (updates: Partial<User>) => void;
+  updateNotifications: (prefs: NotificationPrefs) => void;
+  checkSubscriptionStatus: () => boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-const STORAGE_KEY = "go-raiders-user-v2";
+const STORAGE_KEY = "go-raiders-user-v3";
+const MONTH_IN_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
@@ -20,7 +25,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       const savedUser = localStorage.getItem(STORAGE_KEY);
       if (savedUser) {
-        setUserState(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        const checkedUser = checkAndUpdateSubscription(parsedUser);
+        setUserState(checkedUser);
+        if (JSON.stringify(checkedUser) !== JSON.stringify(parsedUser)) {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(checkedUser));
+        }
       }
     } catch (e) {
       console.error("Storage error", e);
@@ -28,6 +38,37 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setIsLoading(false);
     }
   }, []);
+
+  const checkAndUpdateSubscription = (userData: User): User => {
+    if (!userData.subscription) return userData;
+    
+    const now = Date.now();
+    const sub = userData.subscription;
+    
+    if (sub.status === 'active' && sub.renewalDate && now > sub.renewalDate) {
+      return {
+        ...userData,
+        isPremium: false,
+        subscription: {
+          ...sub,
+          status: 'expired'
+        }
+      };
+    }
+    
+    if (sub.status === 'canceled' && sub.renewalDate && now > sub.renewalDate) {
+      return {
+        ...userData,
+        isPremium: false,
+        subscription: {
+          ...sub,
+          status: 'expired'
+        }
+      };
+    }
+    
+    return userData;
+  };
 
   const setUser = (newUser: User | null) => {
     setUserState(newUser);
@@ -42,14 +83,78 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const upgradeToPremium = () => {
+  const updateUser = (updates: Partial<User>) => {
     if (user) {
-      setUser({ ...user, isPremium: true });
+      setUser({ ...user, ...updates });
     }
   };
 
+  const updateNotifications = (prefs: NotificationPrefs) => {
+    if (user) {
+      setUser({ ...user, notifications: prefs });
+    }
+  };
+
+  const upgradeToPremium = () => {
+    if (user) {
+      const now = Date.now();
+      const subscription: Subscription = {
+        status: 'active',
+        startDate: now,
+        renewalDate: now + MONTH_IN_MS,
+        canceledAt: null,
+        plan: 'monthly',
+        price: 19.99
+      };
+      setUser({ 
+        ...user, 
+        isPremium: true,
+        subscription
+      });
+    }
+  };
+
+  const cancelSubscription = () => {
+    if (user && user.subscription) {
+      setUser({
+        ...user,
+        subscription: {
+          ...user.subscription,
+          status: 'canceled',
+          canceledAt: Date.now()
+        }
+      });
+    }
+  };
+
+  const checkSubscriptionStatus = (): boolean => {
+    if (!user?.subscription) return false;
+    
+    const now = Date.now();
+    const sub = user.subscription;
+    
+    if (sub.status === 'active' && sub.renewalDate) {
+      return now < sub.renewalDate;
+    }
+    
+    if (sub.status === 'canceled' && sub.renewalDate) {
+      return now < sub.renewalDate;
+    }
+    
+    return false;
+  };
+
   return (
-    <UserContext.Provider value={{ user, setUser, isLoading, upgradeToPremium }}>
+    <UserContext.Provider value={{ 
+      user, 
+      setUser, 
+      isLoading, 
+      upgradeToPremium,
+      cancelSubscription,
+      updateUser,
+      updateNotifications,
+      checkSubscriptionStatus
+    }}>
       {children}
     </UserContext.Provider>
   );
