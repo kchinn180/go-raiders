@@ -55,7 +55,7 @@ export function JoinFeed({
     <div className="p-4 space-y-4 pb-28">
       <button
         onClick={onAutoJoin}
-        className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 p-4 rounded-3xl flex items-center justify-between shadow-xl relative overflow-hidden active:scale-[0.98] transition-transform"
+        className="w-full bg-gradient-to-r from-orange-600 to-red-700 p-4 rounded-3xl flex items-center justify-between shadow-xl relative overflow-hidden active:scale-[0.98] transition-transform"
         data-testid="button-auto-join"
       >
         <div className="flex items-center relative z-10">
@@ -69,7 +69,7 @@ export function JoinFeed({
             </div>
           </div>
         </div>
-        <div className="bg-white text-indigo-600 text-xs font-black px-3 py-1 rounded-full relative z-10">
+        <div className="bg-white text-orange-600 text-xs font-black px-3 py-1 rounded-full relative z-10">
           {isPremium ? "READY" : "PRO"}
         </div>
       </button>
@@ -82,7 +82,7 @@ export function JoinFeed({
             className={cn(
               "flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold uppercase transition-all",
               filter === f
-                ? "bg-foreground text-background"
+                ? "bg-primary text-primary-foreground"
                 : "bg-card text-muted-foreground border border-card-border hover-elevate"
             )}
             data-testid={`filter-${f}`}
@@ -92,7 +92,7 @@ export function JoinFeed({
         ))}
       </div>
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {filteredLobbies.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Radar className="w-12 h-12 mx-auto mb-4 opacity-50" />

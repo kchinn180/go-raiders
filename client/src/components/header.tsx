@@ -1,6 +1,5 @@
-import { Sparkles } from "lucide-react";
 import { useUser } from "@/lib/user-context";
-import { Badge } from "@/components/ui/badge";
+import logoImage from "@assets/IMG_0027_1768190905765.png";
 
 interface HeaderProps {
   onPremiumClick: () => void;
@@ -12,8 +11,8 @@ export function Header({ onPremiumClick }: HeaderProps) {
   return (
     <header className="h-16 px-4 flex items-center justify-between bg-card border-b border-card-border z-10 shrink-0 transition-colors duration-300">
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-          <Sparkles className="w-5 h-5 text-white" />
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
+          <img src={logoImage} alt="GO Raiders Logo" className="w-full h-full object-cover" />
         </div>
         <div>
           <h1 className="text-lg font-black tracking-tight leading-none">GO Raiders</h1>

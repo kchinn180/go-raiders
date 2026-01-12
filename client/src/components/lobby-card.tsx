@@ -18,10 +18,18 @@ const teamIcons = {
   neutral: Users,
 };
 
+const teamGlowClasses = {
+  valor: "team-glow-valor",
+  mystic: "team-glow-mystic",
+  instinct: "team-glow-instinct",
+  neutral: "team-glow-neutral",
+};
+
 export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
   const boss = BOSSES.find((b) => b.id === lobby.bossId);
   const team = TEAMS.find((t) => t.id === lobby.team) || TEAMS[3];
   const TeamIcon = teamIcons[lobby.team] || Users;
+  const glowClass = teamGlowClasses[lobby.team] || teamGlowClasses.neutral;
 
   if (!boss) return null;
 
@@ -35,7 +43,8 @@ export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
       className={cn(
         "w-full rounded-xl p-3 flex items-center gap-3 relative overflow-visible border-l-4 text-left transition-all duration-200 bg-card border border-card-border hover-elevate active:scale-[0.98]",
         team.border,
-        team.tint
+        team.tint,
+        glowClass
       )}
       data-testid={`lobby-card-${lobby.id}`}
     >

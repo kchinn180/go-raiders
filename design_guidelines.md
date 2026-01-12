@@ -1,13 +1,33 @@
-# Pokémon GO Raid Coordination App - Design Guidelines
+# GO Raiders Design Guidelines
 
-## Design Approach
-**Reference-Based Gaming UI** inspired by Pokémon GO's visual language, Discord's community features, and Linear's clean information architecture. This is a utility-first app requiring instant readability and rapid interaction patterns.
+## Theme: Volcanic/Lava Pixel Art
 
-## Core Design Principles
-1. **Speed First**: Every interaction should feel instant - minimal animations, fast visual feedback
-2. **Scan-Friendly**: Users need to parse raid information in seconds while potentially walking/moving
-3. **Team Identity**: Valor/Mystic/Instinct branding should be prominent and pride-inducing
-4. **Gaming Premium**: Dark theme default with vibrant accent colors that pop
+The app's visual identity is inspired by the volcanic pixel art logo featuring warm lava colors (oranges, reds) contrasted with dark charcoal grays. The logo depicts a molten lava creature emerging from volcanic rock, setting the tone for a fiery, intense gaming experience.
+
+## Color Palette
+
+### Primary Colors
+- **Primary Orange**: `hsl(20, 90%, 50%)` - Main action color, buttons, accents
+- **Accent Orange**: `hsl(30, 80%, 55%)` - Secondary highlights
+- **Lava Gradient**: `from-orange-600 to-red-700` - Primary buttons and CTAs
+
+### Neutral Colors
+- **Dark Background**: Very dark charcoal gray with subtle warmth (`hsl(15, 8%, 6%)`)
+- **Card Background**: Slightly elevated gray surfaces (`hsl(15, 8%, 9%)`)
+- **Muted Text**: Warm gray for secondary text (`hsl(20, 5%, 60%)`)
+
+### Team Colors (Pokemon GO Teams)
+- **Valor (Red)**: `#dc2626` - Red team, flame icon
+- **Mystic (Blue)**: `#2563eb` - Blue team, shield icon  
+- **Instinct (Yellow)**: `#eab308` - Yellow team, lightning icon
+- **Neutral (Gray)**: `#64748b` - No team preference
+
+## Team Glow Effects
+Each raid lobby card displays a subtle glow effect matching the gym's controlling team:
+- **Valor**: Red glow (`box-shadow: 0 0 20px rgba(239, 68, 68, 0.4)`)
+- **Mystic**: Blue glow (`box-shadow: 0 0 20px rgba(59, 130, 246, 0.4)`)
+- **Instinct**: Yellow glow (`box-shadow: 0 0 20px rgba(234, 179, 8, 0.4)`)
+- **Neutral**: Slate glow (`box-shadow: 0 0 20px rgba(100, 116, 139, 0.3)`)
 
 ---
 
@@ -40,85 +60,64 @@
 ## Component Library
 
 ### Navigation
-- **Bottom Tab Bar**: Fixed position, 4-5 icons, active state uses team color accent
-- **Top Header**: Minimal, logo/title left, premium badge + profile right
+- **Bottom Tab Bar**: Fixed position, 4 icons (Find, Host, Shop, Profile)
+- **Top Header**: Logo left (volcanic pixel art), premium status badge right
 
 ### Cards (Raid Lobbies)
-- Compact design: Boss image (80x80px), stats row, player count, timer
-- Border accent matching host's team color (3px left border)
-- Quick-scan badges: Tier, weather boost, level requirement
-- Shadow intensity indicates urgency (raids expiring soon = stronger shadow)
+- Compact design: Boss image (56x56px), stats row, player count, timer
+- Border accent matching host's team color (4px left border)
+- Team glow shadow effect for visual highlight
+- Team tint background overlay
+- Quick-scan badges: Tier, Shadow/MAX, weather boost
 
 ### Buttons
-- **Primary CTA**: Full-width rounded-xl, bold text, team-colored for key actions
-- **Secondary**: Ghost style with border, neutral colors
+- **Primary CTA**: Full-width rounded-2xl, gradient `from-orange-600 to-red-700`
+- **Secondary**: Card background with border, `hover-elevate` interaction
 - **Icon Buttons**: 40x40px touch target minimum
-- **Join/Ready buttons**: Large, prominent, impossible to miss
+- **Filter Buttons**: Rounded-full pills, primary color when active
 
 ### Status Indicators
-- **Player Ready State**: Checkmark icon with green pulse animation
-- **Timer Countdown**: Large numerals with subtle color shift (green→yellow→red as time decreases)
-- **Team Badges**: Small circular icons with team color backgrounds
-- **Premium Badge**: Gold/yellow accent with sparkle icon
+- **Player Ready State**: Checkmark icon with green background
+- **Spots Available**: Color-coded badges (green/yellow/red based on availability)
+- **Team Badges**: Small icons with team colors
+- **Premium Badge**: Amber-500 pulsing dot
 
 ### Forms (Host Raid)
 - Large touch-friendly inputs (min-height 48px)
-- Boss selection as visual grid with Pokémon images
-- Dropdown selectors with custom styling matching theme
-- Toggle switches for weather/requirements using team colors
-
-### Modals/Overlays
-- Full-screen takeover on mobile
-- Backdrop blur effect (backdrop-blur-md)
-- Slide-up animation from bottom
-- Close button always top-right
-
----
-
-## Images
-
-**Pokémon Boss Images**: 
-- Source: PokémonDB sprites (already in code)
-- Display: Contained within rounded containers, drop-shadow for depth
-- Fallback: Letter icon if image fails to load
-
-**No Hero Section**: This is a utility app - users dive straight into the raid feed upon launch.
-
-**Profile Avatars**: Placeholder initials in team-colored circles if no custom avatar
-
-**Empty States**: Simple icon + text, no elaborate illustrations needed
+- Boss selection as scrollable visual grid with Pokemon images
+- Toggle switches for settings using team/primary colors
+- Form labels in uppercase, small size, zinc-400
 
 ---
 
 ## Visual Effects (Minimal)
 
 - **Micro-interactions only**: Button press states (scale 0.98), checkbox checks
-- **Loading States**: Skeleton screens with subtle pulse, spinner only for async actions
-- **Transitions**: Fast 150-200ms ease curves, never blocking interaction
-- **NO scroll animations**: Keep it snappy
-- **Hover states**: Subtle brightness increase, never dramatic
+- **Loading States**: Skeleton screens with subtle pulse
+- **Transitions**: Fast 150-200ms ease curves
+- **Team glow effects**: Subtle box-shadows on lobby cards
+- **Hover states**: Use `hover-elevate` utility class
 
 ---
 
 ## Theme-Specific Treatments
 
 **Dark Mode (Default)**:
-- Pure black (#000000) background
-- Zinc-900 (#18181b) for cards
-- Zinc-800 borders
-- White text with zinc-400 for secondary text
+- Near-black background with warm undertone (`hsl(15, 8%, 6%)`)
+- Dark charcoal cards (`hsl(15, 8%, 9%)`)
+- Warm gray borders
+- White text with warm gray-500 for secondary
 
 **Light Mode**:
-- Gray-50 (#f9fafb) background  
-- White cards with subtle shadows
-- Gray-200 borders
-- Black text with gray-600 for secondary
+- Warm off-white background (`hsl(20, 10%, 96%)`)
+- Light cards with subtle warm gray borders
+- Dark text hierarchy
 
 **Team Colors** (Always Vibrant):
 - Valor: Red-600 (#dc2626)
 - Mystic: Blue-600 (#2563eb)  
 - Instinct: Yellow-500 (#eab308)
-- Use at full saturation for badges, borders, active states
+- Use at full saturation for glow effects, borders, active states
 
 ---
 
@@ -132,6 +131,6 @@
 
 ## Mobile-First Constraints
 - Single-column layouts dominate
-- Bottom sheet pattern for secondary actions
+- Bottom sheet pattern for modals
 - Thumb-zone friendly: Critical actions in bottom 2/3 of screen
 - Fixed bottom navigation for instant context switching
