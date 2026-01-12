@@ -14,6 +14,17 @@ import {
   LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { SafeImage } from "@/components/safe-image";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
@@ -253,15 +264,36 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewPr
           )}
         </Button>
 
-        <Button
-          onClick={onLeave}
-          variant="ghost"
-          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
-          data-testid="button-leave-room"
-        >
-          <LogOut className="w-4 h-4 mr-2" />
-          Leave Room
-        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              variant="ghost"
+              className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+              data-testid="button-leave-room"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Leave Room
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Leave this raid?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to leave this lobby? You'll need to rejoin if you want to participate in this raid.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Stay</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={onLeave}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-leave"
+              >
+                Leave
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );
