@@ -17,6 +17,8 @@ import {
   CreditCard,
   Calendar,
   Globe,
+  History,
+  Crown,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -27,8 +29,9 @@ import { useUser } from "@/lib/user-context";
 import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { TEAMS } from "@shared/schema";
+import { TEAMS, BOSSES } from "@shared/schema";
 import { languages } from "@/i18n";
+import { SafeImage } from "@/components/safe-image";
 import type { TeamId } from "@shared/schema";
 
 interface SettingsViewProps {
@@ -76,6 +79,8 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
     friendRequests: true,
     raidReminders: true,
     marketing: false,
+    hapticFeedback: true,
+    soundEffects: true,
   };
 
   const subscription = user.subscription;
@@ -307,6 +312,52 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
               In-app purchase via App Store or Play Store
             </p>
           </div>
+        )}
+      </Card>
+
+      {/* Raid History Section */}
+      <Card className="p-4">
+        <h3 className="font-bold flex items-center gap-2 mb-4">
+          <History className="w-4 h-4" />
+          Raid History
+        </h3>
+        {user.raidHistory && user.raidHistory.length > 0 ? (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {user.raidHistory.slice(0, 10).map((raid) => {
+              const boss = BOSSES.find(b => b.id === raid.bossId);
+              return (
+                <div 
+                  key={raid.id} 
+                  className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
+                  data-testid={`raid-history-${raid.id}`}
+                >
+                  {boss && (
+                    <SafeImage
+                      src={boss.image}
+                      alt={raid.bossName}
+                      className="w-10 h-10 rounded-lg bg-card"
+                      fallbackChar={raid.bossName[0]}
+                    />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm truncate">{raid.bossName}</span>
+                      {raid.wasHost && (
+                        <Crown className="w-3 h-3 text-yellow-500" />
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {raid.playerCount} players • {new Date(raid.completedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            No raids completed yet. Join a raid to start your history!
+          </p>
         )}
       </Card>
 

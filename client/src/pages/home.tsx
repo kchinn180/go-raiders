@@ -27,7 +27,7 @@ type ViewType = "join" | "host" | "shop" | "profile" | "lobby" | "daily";
 type LegalPage = "privacy" | "terms" | "about" | null;
 
 export default function Home() {
-  const { user, isLoading: userLoading } = useUser();
+  const { user, isLoading: userLoading, addRaidToHistory } = useUser();
   const { toast } = useToast();
   const [view, setView] = useState<ViewType>("join");
   const [activeLobby, setActiveLobby] = useState<Lobby | null>(null);
@@ -118,6 +118,30 @@ export default function Home() {
       setActiveLobby(null);
       setView("join");
       queryClient.invalidateQueries({ queryKey: ["/api/lobbies"] });
+    },
+  });
+
+  const startRaidMutation = useMutation({
+    mutationFn: async ({ lobbyId, hostId }: { lobbyId: string; hostId: string }) => {
+      const res = await apiRequest("PATCH", `/api/lobbies/${lobbyId}/start-raid`, { hostId });
+      return res.json();
+    },
+    onSuccess: (data: Lobby) => {
+      setActiveLobby(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/lobbies"] });
+      toast({ title: "Raid Started!", description: "All players have been notified" });
+      
+      const boss = BOSSES.find(b => b.id === data.bossId);
+      if (boss && user && data.hostId === user.id) {
+        addRaidToHistory({
+          id: `raid-${Date.now()}`,
+          bossId: data.bossId,
+          bossName: boss.name,
+          completedAt: Date.now(),
+          wasHost: true,
+          playerCount: data.players.length,
+        });
+      }
     },
   });
 
@@ -233,6 +257,11 @@ export default function Home() {
     }
   }, [user, activeLobby, updateReadyMutation, markSentRequestMutation]);
 
+  const handleStartRaid = useCallback(() => {
+    if (!user || !activeLobby) return;
+    startRaidMutation.mutate({ lobbyId: activeLobby.id, hostId: user.id });
+  }, [user, activeLobby, startRaidMutation]);
+
   const handleAutoJoin = useCallback(() => {
     if (user?.isPremium) {
       setShowAutoJoin(true);
@@ -281,6 +310,8 @@ export default function Home() {
         weather: true,
         createdAt: Date.now(),
         timeLeft: 45,
+        raidStarted: false,
+        invitesSent: false,
       };
 
       setActiveLobby(autoLobby);
@@ -332,6 +363,7 @@ export default function Home() {
             onAutoJoin={handleAutoJoin}
             onQuickRaid={handleQuickRaid}
             onDailyReward={() => setView("daily")}
+            onRefresh={async () => { await refetch(); }}
           />
         )}
         {view === "host" && <HostView onHost={handleHostLobby} />}
@@ -349,6 +381,7 @@ export default function Home() {
             isHost={activeLobby.hostId === user.id}
             onLeave={handleLeaveLobby}
             onUpdateLobby={handleUpdateLobby}
+            onStartRaid={handleStartRaid}
           />
         )}
       </main>

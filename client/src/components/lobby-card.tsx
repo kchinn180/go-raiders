@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Lock, Users, CloudLightning, Timer, Shield, Flame, Zap, Sparkles } from "lucide-react";
 import { SafeImage } from "@/components/safe-image";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +27,25 @@ const teamGlowClasses = {
 };
 
 export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
+  const [lockCountdown, setLockCountdown] = useState(0);
+  
+  useEffect(() => {
+    if (!isLocked) {
+      setLockCountdown(0);
+      return;
+    }
+    
+    const updateCountdown = () => {
+      const elapsed = Date.now() - lobby.createdAt;
+      const remaining = Math.max(0, Math.ceil((10000 - elapsed) / 1000));
+      setLockCountdown(remaining);
+    };
+    
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 100);
+    return () => clearInterval(interval);
+  }, [isLocked, lobby.createdAt]);
+
   const boss = BOSSES.find((b) => b.id === lobby.bossId);
   const team = TEAMS.find((t) => t.id === lobby.team) || TEAMS[3];
   const TeamIcon = teamIcons[lobby.team] || Users;
@@ -50,11 +70,14 @@ export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
       )}
       data-testid={`lobby-card-${lobby.id}`}
     >
-      {isLocked && (
+      {isLocked && lockCountdown > 0 && (
         <div className="absolute inset-0 z-20 flex flex-col items-center justify-center backdrop-blur-sm bg-background/80 rounded-xl">
-          <Lock className="w-5 h-5 text-muted-foreground mb-1" />
-          <span className="text-[10px] font-bold text-muted-foreground">
-            Wait 10s...
+          <Lock className="w-5 h-5 text-yellow-500 mb-1" />
+          <span className="text-xs font-black text-yellow-500">
+            {lockCountdown}s
+          </span>
+          <span className="text-[10px] text-muted-foreground mt-0.5">
+            Elite Early Access
           </span>
         </div>
       )}

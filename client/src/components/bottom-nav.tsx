@@ -2,7 +2,7 @@ import { Search, Plus, ShoppingBag, User, Swords } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
-type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
+type ViewType = "join" | "host" | "shop" | "profile" | "lobby" | "daily";
 
 interface BottomNavProps {
   currentView: ViewType;

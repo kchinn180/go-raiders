@@ -104,6 +104,22 @@ export async function registerRoutes(
     }
   });
 
+  app.patch("/api/lobbies/:id/start-raid", async (req, res) => {
+    try {
+      const { hostId } = req.body;
+      if (!hostId) {
+        return res.status(400).json({ error: "Host ID required" });
+      }
+      const lobby = await storage.startRaid(req.params.id, hostId);
+      if (!lobby) {
+        return res.status(404).json({ error: "Lobby not found or not host" });
+      }
+      res.json(lobby);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to start raid" });
+    }
+  });
+
   app.delete("/api/lobbies/:id", async (req, res) => {
     try {
       const success = await storage.deleteLobby(req.params.id);

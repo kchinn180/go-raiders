@@ -110,6 +110,17 @@ The app supports 10 languages via react-i18next:
 - Located in Join Feed alongside Daily Reward button
 - Haptic/sound feedback on activation
 
+## Host Raid Controls
+- **Start Raid button**: Hosts can notify all joiners that invites are sent
+- **Raid Started indicator**: Shows "RAID IN PROGRESS" status to all players
+- Raid history is automatically recorded when host starts the raid
+
+## Elite Early Access
+- New lobbies have a 10-second lock for non-Elite users
+- Real-time countdown timer shows remaining wait time
+- Elite users can join immediately (priority access)
+- Lock indicator clearly shows "Elite Early Access" branding
+
 ## Recent Changes
 - Initial MVP implementation with full raid coordination features
 - Dark/Light theme support
@@ -123,3 +134,7 @@ The app supports 10 languages via react-i18next:
 - Haptic feedback system with Capacitor integration
 - Sound effects for raid countdown and user actions
 - Quick Raid one-tap join feature
+- Host "Raid Starting" notification button
+- Raid history tracking in user profile settings
+- Pull-to-refresh on join feed (swipe down or tap)
+- 10-second Elite early access lock with countdown timer

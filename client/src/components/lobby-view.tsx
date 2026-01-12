@@ -12,6 +12,7 @@ import {
   Shield,
   Zap,
   LogOut,
+  Rocket,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,6 +40,7 @@ interface LobbyViewProps {
   isHost: boolean;
   onLeave: () => void;
   onUpdateLobby: (lobby: Lobby) => void;
+  onStartRaid?: () => void;
 }
 
 const teamIcons = {
@@ -48,7 +50,7 @@ const teamIcons = {
   neutral: Users,
 };
 
-export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewProps) {
+export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }: LobbyViewProps) {
   const { toast } = useToast();
   const { user } = useUser();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -266,6 +268,32 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewPr
             <Send className="w-4 h-4 mr-2" />
             I Sent Friend Request
           </Button>
+        )}
+
+        {isHost && onStartRaid && !lobby.raidStarted && (
+          <Button
+            onClick={() => {
+              if (hapticEnabled) triggerNotification('success');
+              onStartRaid();
+            }}
+            className="w-full py-6 text-lg font-black rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600"
+            data-testid="button-start-raid"
+          >
+            <Rocket className="w-5 h-5 mr-2" />
+            INVITES SENT - START RAID!
+          </Button>
+        )}
+
+        {lobby.raidStarted && (
+          <div className="bg-green-600/20 border-2 border-green-500 rounded-2xl p-4 text-center">
+            <div className="flex items-center justify-center gap-2 text-green-400 font-bold">
+              <Rocket className="w-5 h-5" />
+              <span>RAID IN PROGRESS!</span>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Invites sent - Accept and join the raid!
+            </p>
+          </div>
         )}
 
         <Button

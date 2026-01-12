@@ -17,6 +17,7 @@ export interface IStorage {
   leaveLobby(lobbyId: string, playerId: string): Promise<Lobby | undefined>;
   updatePlayerReady(lobbyId: string, playerId: string, isReady: boolean): Promise<Lobby | undefined>;
   markPlayerSentRequest(lobbyId: string, playerId: string): Promise<Lobby | undefined>;
+  startRaid(lobbyId: string, hostId: string): Promise<Lobby | undefined>;
 }
 
 function generateMockLobbies(): Lobby[] {
@@ -43,6 +44,8 @@ function generateMockLobbies(): Lobby[] {
     weather: Math.random() > 0.6,
     createdAt: Date.now() - Math.random() * 300000,
     timeLeft: Math.floor(Math.random() * 40) + 5,
+    raidStarted: false,
+    invitesSent: false,
   }));
 }
 
@@ -169,6 +172,20 @@ export class MemStorage implements IStorage {
       players: lobby.players.map(p =>
         p.id === playerId ? { ...p, hasSentRequest: true } : p
       ),
+    };
+    this.lobbies.set(lobbyId, updatedLobby);
+    return updatedLobby;
+  }
+
+  async startRaid(lobbyId: string, hostId: string): Promise<Lobby | undefined> {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return undefined;
+    if (lobby.hostId !== hostId) return undefined;
+
+    const updatedLobby = {
+      ...lobby,
+      raidStarted: true,
+      invitesSent: true,
     };
     this.lobbies.set(lobbyId, updatedLobby);
     return updatedLobby;

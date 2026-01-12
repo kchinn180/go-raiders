@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { User, Subscription, NotificationPrefs, DailyChallenge } from "@shared/schema";
+import type { User, Subscription, NotificationPrefs, DailyChallenge, RaidHistoryEntry } from "@shared/schema";
 
 interface UserContextType {
   user: User | null;
@@ -14,6 +14,7 @@ interface UserContextType {
   spendCoins: (amount: number) => boolean;
   updateDailyChallenge: (challenge: DailyChallenge) => void;
   canSpinToday: () => boolean;
+  addRaidToHistory: (entry: RaidHistoryEntry) => void;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -178,6 +179,13 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return today !== lastSpinDate;
   };
 
+  const addRaidToHistory = (entry: RaidHistoryEntry) => {
+    if (!user) return;
+    const currentHistory = user.raidHistory || [];
+    const updatedHistory = [entry, ...currentHistory].slice(0, 20);
+    setUser({ ...user, raidHistory: updatedHistory });
+  };
+
   return (
     <UserContext.Provider value={{ 
       user, 
@@ -191,7 +199,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       addCoins,
       spendCoins,
       updateDailyChallenge,
-      canSpinToday
+      canSpinToday,
+      addRaidToHistory
     }}>
       {children}
     </UserContext.Provider>

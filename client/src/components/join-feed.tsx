@@ -1,4 +1,5 @@
-import { Radar, Gift, Zap } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Radar, Gift, Zap, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LobbyCard } from "@/components/lobby-card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,6 +18,7 @@ interface JoinFeedProps {
   onAutoJoin: () => void;
   onQuickRaid?: () => void;
   onDailyReward?: () => void;
+  onRefresh?: () => Promise<void>;
 }
 
 export function JoinFeed({
@@ -29,9 +31,49 @@ export function JoinFeed({
   onAutoJoin,
   onQuickRaid,
   onDailyReward,
+  onRefresh,
 }: JoinFeedProps) {
   const { t } = useTranslation();
   const { canSpinToday } = useUser();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartY = useRef(0);
+  const isPulling = useRef(false);
+  const [, forceUpdate] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (containerRef.current?.scrollTop === 0) {
+      touchStartY.current = e.touches[0].clientY;
+      isPulling.current = true;
+    }
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling.current) return;
+    const currentY = e.touches[0].clientY;
+    const distance = Math.max(0, Math.min(100, currentY - touchStartY.current));
+    setPullDistance(distance);
+  }, []);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (pullDistance > 60 && onRefresh && !isRefreshing) {
+      setIsRefreshing(true);
+      try {
+        await onRefresh();
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+    setPullDistance(0);
+    isPulling.current = false;
+  }, [pullDistance, onRefresh, isRefreshing]);
+
   if (loading) {
     return (
       <div className="p-4 space-y-4">
@@ -59,8 +101,55 @@ export function JoinFeed({
     return boss.tier.toString() === filter;
   });
 
+  const handleManualRefresh = async () => {
+    if (onRefresh && !isRefreshing) {
+      setIsRefreshing(true);
+      try {
+        await onRefresh();
+      } finally {
+        setIsRefreshing(false);
+      }
+    }
+  };
+
   return (
-    <div className="p-4 space-y-4 pb-28">
+    <div 
+      ref={containerRef}
+      className="p-4 space-y-4 pb-28 relative overflow-y-auto"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
+      {(pullDistance > 0 || isRefreshing) && (
+        <div 
+          className="absolute left-0 right-0 flex justify-center transition-opacity z-10"
+          style={{ 
+            top: Math.max(8, pullDistance * 0.4),
+            opacity: Math.min(1, pullDistance / 60)
+          }}
+        >
+          <div className="bg-card rounded-full p-2 shadow-lg border border-card-border">
+            <RefreshCw 
+              className={cn(
+                "w-5 h-5 text-muted-foreground",
+                isRefreshing && "animate-spin"
+              )} 
+            />
+          </div>
+        </div>
+      )}
+      
+      {onRefresh && (
+        <button
+          onClick={handleManualRefresh}
+          disabled={isRefreshing}
+          className="w-full py-2 text-xs text-muted-foreground flex items-center justify-center gap-2 hover:text-foreground transition-colors"
+          data-testid="button-refresh-feed"
+        >
+          <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
+          {isRefreshing ? "Refreshing..." : "Pull down or tap to refresh"}
+        </button>
+      )}
       <div className="flex gap-3">
         {onDailyReward && (
           <button
