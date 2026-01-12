@@ -63,6 +63,15 @@ export const dailyChallengeSchema = z.object({
   totalSpins: z.number().default(0)
 });
 
+export const raidHistoryEntrySchema = z.object({
+  id: z.string(),
+  bossId: z.string(),
+  bossName: z.string(),
+  completedAt: z.number(),
+  wasHost: z.boolean(),
+  playerCount: z.number()
+});
+
 export const userSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
@@ -75,6 +84,7 @@ export const userSchema = z.object({
   subscription: subscriptionSchema.optional(),
   notifications: notificationPrefsSchema.optional(),
   dailyChallenge: dailyChallengeSchema.optional(),
+  raidHistory: z.array(raidHistoryEntrySchema).optional(),
   createdAt: z.number().optional()
 });
 
@@ -90,7 +100,9 @@ export const lobbySchema = z.object({
   minLevel: z.number().min(1).max(80).default(1),
   weather: z.boolean().default(false),
   createdAt: z.number(),
-  timeLeft: z.number()
+  timeLeft: z.number(),
+  raidStarted: z.boolean().default(false),
+  invitesSent: z.boolean().default(false)
 });
 
 export const insertUserSchema = userSchema.omit({ id: true });
@@ -104,6 +116,7 @@ export type InsertLobby = z.infer<typeof insertLobbySchema>;
 export type Subscription = z.infer<typeof subscriptionSchema>;
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
 export type DailyChallenge = z.infer<typeof dailyChallengeSchema>;
+export type RaidHistoryEntry = z.infer<typeof raidHistoryEntrySchema>;
 
 export const FILTERS = ['all', '1', '3', '5', 'mega', 'max', 'shadow'] as const;
 export type FilterType = typeof FILTERS[number];
