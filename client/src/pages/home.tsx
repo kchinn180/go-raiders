@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Header } from "@/components/header";
@@ -37,6 +37,20 @@ export default function Home() {
     queryKey: ["/api/lobbies"],
     refetchInterval: 5000,
   });
+
+  // Keep active lobby refreshed when user navigates around
+  const { data: refreshedLobby } = useQuery<Lobby>({
+    queryKey: ["/api/lobbies", activeLobby?.id],
+    refetchInterval: 3000,
+    enabled: !!activeLobby && view !== "lobby",
+  });
+
+  // Update active lobby with refreshed data when navigating
+  useEffect(() => {
+    if (refreshedLobby && activeLobby && refreshedLobby.id === activeLobby.id && view !== "lobby") {
+      setActiveLobby(refreshedLobby);
+    }
+  }, [refreshedLobby, view]);
 
   const joinLobbyMutation = useMutation({
     mutationFn: async ({ lobbyId, player }: { lobbyId: string; player: Player }) => {
@@ -268,7 +282,7 @@ export default function Home() {
         )}
       </main>
 
-      <BottomNav currentView={view} setView={setView} />
+      <BottomNav currentView={view} setView={setView} hasActiveLobby={!!activeLobby} />
 
       <PremiumModal isOpen={showPremium} onClose={() => setShowPremium(false)} />
       <AutoJoinModal

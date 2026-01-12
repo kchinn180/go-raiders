@@ -1,6 +1,5 @@
 import { useState } from "react";
 import {
-  ArrowLeft,
   Copy,
   Check,
   CheckCircle2,
@@ -12,6 +11,7 @@ import {
   Flame,
   Shield,
   Zap,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/safe-image";
@@ -86,13 +86,6 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewPr
         )}
       >
         <div className="absolute inset-0 bg-black/40" />
-        <button
-          onClick={onLeave}
-          className="absolute top-4 left-4 z-10 w-10 h-10 bg-black/50 backdrop-blur rounded-full flex items-center justify-center"
-          data-testid="button-leave-lobby"
-        >
-          <ArrowLeft className="w-5 h-5 text-white" />
-        </button>
 
         <div className="absolute top-4 right-4 z-10 flex gap-2">
           <div className="flex items-center gap-1 bg-black/50 backdrop-blur px-3 py-1 rounded-full">
@@ -258,6 +251,16 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewPr
           ) : (
             "TAP WHEN READY"
           )}
+        </Button>
+
+        <Button
+          onClick={onLeave}
+          variant="ghost"
+          className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
+          data-testid="button-leave-room"
+        >
+          <LogOut className="w-4 h-4 mr-2" />
+          Leave Room
         </Button>
       </div>
     </div>
