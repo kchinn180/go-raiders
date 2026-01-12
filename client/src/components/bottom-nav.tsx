@@ -1,4 +1,5 @@
 import { Search, Plus, ShoppingBag, User, Swords } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
@@ -10,13 +11,15 @@ interface BottomNavProps {
 }
 
 const navItems = [
-  { id: "join" as const, icon: Search, label: "Find" },
-  { id: "host" as const, icon: Plus, label: "Host" },
-  { id: "shop" as const, icon: ShoppingBag, label: "Shop" },
-  { id: "profile" as const, icon: User, label: "Profile" },
+  { id: "join" as const, icon: Search, labelKey: "nav.find" },
+  { id: "host" as const, icon: Plus, labelKey: "nav.host" },
+  { id: "shop" as const, icon: ShoppingBag, labelKey: "nav.shop" },
+  { id: "profile" as const, icon: User, labelKey: "nav.profile" },
 ];
 
 export function BottomNav({ currentView, setView, hasActiveLobby }: BottomNavProps) {
+  const { t } = useTranslation();
+  
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-card-border z-50 flex items-center justify-around px-4 pt-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
       {hasActiveLobby && (
@@ -47,7 +50,7 @@ export function BottomNav({ currentView, setView, hasActiveLobby }: BottomNavPro
               currentView === "lobby" ? "text-orange-500" : "text-orange-500/80"
             )}
           >
-            Lobby
+            {t("nav.lobby")}
           </span>
         </button>
       )}
@@ -80,7 +83,7 @@ export function BottomNav({ currentView, setView, hasActiveLobby }: BottomNavPro
                 isActive ? "opacity-100" : "opacity-60"
               )}
             >
-              {item.label}
+              {t(item.labelKey)}
             </span>
           </button>
         );

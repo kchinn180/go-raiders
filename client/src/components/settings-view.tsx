@@ -16,7 +16,9 @@ import {
   Zap,
   CreditCard,
   Calendar,
+  Globe,
 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -26,6 +28,7 @@ import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { TEAMS } from "@shared/schema";
+import { languages } from "@/i18n";
 import type { TeamId } from "@shared/schema";
 
 interface SettingsViewProps {
@@ -44,13 +47,24 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
   const { user, setUser, updateUser, updateNotifications } = useUser();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
+  const { t, i18n } = useTranslation();
   
   const [isEditing, setIsEditing] = useState(false);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const [editForm, setEditForm] = useState({
     name: user?.name || "",
     level: user?.level || 1,
     code: user?.code || "",
   });
+  
+  const currentLanguage = languages.find(l => l.code === i18n.language) || languages[0];
+
+  const handleLanguageChange = (langCode: string) => {
+    i18n.changeLanguage(langCode);
+    setShowLanguageMenu(false);
+    const lang = languages.find(l => l.code === langCode);
+    toast({ title: lang?.nativeName || langCode });
+  };
 
   if (!user) return null;
 
@@ -369,6 +383,43 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
             data-testid="switch-dark-mode"
           />
         </div>
+      </Card>
+
+      {/* Language Section */}
+      <Card className="p-4">
+        <h3 className="font-bold flex items-center gap-2 mb-4">
+          <Globe className="w-4 h-4" />
+          {t("settings.language")}
+        </h3>
+        <button
+          onClick={() => setShowLanguageMenu(!showLanguageMenu)}
+          className="w-full flex items-center justify-between p-3 bg-muted rounded-xl"
+          data-testid="button-language-select"
+        >
+          <span className="font-medium">{currentLanguage.nativeName}</span>
+          <ChevronRight className={cn("w-4 h-4 transition-transform", showLanguageMenu && "rotate-90")} />
+        </button>
+        
+        {showLanguageMenu && (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            {languages.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => handleLanguageChange(lang.code)}
+                className={cn(
+                  "p-3 rounded-xl text-left transition-all",
+                  lang.code === i18n.language
+                    ? "bg-orange-600/20 border-2 border-orange-500"
+                    : "bg-muted hover:bg-muted/80"
+                )}
+                data-testid={`language-${lang.code}`}
+              >
+                <span className="font-medium block">{lang.nativeName}</span>
+                <span className="text-xs text-muted-foreground">{lang.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </Card>
 
       {/* Legal Section */}

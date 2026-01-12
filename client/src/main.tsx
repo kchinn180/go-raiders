@@ -4,6 +4,7 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import App from "./App";
 import "./index.css";
+import "./i18n";
 
 async function initializeApp() {
   if (Capacitor.isNativePlatform()) {
