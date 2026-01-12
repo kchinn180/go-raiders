@@ -8,9 +8,9 @@ import type { TeamId, User } from "@shared/schema";
 import logoImage from "@assets/IMG_0027_1768190905765.png";
 
 const teams = [
-  { id: "ember" as const, name: "Ember", icon: Flame, color: "text-red-600", bg: "bg-red-600", border: "border-red-600" },
-  { id: "frost" as const, name: "Frost", icon: Shield, color: "text-blue-600", bg: "bg-blue-600", border: "border-blue-600" },
-  { id: "storm" as const, name: "Storm", icon: Zap, color: "text-yellow-500", bg: "bg-yellow-500", border: "border-yellow-500" },
+  { id: "valor" as const, name: "Valor", icon: Flame, color: "text-red-600", bg: "bg-red-600", border: "border-red-600" },
+  { id: "mystic" as const, name: "Mystic", icon: Shield, color: "text-blue-600", bg: "bg-blue-600", border: "border-blue-600" },
+  { id: "instinct" as const, name: "Instinct", icon: Zap, color: "text-yellow-500", bg: "bg-yellow-500", border: "border-yellow-500" },
 ];
 
 export function Onboarding() {
@@ -19,7 +19,7 @@ export function Onboarding() {
   const [formData, setFormData] = useState({
     name: "",
     level: 45,
-    team: "ember" as TeamId,
+    team: "valor" as TeamId,
     code: "",
   });
   const [error, setError] = useState("");
@@ -165,7 +165,7 @@ export function Onboarding() {
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Your username"
+              placeholder="Your in-game name"
               className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 h-12 rounded-xl"
               data-testid="input-trainer-name"
             />
@@ -217,9 +217,9 @@ export function Onboarding() {
               )}
               style={{
                 background: `linear-gradient(to right, ${
-                  selectedTeam.id === "ember"
+                  selectedTeam.id === "valor"
                     ? "#dc2626"
-                    : selectedTeam.id === "frost"
+                    : selectedTeam.id === "mystic"
                     ? "#2563eb"
                     : "#eab308"
                 } ${(formData.level / 50) * 100}%, #3f3f46 0)`,

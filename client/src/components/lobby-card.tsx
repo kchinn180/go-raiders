@@ -12,16 +12,16 @@ interface LobbyCardProps {
 }
 
 const teamIcons = {
-  ember: Flame,
-  frost: Shield,
-  storm: Zap,
+  valor: Flame,
+  mystic: Shield,
+  instinct: Zap,
   neutral: Users,
 };
 
 const teamGlowClasses = {
-  ember: "team-glow-valor",
-  frost: "team-glow-mystic",
-  storm: "team-glow-instinct",
+  valor: "team-glow-valor",
+  mystic: "team-glow-mystic",
+  instinct: "team-glow-instinct",
   neutral: "team-glow-neutral",
 };
 

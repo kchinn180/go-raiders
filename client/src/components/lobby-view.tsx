@@ -29,9 +29,9 @@ interface LobbyViewProps {
 }
 
 const teamIcons = {
-  ember: Flame,
-  frost: Shield,
-  storm: Zap,
+  valor: Flame,
+  mystic: Shield,
+  instinct: Zap,
   neutral: Users,
 };
 

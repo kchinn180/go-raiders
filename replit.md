@@ -1,15 +1,15 @@
-# GO Raiders - Raid Coordination App
+# GO Raiders - Pokémon GO Raid Coordination App
 
 ## Overview
-GO Raiders is a raid coordination application that allows players to find and join raid lobbies, host their own raids, and coordinate with other players in real-time. The app uses original, non-copyrighted content including generic fantasy creature names and original faction names.
+GO Raiders is a Pokémon GO raid coordination application that allows trainers to find and join raid lobbies, host their own raids, and coordinate with other players in real-time. The app uses Pokémon names/images from PokémonDB and official team names (Valor, Mystic, Instinct).
 
 ## Key Features
-- **Onboarding**: New users set up their profile with name, faction (Ember/Frost/Storm), level, and friend code
+- **Onboarding**: New users set up their trainer profile with name, team (Valor/Mystic/Instinct), level, and friend code
 - **Join Feed**: Browse available raid lobbies with filtering by tier (1, 3, 5, Mega, Max, Shadow)
-- **Host Raids**: Create new raid lobbies with boss selection and settings
+- **Host Raids**: Create new raid lobbies with Pokémon boss selection and settings
 - **Lobby View**: Real-time lobby with player list, ready status, and friend code coordination
 - **Premium/Elite**: Subscription features including Auto Join, no wait time, and priority queue
-- **Dark/Light Theme**: Full theme support with faction-colored accents (volcanic/lava theme)
+- **Dark/Light Theme**: Full theme support with team-colored accents (volcanic/lava theme)
 
 ## Architecture
 
