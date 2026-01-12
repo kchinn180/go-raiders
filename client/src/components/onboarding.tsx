@@ -206,7 +206,7 @@ export function Onboarding() {
             <input
               type="range"
               min="1"
-              max="50"
+              max="80"
               value={formData.level}
               onChange={(e) =>
                 setFormData({ ...formData, level: parseInt(e.target.value) })
@@ -222,7 +222,7 @@ export function Onboarding() {
                     : selectedTeam.id === "mystic"
                     ? "#2563eb"
                     : "#eab308"
-                } ${(formData.level / 50) * 100}%, #3f3f46 0)`,
+                } ${(formData.level / 80) * 100}%, #3f3f46 0)`,
               }}
               data-testid="slider-level"
             />

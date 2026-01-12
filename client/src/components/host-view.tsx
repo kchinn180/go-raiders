@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CloudLightning, Plus } from "lucide-react";
+import { CloudLightning, Plus, Crown, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -126,20 +126,31 @@ export function HostView({ onHost }: HostViewProps) {
       )}
 
       <div className="space-y-4 bg-card p-4 rounded-2xl border border-card-border">
-        <div className="flex items-center justify-between">
+        <div className={cn(
+          "flex items-center justify-between",
+          !user.isPremium && "opacity-50"
+        )}>
           <div>
-            <label className="font-semibold block">Minimum Level</label>
+            <label className="font-semibold block flex items-center gap-2">
+              Minimum Level
+              {user.isPremium ? (
+                <Crown className="w-4 h-4 text-amber-500" />
+              ) : (
+                <Lock className="w-3 h-3 text-muted-foreground" />
+              )}
+            </label>
             <span className="text-sm text-muted-foreground">
-              Set level requirement for raiders
+              {user.isPremium ? "Set level requirement for raiders" : "Elite feature"}
             </span>
           </div>
           <Input
             type="number"
-            value={minLevel}
-            onChange={(e) => setMinLevel(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+            value={user.isPremium ? minLevel : 1}
+            onChange={(e) => setMinLevel(Math.min(80, Math.max(1, parseInt(e.target.value) || 1)))}
             className="w-20 text-center font-bold"
             min={1}
-            max={50}
+            max={80}
+            disabled={!user.isPremium}
             data-testid="input-min-level"
           />
         </div>

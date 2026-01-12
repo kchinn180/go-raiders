@@ -30,7 +30,7 @@ export type Boss = typeof BOSSES[number];
 export const playerSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  level: z.number().min(1).max(50),
+  level: z.number().min(1).max(80),
   team: z.enum(['valor', 'mystic', 'instinct', 'neutral']),
   isReady: z.boolean(),
   isHost: z.boolean().optional(),
@@ -41,7 +41,7 @@ export const playerSchema = z.object({
 export const userSchema = z.object({
   id: z.string(),
   name: z.string().min(1),
-  level: z.number().min(1).max(50),
+  level: z.number().min(1).max(80),
   team: z.enum(['valor', 'mystic', 'instinct', 'neutral']),
   code: z.string().min(12),
   isPremium: z.boolean(),
@@ -57,7 +57,7 @@ export const lobbySchema = z.object({
   players: z.array(playerSchema),
   maxPlayers: z.number().default(6),
   team: z.enum(['valor', 'mystic', 'instinct', 'neutral']),
-  minLevel: z.number().min(1).max(50).default(1),
+  minLevel: z.number().min(1).max(80).default(1),
   weather: z.boolean().default(false),
   createdAt: z.number(),
   timeLeft: z.number()
