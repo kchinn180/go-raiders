@@ -17,7 +17,7 @@ const navItems = [
 
 export function BottomNav({ currentView, setView }: BottomNavProps) {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-20 bg-card border-t border-card-border z-50 flex items-center justify-around px-4 pb-4 safe-area-bottom">
+    <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-card-border z-50 flex items-center justify-around px-4 pt-2" style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}>
       {navItems.map((item) => {
         const Icon = item.icon;
         const isActive = currentView === item.id;

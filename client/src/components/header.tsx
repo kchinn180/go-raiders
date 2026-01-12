@@ -9,7 +9,7 @@ export function Header({ onPremiumClick }: HeaderProps) {
   const { user } = useUser();
 
   return (
-    <header className="h-16 px-4 flex items-center justify-between bg-card border-b border-card-border z-10 shrink-0 transition-colors duration-300">
+    <header className="px-4 flex items-center justify-between bg-card border-b border-card-border z-10 shrink-0 transition-colors duration-300" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))', paddingBottom: '0.75rem' }}>
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg overflow-hidden">
           <img src={logoImage} alt="GO Raiders Logo" className="w-full h-full object-cover" />
