@@ -184,7 +184,17 @@ export function HostView({ onHost }: HostViewProps) {
           <Input
             type="number"
             value={user.isPremium ? minLevel : 1}
-            onChange={(e) => setMinLevel(Math.min(80, Math.max(1, parseInt(e.target.value) || 1)))}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (val === '') {
+                setMinLevel(1);
+              } else {
+                const num = parseInt(val);
+                if (!isNaN(num)) {
+                  setMinLevel(Math.min(80, Math.max(1, num)));
+                }
+              }
+            }}
             className="w-20 text-center font-bold"
             min={1}
             max={80}
