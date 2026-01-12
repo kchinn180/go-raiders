@@ -15,7 +15,7 @@ interface HostViewProps {
 
 export function HostView({ onHost }: HostViewProps) {
   const { user } = useUser();
-  const [selectedBoss, setSelectedBoss] = useState(BOSSES[0].id);
+  const [selectedBoss, setSelectedBoss] = useState<string>(BOSSES[0].id);
   const [minLevel, setMinLevel] = useState(1);
   const [weather, setWeather] = useState(false);
 

@@ -14,9 +14,9 @@ interface ProfileViewProps {
 }
 
 const teamIcons = {
-  valor: Flame,
-  mystic: Shield,
-  instinct: Zap,
+  ember: Flame,
+  frost: Shield,
+  storm: Zap,
   neutral: Users,
 };
 

@@ -16,17 +16,17 @@ The app's visual identity is inspired by the volcanic pixel art logo featuring w
 - **Card Background**: Slightly elevated gray surfaces (`hsl(15, 8%, 9%)`)
 - **Muted Text**: Warm gray for secondary text (`hsl(20, 5%, 60%)`)
 
-### Team Colors (Pokemon GO Teams)
-- **Valor (Red)**: `#dc2626` - Red team, flame icon
-- **Mystic (Blue)**: `#2563eb` - Blue team, shield icon  
-- **Instinct (Yellow)**: `#eab308` - Yellow team, lightning icon
-- **Neutral (Gray)**: `#64748b` - No team preference
+### Team/Faction Colors
+- **Ember (Red)**: `#dc2626` - Fire-themed faction, flame icon
+- **Frost (Blue)**: `#2563eb` - Ice-themed faction, shield icon  
+- **Storm (Yellow)**: `#eab308` - Lightning-themed faction, zap icon
+- **Neutral (Gray)**: `#64748b` - No faction preference
 
 ## Team Glow Effects
-Each raid lobby card displays a subtle glow effect matching the gym's controlling team:
-- **Valor**: Red glow (`box-shadow: 0 0 20px rgba(239, 68, 68, 0.4)`)
-- **Mystic**: Blue glow (`box-shadow: 0 0 20px rgba(59, 130, 246, 0.4)`)
-- **Instinct**: Yellow glow (`box-shadow: 0 0 20px rgba(234, 179, 8, 0.4)`)
+Each raid lobby card displays a subtle glow effect matching the controlling faction:
+- **Ember**: Red glow (`box-shadow: 0 0 20px rgba(239, 68, 68, 0.4)`)
+- **Frost**: Blue glow (`box-shadow: 0 0 20px rgba(59, 130, 246, 0.4)`)
+- **Storm**: Yellow glow (`box-shadow: 0 0 20px rgba(234, 179, 8, 0.4)`)
 - **Neutral**: Slate glow (`box-shadow: 0 0 20px rgba(100, 116, 139, 0.3)`)
 
 ---
@@ -65,9 +65,9 @@ Each raid lobby card displays a subtle glow effect matching the gym's controllin
 
 ### Cards (Raid Lobbies)
 - Compact design: Boss image (56x56px), stats row, player count, timer
-- Border accent matching host's team color (4px left border)
-- Team glow shadow effect for visual highlight
-- Team tint background overlay
+- Border accent matching host's faction color (4px left border)
+- Faction glow shadow effect for visual highlight
+- Faction tint background overlay
 - Quick-scan badges: Tier, Shadow/MAX, weather boost
 
 ### Buttons
@@ -79,13 +79,13 @@ Each raid lobby card displays a subtle glow effect matching the gym's controllin
 ### Status Indicators
 - **Player Ready State**: Checkmark icon with green background
 - **Spots Available**: Color-coded badges (green/yellow/red based on availability)
-- **Team Badges**: Small icons with team colors
+- **Faction Badges**: Small icons with faction colors
 - **Premium Badge**: Amber-500 pulsing dot
 
 ### Forms (Host Raid)
 - Large touch-friendly inputs (min-height 48px)
-- Boss selection as scrollable visual grid with Pokemon images
-- Toggle switches for settings using team/primary colors
+- Boss selection as scrollable visual grid with creature images
+- Toggle switches for settings using faction/primary colors
 - Form labels in uppercase, small size, zinc-400
 
 ---
@@ -95,7 +95,7 @@ Each raid lobby card displays a subtle glow effect matching the gym's controllin
 - **Micro-interactions only**: Button press states (scale 0.98), checkbox checks
 - **Loading States**: Skeleton screens with subtle pulse
 - **Transitions**: Fast 150-200ms ease curves
-- **Team glow effects**: Subtle box-shadows on lobby cards
+- **Faction glow effects**: Subtle box-shadows on lobby cards
 - **Hover states**: Use `hover-elevate` utility class
 
 ---
@@ -113,10 +113,10 @@ Each raid lobby card displays a subtle glow effect matching the gym's controllin
 - Light cards with subtle warm gray borders
 - Dark text hierarchy
 
-**Team Colors** (Always Vibrant):
-- Valor: Red-600 (#dc2626)
-- Mystic: Blue-600 (#2563eb)  
-- Instinct: Yellow-500 (#eab308)
+**Faction Colors** (Always Vibrant):
+- Ember: Red-600 (#dc2626)
+- Frost: Blue-600 (#2563eb)  
+- Storm: Yellow-500 (#eab308)
 - Use at full saturation for glow effects, borders, active states
 
 ---
@@ -134,3 +134,13 @@ Each raid lobby card displays a subtle glow effect matching the gym's controllin
 - Bottom sheet pattern for modals
 - Thumb-zone friendly: Critical actions in bottom 2/3 of screen
 - Fixed bottom navigation for instant context switching
+
+---
+
+## Content Guidelines
+
+**IMPORTANT**: This app uses only original, royalty-free content:
+- All creature/boss names are original fantasy names (not from any game franchise)
+- No external copyrighted images - use fallback letter icons
+- Faction names are original (Ember, Frost, Storm) not from any game
+- No references to any commercial game publishers or developers

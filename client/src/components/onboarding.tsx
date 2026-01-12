@@ -8,9 +8,9 @@ import type { TeamId, User } from "@shared/schema";
 import logoImage from "@assets/IMG_0027_1768190905765.png";
 
 const teams = [
-  { id: "valor" as const, name: "Valor", icon: Flame, color: "text-red-600", bg: "bg-red-600", border: "border-red-600" },
-  { id: "mystic" as const, name: "Mystic", icon: Shield, color: "text-blue-600", bg: "bg-blue-600", border: "border-blue-600" },
-  { id: "instinct" as const, name: "Instinct", icon: Zap, color: "text-yellow-500", bg: "bg-yellow-500", border: "border-yellow-500" },
+  { id: "ember" as const, name: "Ember", icon: Flame, color: "text-red-600", bg: "bg-red-600", border: "border-red-600" },
+  { id: "frost" as const, name: "Frost", icon: Shield, color: "text-blue-600", bg: "bg-blue-600", border: "border-blue-600" },
+  { id: "storm" as const, name: "Storm", icon: Zap, color: "text-yellow-500", bg: "bg-yellow-500", border: "border-yellow-500" },
 ];
 
 export function Onboarding() {
@@ -19,7 +19,7 @@ export function Onboarding() {
   const [formData, setFormData] = useState({
     name: "",
     level: 45,
-    team: "valor" as TeamId,
+    team: "ember" as TeamId,
     code: "",
   });
   const [error, setError] = useState("");
@@ -96,23 +96,22 @@ export function Onboarding() {
           <h2 className="text-xl font-black text-white mb-4">Terms of Service</h2>
           <div className="flex-1 overflow-y-auto text-left space-y-4 text-xs text-zinc-400 mb-6 pr-2">
             <p>
-              <strong className="text-white">1. No Affiliation:</strong> GO Raiders is
-              a third-party app and is NOT affiliated with, endorsed, sponsored, or
-              specifically approved by Niantic, Nintendo, The Pokémon Company, or
-              their partners.
+              <strong className="text-white">1. Independent App:</strong> GO Raiders is
+              an independent third-party coordination tool. It is not affiliated with,
+              endorsed by, or connected to any game publisher or developer.
             </p>
             <p>
               <strong className="text-white">2. User Responsibility:</strong> You are
               responsible for your interactions. Do not share personal info beyond
-              what is necessary for raids.
+              what is necessary for coordination.
             </p>
             <p>
-              <strong className="text-white">3. Account Safety:</strong> Using this app
-              may violate the official Terms of Service. Use at your own risk.
+              <strong className="text-white">3. Account Safety:</strong> Using third-party
+              tools may have implications. Use at your own discretion.
             </p>
             <p>
               <strong className="text-white">4. No Guarantee:</strong> We do not
-              guarantee successful raids or friend requests.
+              guarantee successful raids or connections.
             </p>
             <p>
               <strong className="text-white">5. Respectful Conduct:</strong> Harassment
@@ -166,7 +165,7 @@ export function Onboarding() {
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Your in-game name"
+              placeholder="Your username"
               className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 h-12 rounded-xl"
               data-testid="input-trainer-name"
             />
@@ -218,9 +217,9 @@ export function Onboarding() {
               )}
               style={{
                 background: `linear-gradient(to right, ${
-                  selectedTeam.id === "valor"
+                  selectedTeam.id === "ember"
                     ? "#dc2626"
-                    : selectedTeam.id === "mystic"
+                    : selectedTeam.id === "frost"
                     ? "#2563eb"
                     : "#eab308"
                 } ${(formData.level / 50) * 100}%, #3f3f46 0)`,
