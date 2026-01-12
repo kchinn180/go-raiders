@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
-import type { User, Subscription, NotificationPrefs } from "@shared/schema";
+import type { User, Subscription, NotificationPrefs, DailyChallenge } from "@shared/schema";
 
 interface UserContextType {
   user: User | null;
@@ -10,6 +10,10 @@ interface UserContextType {
   updateUser: (updates: Partial<User>) => void;
   updateNotifications: (prefs: NotificationPrefs) => void;
   checkSubscriptionStatus: () => boolean;
+  addCoins: (amount: number) => void;
+  spendCoins: (amount: number) => boolean;
+  updateDailyChallenge: (challenge: DailyChallenge) => void;
+  canSpinToday: () => boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -144,6 +148,36 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return false;
   };
 
+  const addCoins = (amount: number) => {
+    if (user) {
+      const currentCoins = user.coins || 0;
+      setUser({ ...user, coins: currentCoins + amount });
+    }
+  };
+
+  const spendCoins = (amount: number): boolean => {
+    if (!user) return false;
+    const currentCoins = user.coins || 0;
+    if (currentCoins < amount) return false;
+    setUser({ ...user, coins: currentCoins - amount });
+    return true;
+  };
+
+  const updateDailyChallenge = (challenge: DailyChallenge) => {
+    if (user) {
+      setUser({ ...user, dailyChallenge: challenge });
+    }
+  };
+
+  const canSpinToday = (): boolean => {
+    if (!user) return false;
+    const lastSpin = user.dailyChallenge?.lastSpinDate;
+    if (!lastSpin) return true;
+    const today = new Date().toDateString();
+    const lastSpinDate = new Date(lastSpin).toDateString();
+    return today !== lastSpinDate;
+  };
+
   return (
     <UserContext.Provider value={{ 
       user, 
@@ -153,7 +187,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       cancelSubscription,
       updateUser,
       updateNotifications,
-      checkSubscriptionStatus
+      checkSubscriptionStatus,
+      addCoins,
+      spendCoins,
+      updateDailyChallenge,
+      canSpinToday
     }}>
       {children}
     </UserContext.Provider>

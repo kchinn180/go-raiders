@@ -137,5 +137,20 @@
     "failedCreate": "建立失敗",
     "profileUpdated": "個人資料已更新",
     "changesApplied": "您的變更已套用"
+  },
+  "daily": {
+    "title": "每日獎勵",
+    "spin": "轉動贏大獎！",
+    "spinning": "旋轉中...",
+    "youWon": "恭喜獲得！",
+    "comeBack": "明天再來！",
+    "streak": "連續",
+    "totalSpins": "總旋轉次數",
+    "hint": "每天旋轉賺取金幣，保持連續紀錄！"
+  },
+  "quickRaid": {
+    "title": "快速團戰",
+    "desc": "快速加入團戰",
+    "findNow": "立即查找"
   }
 }

@@ -52,7 +52,15 @@ export const notificationPrefsSchema = z.object({
   lobbyAlerts: z.boolean().default(true),
   friendRequests: z.boolean().default(true),
   raidReminders: z.boolean().default(true),
-  marketing: z.boolean().default(false)
+  marketing: z.boolean().default(false),
+  hapticFeedback: z.boolean().default(true),
+  soundEffects: z.boolean().default(true)
+});
+
+export const dailyChallengeSchema = z.object({
+  lastSpinDate: z.string().nullable(),
+  streak: z.number().default(0),
+  totalSpins: z.number().default(0)
 });
 
 export const userSchema = z.object({
@@ -63,8 +71,10 @@ export const userSchema = z.object({
   code: z.string().min(12),
   isPremium: z.boolean(),
   isVerified: z.boolean(),
+  coins: z.number().default(0),
   subscription: subscriptionSchema.optional(),
   notifications: notificationPrefsSchema.optional(),
+  dailyChallenge: dailyChallengeSchema.optional(),
   createdAt: z.number().optional()
 });
 
@@ -93,6 +103,7 @@ export type Lobby = z.infer<typeof lobbySchema>;
 export type InsertLobby = z.infer<typeof insertLobbySchema>;
 export type Subscription = z.infer<typeof subscriptionSchema>;
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
+export type DailyChallenge = z.infer<typeof dailyChallengeSchema>;
 
 export const FILTERS = ['all', '1', '3', '5', 'mega', 'max', 'shadow'] as const;
 export type FilterType = typeof FILTERS[number];

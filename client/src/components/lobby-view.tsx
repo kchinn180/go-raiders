@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Copy,
   Check,
@@ -28,6 +28,8 @@ import {
 import { SafeImage } from "@/components/safe-image";
 import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
+import { triggerImpact, triggerNotification } from "@/lib/haptics";
+import { playRaidCountdown, playReadySound } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { BOSSES, TEAMS } from "@shared/schema";
 import type { Lobby, Player } from "@shared/schema";
@@ -50,9 +52,27 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewPr
   const { toast } = useToast();
   const { user } = useUser();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const lastTimeLeftRef = useRef(lobby.timeLeft);
+  const soundPlayedRef = useRef(false);
 
   const boss = BOSSES.find((b) => b.id === lobby.bossId);
   const team = TEAMS.find((t) => t.id === lobby.team) || TEAMS[3];
+  
+  const hapticEnabled = user?.notifications?.hapticFeedback !== false;
+  const soundEnabled = user?.notifications?.soundEffects !== false;
+
+  useEffect(() => {
+    const allReady = lobby.players.every(p => p.isReady);
+    if (allReady && lobby.players.length >= 2 && !soundPlayedRef.current) {
+      if (soundEnabled) playRaidCountdown();
+      if (hapticEnabled) triggerNotification('success');
+      soundPlayedRef.current = true;
+      toast({ title: "All players ready!", description: "Raid is about to begin!" });
+    }
+    if (!allReady) {
+      soundPlayedRef.current = false;
+    }
+  }, [lobby.players, soundEnabled, hapticEnabled]);
 
   if (!boss || !user) return null;
 
@@ -74,6 +94,10 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby }: LobbyViewPr
 
   const toggleReady = () => {
     if (!myPlayer) return;
+    
+    if (hapticEnabled) triggerImpact('medium');
+    if (soundEnabled) playReadySound();
+    
     const updatedPlayers = lobby.players.map((p) =>
       p.id === user.id ? { ...p, isReady: !p.isReady } : p
     );

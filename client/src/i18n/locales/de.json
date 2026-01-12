@@ -137,5 +137,20 @@
     "failedCreate": "Erstellung fehlgeschlagen",
     "profileUpdated": "Profil Aktualisiert",
     "changesApplied": "Deine Änderungen wurden übernommen"
+  },
+  "daily": {
+    "title": "Tägliche Belohnung",
+    "spin": "Drehen und Gewinnen!",
+    "spinning": "Drehen...",
+    "youWon": "Du hast gewonnen!",
+    "comeBack": "Komm morgen wieder!",
+    "streak": "Serie",
+    "totalSpins": "Gesamte Drehungen",
+    "hint": "Drehe täglich, um Münzen zu verdienen und deine Serie aufzubauen!"
+  },
+  "quickRaid": {
+    "title": "Schnell-Raid",
+    "desc": "Schnell einem Raid beitreten",
+    "findNow": "Jetzt Suchen"
   }
 }

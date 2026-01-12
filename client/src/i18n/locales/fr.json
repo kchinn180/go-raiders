@@ -137,5 +137,20 @@
     "failedCreate": "Échec de la création",
     "profileUpdated": "Profil Mis à Jour",
     "changesApplied": "Vos modifications ont été appliquées"
+  },
+  "daily": {
+    "title": "Récompense Quotidienne",
+    "spin": "Tournez pour Gagner !",
+    "spinning": "Rotation...",
+    "youWon": "Vous avez gagné !",
+    "comeBack": "Revenez demain !",
+    "streak": "Série",
+    "totalSpins": "Tours Totaux",
+    "hint": "Tournez chaque jour pour gagner des pièces et maintenir votre série !"
+  },
+  "quickRaid": {
+    "title": "Raid Rapide",
+    "desc": "Rejoignez un raid rapidement",
+    "findNow": "Chercher Maintenant"
   }
 }

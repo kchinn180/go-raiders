@@ -137,5 +137,20 @@
     "failedCreate": "作成に失敗",
     "profileUpdated": "プロフィール更新",
     "changesApplied": "変更が適用されました"
+  },
+  "daily": {
+    "title": "デイリー報酬",
+    "spin": "回して勝とう！",
+    "spinning": "回転中...",
+    "youWon": "当選！",
+    "comeBack": "明日また来てね！",
+    "streak": "連続",
+    "totalSpins": "合計スピン",
+    "hint": "毎日回してコインを獲得し、連続記録を伸ばそう！"
+  },
+  "quickRaid": {
+    "title": "クイックレイド",
+    "desc": "すぐにレイドに参加",
+    "findNow": "今すぐ検索"
   }
 }

@@ -1,6 +1,8 @@
-import { Radar } from "lucide-react";
+import { Radar, Gift, Zap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { LobbyCard } from "@/components/lobby-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
 import { FILTERS, BOSSES } from "@shared/schema";
 import type { Lobby, FilterType } from "@shared/schema";
@@ -13,6 +15,8 @@ interface JoinFeedProps {
   isPremium: boolean;
   onJoin: (lobby: Lobby) => void;
   onAutoJoin: () => void;
+  onQuickRaid?: () => void;
+  onDailyReward?: () => void;
 }
 
 export function JoinFeed({
@@ -23,7 +27,11 @@ export function JoinFeed({
   isPremium,
   onJoin,
   onAutoJoin,
+  onQuickRaid,
+  onDailyReward,
 }: JoinFeedProps) {
+  const { t } = useTranslation();
+  const { canSpinToday } = useUser();
   if (loading) {
     return (
       <div className="p-4 space-y-4">
@@ -53,6 +61,45 @@ export function JoinFeed({
 
   return (
     <div className="p-4 space-y-4 pb-28">
+      <div className="flex gap-3">
+        {onDailyReward && (
+          <button
+            onClick={onDailyReward}
+            className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 p-4 rounded-2xl flex items-center gap-3 shadow-lg relative overflow-hidden active:scale-[0.98] transition-transform"
+            data-testid="button-daily-reward"
+          >
+            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+              <Gift className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-left text-white flex-1">
+              <div className="font-bold text-sm">{t("daily.title")}</div>
+              <div className="text-[10px] opacity-80">
+                {canSpinToday() ? t("daily.spin") : t("daily.comeBack")}
+              </div>
+            </div>
+            {canSpinToday() && (
+              <span className="absolute top-2 right-2 w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+            )}
+          </button>
+        )}
+        
+        {onQuickRaid && (
+          <button
+            onClick={onQuickRaid}
+            className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 p-4 rounded-2xl flex items-center gap-3 shadow-lg relative overflow-hidden active:scale-[0.98] transition-transform"
+            data-testid="button-quick-raid"
+          >
+            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <div className="text-left text-white flex-1">
+              <div className="font-bold text-sm">{t("quickRaid.title")}</div>
+              <div className="text-[10px] opacity-80">{t("quickRaid.desc")}</div>
+            </div>
+          </button>
+        )}
+      </div>
+
       <button
         onClick={onAutoJoin}
         className="w-full bg-gradient-to-r from-orange-600 to-red-700 p-4 rounded-3xl flex items-center justify-between shadow-xl relative overflow-hidden active:scale-[0.98] transition-transform"
@@ -63,7 +110,7 @@ export function JoinFeed({
             <Radar className="w-6 h-6 text-white" />
           </div>
           <div className="text-left text-white">
-            <div className="font-black text-lg">Auto Join</div>
+            <div className="font-black text-lg">{t("join.autoJoin")}</div>
             <div className="text-xs opacity-80 font-medium">
               Find boss & skip queue instantly
             </div>

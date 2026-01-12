@@ -9,6 +9,7 @@ import { HostView } from "@/components/host-view";
 import { LobbyView } from "@/components/lobby-view";
 import { ShopView } from "@/components/shop-view";
 import { SettingsView } from "@/components/settings-view";
+import { DailyChallenge } from "@/components/daily-challenge";
 import { PremiumModal } from "@/components/premium-modal";
 import { AutoJoinModal } from "@/components/auto-join-modal";
 import { PrivacyPage } from "@/pages/privacy";
@@ -16,11 +17,13 @@ import { TermsPage } from "@/pages/terms";
 import { AboutPage } from "@/pages/about";
 import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
+import { triggerImpact } from "@/lib/haptics";
+import { playClickSound } from "@/lib/sounds";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { BOSSES } from "@shared/schema";
 import type { Lobby, Player, Boss, FilterType } from "@shared/schema";
 
-type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
+type ViewType = "join" | "host" | "shop" | "profile" | "lobby" | "daily";
 type LegalPage = "privacy" | "terms" | "about" | null;
 
 export default function Home() {
@@ -118,6 +121,9 @@ export default function Home() {
     },
   });
 
+  const hapticEnabled = user?.notifications?.hapticFeedback !== false;
+  const soundEnabled = user?.notifications?.soundEffects !== false;
+
   const handleJoinLobby = useCallback((lobby: Lobby) => {
     if (!user) return;
     
@@ -131,6 +137,9 @@ export default function Home() {
       return;
     }
     
+    if (hapticEnabled) triggerImpact('medium');
+    if (soundEnabled) playClickSound();
+    
     const myPlayer: Player = {
       id: user.id,
       name: user.name,
@@ -142,7 +151,7 @@ export default function Home() {
     };
 
     joinLobbyMutation.mutate({ lobbyId: lobby.id, player: myPlayer });
-  }, [user, joinLobbyMutation, activeLobby, toast]);
+  }, [user, joinLobbyMutation, activeLobby, toast, hapticEnabled, soundEnabled]);
 
   const handleHostLobby = useCallback((lobby: Lobby) => {
     // Prevent hosting if already in a lobby
@@ -154,8 +163,48 @@ export default function Home() {
       });
       return;
     }
+    if (hapticEnabled) triggerImpact('heavy');
+    if (soundEnabled) playClickSound();
     createLobbyMutation.mutate(lobby);
-  }, [createLobbyMutation, activeLobby, toast]);
+  }, [createLobbyMutation, activeLobby, toast, hapticEnabled, soundEnabled]);
+
+  const handleQuickRaid = useCallback(async () => {
+    if (!user || activeLobby) {
+      if (activeLobby) {
+        toast({ 
+          title: "Already in a Lobby", 
+          description: "Leave your current lobby first",
+          variant: "destructive"
+        });
+      }
+      return;
+    }
+    
+    if (hapticEnabled) triggerImpact('medium');
+    if (soundEnabled) playClickSound();
+    
+    try {
+      const res = await fetch('/api/lobbies');
+      const freshLobbies = await res.json();
+      const availableLobby = freshLobbies.find((l: Lobby) => l.players.length < l.maxPlayers);
+      
+      if (availableLobby) {
+        handleJoinLobby(availableLobby);
+      } else {
+        toast({ 
+          title: "No raids available", 
+          description: "Try hosting your own raid!",
+          variant: "destructive"
+        });
+      }
+    } catch {
+      toast({ 
+        title: "Connection error", 
+        description: "Please try again",
+        variant: "destructive"
+      });
+    }
+  }, [user, activeLobby, handleJoinLobby, toast, hapticEnabled, soundEnabled]);
 
   const handleLeaveLobby = useCallback(() => {
     if (!user || !activeLobby) return;
@@ -281,6 +330,8 @@ export default function Home() {
             isPremium={user.isPremium}
             onJoin={handleJoinLobby}
             onAutoJoin={handleAutoJoin}
+            onQuickRaid={handleQuickRaid}
+            onDailyReward={() => setView("daily")}
           />
         )}
         {view === "host" && <HostView onHost={handleHostLobby} />}
@@ -291,6 +342,7 @@ export default function Home() {
             onPremiumClick={() => setShowPremium(true)} 
           />
         )}
+        {view === "daily" && <DailyChallenge />}
         {view === "lobby" && activeLobby && (
           <LobbyView
             lobby={activeLobby}

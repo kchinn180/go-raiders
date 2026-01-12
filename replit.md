@@ -86,6 +86,30 @@ npx cap open android
 5. **Privacy Policy**: Required URL
 6. **Content Rating**: Complete questionnaire
 
+## Internationalization
+The app supports 10 languages via react-i18next:
+- English, Spanish, Portuguese (Brazil), French, German
+- Japanese, Korean, Chinese (Simplified/Traditional), Arabic
+- Language selector in Settings view
+- All translation files in `client/src/i18n/locales/`
+
+## Haptic Feedback & Sound Effects
+- **Haptics** (`client/src/lib/haptics.ts`): Uses Capacitor Haptics API with navigator.vibrate() fallback for web
+- **Sounds** (`client/src/lib/sounds.ts`): Web Audio API for sound effects (no external files)
+- Toggleable via user notification preferences in Settings
+- Triggered on: join lobby, ready toggle, raid countdown (all ready), daily spin
+
+## Daily Challenge Mini-Game
+- Spinning wheel with weighted coin rewards (10-1000 coins)
+- Streak tracking for consecutive daily spins
+- User coins stored in user profile and displayed in header
+- Daily spin limit tracked via lastSpinDate
+
+## Quick Raid
+- One-tap button to instantly join first available lobby with space
+- Located in Join Feed alongside Daily Reward button
+- Haptic/sound feedback on activation
+
 ## Recent Changes
 - Initial MVP implementation with full raid coordination features
 - Dark/Light theme support
@@ -94,3 +118,8 @@ npx cap open android
 - PWA manifest and mobile viewport configuration
 - Capacitor integration for native iOS/Android builds
 - Safe-area padding for notched devices
+- Multi-language internationalization (10 languages)
+- Daily challenge spinning wheel mini-game with coin rewards
+- Haptic feedback system with Capacitor integration
+- Sound effects for raid countdown and user actions
+- Quick Raid one-tap join feature

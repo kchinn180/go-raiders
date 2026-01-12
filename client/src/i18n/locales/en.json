@@ -137,5 +137,20 @@
     "failedCreate": "Failed to create lobby",
     "profileUpdated": "Profile Updated",
     "changesApplied": "Your changes have been applied"
+  },
+  "daily": {
+    "title": "Daily Reward",
+    "spin": "Spin to Win!",
+    "spinning": "Spinning...",
+    "youWon": "You won!",
+    "comeBack": "Come back tomorrow!",
+    "streak": "Streak",
+    "totalSpins": "Total Spins",
+    "hint": "Spin daily to earn coins and build your streak!"
+  },
+  "quickRaid": {
+    "title": "Quick Raid",
+    "desc": "Jump into a raid quickly",
+    "findNow": "Find Raid Now"
   }
 }

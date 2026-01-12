@@ -137,5 +137,20 @@
     "failedCreate": "생성 실패",
     "profileUpdated": "프로필 업데이트됨",
     "changesApplied": "변경 사항이 적용되었습니다"
+  },
+  "daily": {
+    "title": "일일 보상",
+    "spin": "돌려서 승리하세요!",
+    "spinning": "회전 중...",
+    "youWon": "축하합니다!",
+    "comeBack": "내일 다시 오세요!",
+    "streak": "연속",
+    "totalSpins": "총 스핀",
+    "hint": "매일 돌려서 코인을 얻고 연속 기록을 쌓으세요!"
+  },
+  "quickRaid": {
+    "title": "빠른 레이드",
+    "desc": "빠르게 레이드에 참가",
+    "findNow": "지금 검색"
   }
 }

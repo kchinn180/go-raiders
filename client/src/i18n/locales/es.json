@@ -137,5 +137,20 @@
     "failedCreate": "Error al crear sala",
     "profileUpdated": "Perfil Actualizado",
     "changesApplied": "Tus cambios han sido aplicados"
+  },
+  "daily": {
+    "title": "Recompensa Diaria",
+    "spin": "¡Gira para Ganar!",
+    "spinning": "Girando...",
+    "youWon": "¡Ganaste!",
+    "comeBack": "¡Vuelve mañana!",
+    "streak": "Racha",
+    "totalSpins": "Giros Totales",
+    "hint": "¡Gira diariamente para ganar monedas y construir tu racha!"
+  },
+  "quickRaid": {
+    "title": "Incursión Rápida",
+    "desc": "Únete a una incursión rápidamente",
+    "findNow": "Buscar Ahora"
   }
 }

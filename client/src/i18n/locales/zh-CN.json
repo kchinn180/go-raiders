@@ -137,5 +137,20 @@
     "failedCreate": "创建失败",
     "profileUpdated": "个人资料已更新",
     "changesApplied": "您的更改已应用"
+  },
+  "daily": {
+    "title": "每日奖励",
+    "spin": "转动赢大奖！",
+    "spinning": "旋转中...",
+    "youWon": "恭喜获得！",
+    "comeBack": "明天再来！",
+    "streak": "连续",
+    "totalSpins": "总旋转次数",
+    "hint": "每天旋转赚取金币，保持连续记录！"
+  },
+  "quickRaid": {
+    "title": "快速团战",
+    "desc": "快速加入团战",
+    "findNow": "立即查找"
   }
 }
