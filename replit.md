@@ -121,6 +121,27 @@ The app supports 10 languages via react-i18next:
 - Elite users can join immediately (priority access)
 - Lock indicator clearly shows "Elite Early Access" branding
 
+## Security & Scalability
+
+### Security Measures
+- **Helmet.js**: Comprehensive HTTP security headers (HSTS, CSP, X-Frame-Options, etc.)
+- **CORS**: Configured for Replit domains with proper credentials handling
+- **Rate Limiting**: API-wide (1000 req/15min), strict (30 req/min), auth (10 req/15min)
+- **Input Sanitization**: All request bodies and query params are sanitized to prevent XSS
+- **Content Security Policy**: Restricts script/style/image sources
+- **Request Logging**: IP address and user agent tracking for audit trails
+
+### Database (PostgreSQL)
+- **Drizzle ORM** for type-safe database queries
+- **Connection Pooling**: Max 20 connections with 30s idle timeout
+- Tables: users, lobbies, sessions, audit_logs
+- User data persistence (coins, raid history, preferences)
+
+### Scalability Architecture
+- Stateless API design for horizontal scaling
+- In-memory lobby storage with database backup option
+- Ready for Redis pub/sub for real-time updates at scale
+
 ## Recent Changes
 - Initial MVP implementation with full raid coordination features
 - Dark/Light theme support

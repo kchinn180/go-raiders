@@ -6,7 +6,7 @@ import {
   securityMiddleware,
   corsMiddleware,
   apiRateLimiter,
-  inputSanitizer,
+  inputValidator,
   securityHeaders,
   requestLogger,
 } from "./middleware/security";
@@ -40,7 +40,7 @@ app.use(
 
 app.use(express.urlencoded({ extended: false, limit: "10kb" }));
 
-app.use(inputSanitizer);
+app.use(inputValidator);
 
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });

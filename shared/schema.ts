@@ -1,4 +1,66 @@
 import { z } from "zod";
+import { pgTable, text, integer, boolean, timestamp, jsonb, varchar, serial } from "drizzle-orm/pg-core";
+import { createInsertSchema } from "drizzle-zod";
+
+export const usersTable = pgTable("users", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  name: text("name").notNull(),
+  level: integer("level").notNull().default(1),
+  team: text("team").notNull().default("neutral"),
+  code: text("code").notNull(),
+  isPremium: boolean("is_premium").notNull().default(false),
+  isVerified: boolean("is_verified").notNull().default(false),
+  coins: integer("coins").notNull().default(0),
+  subscription: jsonb("subscription"),
+  notifications: jsonb("notifications"),
+  dailyChallenge: jsonb("daily_challenge"),
+  raidHistory: jsonb("raid_history"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const lobbiesTable = pgTable("lobbies", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  bossId: text("boss_id").notNull(),
+  hostId: text("host_id").notNull(),
+  hostName: text("host_name").notNull(),
+  hostRating: text("host_rating").notNull().default("4.8"),
+  players: jsonb("players").notNull().default([]),
+  maxPlayers: integer("max_players").notNull().default(6),
+  team: text("team").notNull().default("neutral"),
+  minLevel: integer("min_level").notNull().default(1),
+  weather: boolean("weather").notNull().default(false),
+  timeLeft: integer("time_left").notNull().default(900),
+  raidStarted: boolean("raid_started").notNull().default(false),
+  invitesSent: boolean("invites_sent").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const sessionsTable = pgTable("sessions", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  token: text("token").notNull().unique(),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+});
+
+export const auditLogsTable = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 36 }),
+  action: text("action").notNull(),
+  resource: text("resource"),
+  resourceId: text("resource_id"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type DbUser = typeof usersTable.$inferSelect;
+export type DbLobby = typeof lobbiesTable.$inferSelect;
+export type DbSession = typeof sessionsTable.$inferSelect;
+export type DbAuditLog = typeof auditLogsTable.$inferSelect;
 
 // Team definitions
 export const TEAMS = [

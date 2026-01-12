@@ -4,21 +4,21 @@ import rateLimit from "express-rate-limit";
 import cors from "cors";
 
 export const securityMiddleware = helmet({
-  contentSecurityPolicy: {
+  contentSecurityPolicy: process.env.NODE_ENV === "production" ? {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:", "blob:"],
-      connectSrc: ["'self'", "https:", "wss:"],
+      imgSrc: ["'self'", "data:", "https://img.pokemondb.net", "blob:"],
+      connectSrc: ["'self'"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       upgradeInsecureRequests: [],
     },
-  },
+  } : false,
   crossOriginEmbedderPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" },
   hsts: {
@@ -58,9 +58,7 @@ export const apiRateLimiter = rateLimit({
   message: { error: "Too many requests, please try again later" },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    return req.ip || req.socket.remoteAddress || "unknown";
-  },
+  validate: { xForwardedForHeader: false },
   skip: (req) => {
     return req.path === "/health" || req.path === "/api/health";
   },
@@ -72,9 +70,7 @@ export const strictRateLimiter = rateLimit({
   message: { error: "Rate limit exceeded for this action" },
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
-    return req.ip || req.socket.remoteAddress || "unknown";
-  },
+  validate: { xForwardedForHeader: false },
 });
 
 export const authRateLimiter = rateLimit({
@@ -84,40 +80,32 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true,
+  validate: { xForwardedForHeader: false },
 });
 
-export function sanitizeInput(input: string): string {
+export function escapeHtml(input: string): string {
   if (typeof input !== "string") return "";
   
   return input
-    .replace(/[<>]/g, "")
-    .replace(/javascript:/gi, "")
-    .replace(/on\w+=/gi, "")
-    .replace(/data:/gi, "")
-    .replace(/vbscript:/gi, "")
-    .trim()
-    .slice(0, 1000);
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
 }
 
-export function sanitizeObject<T extends Record<string, any>>(obj: T): T {
-  const sanitized: Record<string, any> = {};
+export function containsDangerousPatterns(input: string): boolean {
+  if (typeof input !== "string") return false;
   
-  for (const [key, value] of Object.entries(obj)) {
-    if (typeof value === "string") {
-      sanitized[key] = sanitizeInput(value);
-    } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
-      sanitized[key] = sanitizeObject(value);
-    } else if (Array.isArray(value)) {
-      sanitized[key] = value.map(item => 
-        typeof item === "string" ? sanitizeInput(item) : 
-        typeof item === "object" && item !== null ? sanitizeObject(item) : item
-      );
-    } else {
-      sanitized[key] = value;
-    }
-  }
+  const dangerousPatterns = [
+    /javascript:/i,
+    /on\w+\s*=/i,
+    /vbscript:/i,
+    /<script/i,
+    /<\/script/i,
+  ];
   
-  return sanitized as T;
+  return dangerousPatterns.some(pattern => pattern.test(input));
 }
 
 export function validateUUID(id: string): boolean {
@@ -130,16 +118,33 @@ export function validateFriendCode(code: string): boolean {
   return codeRegex.test(code.replace(/\s/g, "").match(/.{4}/g)?.join(" ") || "");
 }
 
-export const inputSanitizer = (req: Request, res: Response, next: NextFunction) => {
-  if (req.body && typeof req.body === "object") {
-    req.body = sanitizeObject(req.body);
-  }
-  
-  if (req.query && typeof req.query === "object") {
-    for (const [key, value] of Object.entries(req.query)) {
-      if (typeof value === "string") {
-        req.query[key] = sanitizeInput(value);
+export const inputValidator = (req: Request, res: Response, next: NextFunction) => {
+  const checkForDangerousContent = (obj: any, path = ""): string | null => {
+    if (typeof obj === "string" && containsDangerousPatterns(obj)) {
+      return path || "value";
+    }
+    if (obj && typeof obj === "object") {
+      for (const [key, value] of Object.entries(obj)) {
+        const result = checkForDangerousContent(value, path ? `${path}.${key}` : key);
+        if (result) return result;
       }
+    }
+    if (Array.isArray(obj)) {
+      for (let i = 0; i < obj.length; i++) {
+        const result = checkForDangerousContent(obj[i], `${path}[${i}]`);
+        if (result) return result;
+      }
+    }
+    return null;
+  };
+
+  if (req.body) {
+    const dangerousField = checkForDangerousContent(req.body);
+    if (dangerousField) {
+      return res.status(400).json({ 
+        error: "Invalid input detected", 
+        field: dangerousField 
+      });
     }
   }
   
