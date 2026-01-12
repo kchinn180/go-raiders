@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CloudLightning, Plus, Sparkles, Lock, Flame, Shield, Zap, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { SafeImage } from "@/components/safe-image";
 import { useUser } from "@/lib/user-context";
@@ -181,27 +181,22 @@ export function HostView({ onHost }: HostViewProps) {
               {user.isPremium ? "Set level requirement for raiders" : "Elite feature"}
             </span>
           </div>
-          <Input
-            type="number"
-            value={user.isPremium ? minLevel : 1}
-            onChange={(e) => {
-              const val = e.target.value;
-              if (val === '') {
-                setMinLevel(1);
-              } else {
-                const num = parseInt(val);
-                if (!isNaN(num)) {
-                  setMinLevel(Math.min(80, Math.max(1, num)));
-                }
-              }
-            }}
-            className="w-20 text-center font-bold"
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-bold w-8 text-right">{user.isPremium ? minLevel : 1}</span>
+          </div>
+        </div>
+        
+        {user.isPremium && (
+          <Slider
+            value={[minLevel]}
+            onValueChange={(val) => setMinLevel(val[0])}
             min={1}
             max={80}
-            disabled={!user.isPremium}
-            data-testid="input-min-level"
+            step={1}
+            className="w-full"
+            data-testid="slider-min-level"
           />
-        </div>
+        )}
 
         <div className="flex items-center justify-between">
           <div>
