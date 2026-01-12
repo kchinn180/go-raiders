@@ -67,8 +67,8 @@ export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
           fallbackChar={boss.name[0]}
         />
         <div className="absolute -bottom-1 -right-1 flex gap-0.5">
-          <span className="text-[9px] font-bold bg-card px-1.5 py-0.5 rounded border border-border">
-            T{boss.tier}
+          <span className="text-[10px] font-black bg-primary/20 text-primary px-1.5 py-0.5 rounded border border-primary/30">
+            {boss.tier}
           </span>
         </div>
       </div>

@@ -97,7 +97,7 @@ export function HostView({ onHost }: HostViewProps) {
               <span className="text-[10px] font-bold truncate w-full text-center">
                 {boss.name}
               </span>
-              <span className="text-[9px] text-muted-foreground">T{boss.tier}</span>
+              <span className="text-[10px] font-bold text-primary">{boss.tier}</span>
             </button>
           ))}
         </div>
