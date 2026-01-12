@@ -16,20 +16,11 @@ import {
   Zap,
   CreditCard,
   Calendar,
-  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { useUser } from "@/lib/user-context";
 import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/hooks/use-toast";
@@ -50,12 +41,11 @@ const teamIcons = {
 };
 
 export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) {
-  const { user, setUser, updateUser, updateNotifications, cancelSubscription } = useUser();
+  const { user, setUser, updateUser, updateNotifications } = useUser();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   
   const [isEditing, setIsEditing] = useState(false);
-  const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [editForm, setEditForm] = useState({
     name: user?.name || "",
     level: user?.level || 1,
@@ -117,15 +107,6 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
     
     setIsEditing(false);
     toast({ title: "Profile updated!" });
-  };
-
-  const handleCancelSubscription = () => {
-    cancelSubscription();
-    setShowCancelDialog(false);
-    toast({ 
-      title: "Subscription canceled", 
-      description: `You'll have access until ${formatDate(subscription?.renewalDate)}`
-    });
   };
 
   const handleLogout = () => {
@@ -278,12 +259,6 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
                   <span>{formatDate(subscription.renewalDate)}</span>
                 </div>
 
-                {subscription.status === 'canceled' && (
-                  <div className="flex items-center gap-2 text-yellow-500 mt-2 p-2 bg-yellow-500/10 rounded-lg">
-                    <AlertTriangle className="w-4 h-4" />
-                    <span className="text-xs">Canceled - {getDaysRemaining()} days remaining</span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -297,26 +272,9 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
               </ul>
             </div>
 
-            {subscription.status === 'active' && (
-              <Button
-                variant="outline"
-                className="w-full text-destructive border-destructive/50 hover:bg-destructive/10"
-                onClick={() => setShowCancelDialog(true)}
-                data-testid="button-cancel-subscription"
-              >
-                Cancel Subscription
-              </Button>
-            )}
-
-            {subscription.status === 'canceled' && (
-              <Button
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-600"
-                onClick={onPremiumClick}
-                data-testid="button-resubscribe"
-              >
-                Resubscribe
-              </Button>
-            )}
+            <p className="text-xs text-muted-foreground text-center pt-2">
+              To manage or cancel your subscription, go to your App Store or Play Store account settings.
+            </p>
           </div>
         ) : (
           <div className="space-y-4">
@@ -466,26 +424,6 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         GO Raiders v1.0.0
       </p>
 
-      {/* Cancel Subscription Dialog */}
-      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Cancel Subscription?</DialogTitle>
-            <DialogDescription>
-              Your Elite benefits will remain active until {formatDate(subscription?.renewalDate)}.
-              After that, you'll lose access to premium features.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowCancelDialog(false)}>
-              Keep Subscription
-            </Button>
-            <Button variant="destructive" onClick={handleCancelSubscription}>
-              Cancel Subscription
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
