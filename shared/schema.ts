@@ -199,15 +199,15 @@ export const feedbackTable = pgTable("feedback", {
 
 export const feedbackSchema = z.object({
   id: z.number().optional(),
-  lobbyId: z.string(),
-  userId: z.string(),
-  hostId: z.string(),
-  hostRating: z.number().min(1).max(5),
+  lobbyId: z.string().min(1, "Lobby ID required").trim(),
+  userId: z.string().min(1, "User ID required").trim(),
+  hostId: z.string().min(1, "Host ID required").trim(),
+  hostRating: z.number().int().min(1).max(5),
   hadIssues: z.boolean().default(false),
-  issueDescription: z.string().optional(),
-  appRating: z.number().min(1).max(5).optional(),
+  issueDescription: z.string().trim().optional(),
+  appRating: z.number().int().min(1).max(5).optional(),
   wouldRecommend: z.boolean().optional(),
-  comments: z.string().optional(),
+  comments: z.string().trim().max(1000).optional(),
   createdAt: z.number().optional(),
 });
 

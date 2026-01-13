@@ -4,7 +4,14 @@ import { storage } from "./storage";
 import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema } from "@shared/schema";
 import { z } from "zod";
 
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "go-raiders-admin-2024";
+const getAdminToken = () => {
+  const token = process.env.ADMIN_TOKEN;
+  if (!token) {
+    console.warn("ADMIN_TOKEN not set in environment. Admin access disabled.");
+    return null;
+  }
+  return token;
+};
 
 export async function registerRoutes(
   httpServer: Server,
@@ -190,10 +197,15 @@ export async function registerRoutes(
 
   app.get("/api/admin/feedback", async (req, res) => {
     try {
+      const adminToken = getAdminToken();
+      if (!adminToken) {
+        return res.status(503).json({ error: "Admin access not configured" });
+      }
+      
       const authHeader = req.headers.authorization;
       const token = authHeader?.replace("Bearer ", "");
       
-      if (token !== ADMIN_TOKEN) {
+      if (!token || token !== adminToken) {
         return res.status(401).json({ error: "Unauthorized" });
       }
       
@@ -206,8 +218,17 @@ export async function registerRoutes(
 
   app.post("/api/admin/verify", async (req, res) => {
     try {
+      const adminToken = getAdminToken();
+      if (!adminToken) {
+        return res.status(503).json({ error: "Admin access not configured" });
+      }
+      
       const { token } = req.body;
-      if (token === ADMIN_TOKEN) {
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ valid: false, error: "Token required" });
+      }
+      
+      if (token === adminToken) {
         res.json({ valid: true });
       } else {
         res.status(401).json({ valid: false, error: "Invalid token" });
