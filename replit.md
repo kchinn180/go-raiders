@@ -142,6 +142,27 @@ The app supports 10 languages via react-i18next:
 - In-memory lobby storage with database backup option
 - Ready for Redis pub/sub for real-time updates at scale
 
+## User Feedback System
+- Feedback modal appears after leaving a completed raid
+- Host rating (1-5 stars), app rating, issue reporting
+- "Would you recommend" toggle with optional comments
+- All feedback stored server-side for admin analysis
+
+## Admin Dashboard
+- Token-based authentication using ADMIN_TOKEN secret
+- Access via Settings > Admin Dashboard
+- View all user feedback with ratings and comments
+- Ban users by friend code (permanently removes account)
+- Unban users to allow re-registration
+- Banned users cannot sign up again with same friend code
+
+## iOS/Android Export
+- Full Capacitor integration for native app builds
+- See `IOS_DEPLOYMENT_GUIDE.md` for App Store submission
+- Export files available in `export/` directory:
+  - `go-raiders-complete.tar.gz` - Full project with build
+  - `go-raiders-source-only.tar.gz` - Source code only
+
 ## Recent Changes
 - Initial MVP implementation with full raid coordination features
 - Dark/Light theme support
@@ -151,7 +172,6 @@ The app supports 10 languages via react-i18next:
 - Capacitor integration for native iOS/Android builds
 - Safe-area padding for notched devices
 - Multi-language internationalization (10 languages)
-- Daily challenge spinning wheel mini-game with coin rewards
 - Haptic feedback system with Capacitor integration
 - Sound effects for raid countdown and user actions
 - Quick Raid one-tap join feature
@@ -159,3 +179,7 @@ The app supports 10 languages via react-i18next:
 - Raid history tracking in user profile settings
 - Pull-to-refresh on join feed (swipe down or tap)
 - 10-second Elite early access lock with countdown timer
+- 15-minute lobby lifespan with automatic cleanup
+- User feedback system with host/app ratings
+- Admin dashboard for feedback analysis and user bans
+- User ban system preventing re-registration
