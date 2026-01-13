@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
-import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback } from "@shared/schema";
+import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser } from "@shared/schema";
+import type { Player as PlayerType } from "@shared/schema";
 import { BOSSES, TEAMS } from "@shared/schema";
 
 export interface IStorage {
@@ -23,6 +24,12 @@ export interface IStorage {
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
   getAllFeedback(): Promise<Feedback[]>;
   getFeedbackByHost(hostId: string): Promise<Feedback[]>;
+  
+  banUser(friendCode: string, reason: string | undefined, bannedBy: string): Promise<BannedUser>;
+  unbanUser(friendCode: string): Promise<boolean>;
+  isBanned(friendCode: string): Promise<boolean>;
+  getBannedUsers(): Promise<BannedUser[]>;
+  deleteUserByFriendCode(friendCode: string): Promise<boolean>;
 }
 
 function generateMockLobbies(): Lobby[] {
@@ -59,12 +66,16 @@ export class MemStorage implements IStorage {
   private lobbies: Map<string, Lobby>;
   private feedback: Map<number, Feedback>;
   private feedbackIdCounter: number;
+  private bannedUsers: Map<string, BannedUser>;
+  private bannedIdCounter: number;
 
   constructor() {
     this.users = new Map();
     this.lobbies = new Map();
     this.feedback = new Map();
     this.feedbackIdCounter = 1;
+    this.bannedUsers = new Map();
+    this.bannedIdCounter = 1;
     
     const initialLobbies = generateMockLobbies();
     initialLobbies.forEach(lobby => {
@@ -243,6 +254,60 @@ export class MemStorage implements IStorage {
     return Array.from(this.feedback.values())
       .filter(f => f.hostId === hostId)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+
+  async banUser(friendCode: string, reason: string | undefined, bannedBy: string): Promise<BannedUser> {
+    const normalizedCode = friendCode.replace(/\s/g, "");
+    const banned: BannedUser = {
+      id: this.bannedIdCounter++,
+      friendCode: normalizedCode,
+      reason,
+      bannedBy,
+      bannedAt: Date.now(),
+    };
+    this.bannedUsers.set(normalizedCode, banned);
+    await this.deleteUserByFriendCode(friendCode);
+    return banned;
+  }
+
+  async unbanUser(friendCode: string): Promise<boolean> {
+    const normalizedCode = friendCode.replace(/\s/g, "");
+    return this.bannedUsers.delete(normalizedCode);
+  }
+
+  async isBanned(friendCode: string): Promise<boolean> {
+    const normalizedCode = friendCode.replace(/\s/g, "");
+    return this.bannedUsers.has(normalizedCode);
+  }
+
+  async getBannedUsers(): Promise<BannedUser[]> {
+    return Array.from(this.bannedUsers.values())
+      .sort((a, b) => (b.bannedAt || 0) - (a.bannedAt || 0));
+  }
+
+  async deleteUserByFriendCode(friendCode: string): Promise<boolean> {
+    const normalizedCode = friendCode.replace(/\s/g, "");
+    let deleted = false;
+    const userEntries = Array.from(this.users.entries());
+    for (const [id, user] of userEntries) {
+      if (user.code.replace(/\s/g, "") === normalizedCode) {
+        this.users.delete(id);
+        deleted = true;
+        const lobbyEntries = Array.from(this.lobbies.entries());
+        for (const [lobbyId, lobby] of lobbyEntries) {
+          const updatedPlayers = lobby.players.filter((p: Player) => p.id !== id);
+          if (updatedPlayers.length !== lobby.players.length) {
+            if (lobby.hostId === id) {
+              this.lobbies.delete(lobbyId);
+            } else {
+              this.lobbies.set(lobbyId, { ...lobby, players: updatedPlayers });
+            }
+          }
+        }
+        break;
+      }
+    }
+    return deleted;
   }
 }
 

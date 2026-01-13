@@ -216,3 +216,21 @@ export const insertFeedbackSchema = feedbackSchema.omit({ id: true, createdAt: t
 export type Feedback = z.infer<typeof feedbackSchema>;
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type DbFeedback = typeof feedbackTable.$inferSelect;
+
+export const bannedUsersTable = pgTable("banned_users", {
+  id: serial("id").primaryKey(),
+  friendCode: text("friend_code").notNull().unique(),
+  reason: text("reason"),
+  bannedBy: text("banned_by").notNull(),
+  bannedAt: timestamp("banned_at").defaultNow(),
+});
+
+export const bannedUserSchema = z.object({
+  id: z.number().optional(),
+  friendCode: z.string().min(1).trim(),
+  reason: z.string().trim().optional(),
+  bannedBy: z.string().min(1).trim(),
+  bannedAt: z.number().optional(),
+});
+
+export type BannedUser = z.infer<typeof bannedUserSchema>;

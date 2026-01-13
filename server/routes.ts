@@ -144,6 +144,12 @@ export async function registerRoutes(
   app.post("/api/users", async (req, res) => {
     try {
       const validated = insertUserSchema.parse(req.body);
+      
+      const isBanned = await storage.isBanned(validated.code);
+      if (isBanned) {
+        return res.status(403).json({ error: "This friend code has been banned" });
+      }
+      
       const user = await storage.createUser(validated);
       res.status(201).json(user);
     } catch (error) {
@@ -235,6 +241,75 @@ export async function registerRoutes(
       }
     } catch (error) {
       res.status(500).json({ error: "Verification failed" });
+    }
+  });
+
+  app.post("/api/admin/ban", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) {
+        return res.status(503).json({ error: "Admin access not configured" });
+      }
+      
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const { friendCode, reason } = req.body;
+      if (!friendCode || typeof friendCode !== 'string') {
+        return res.status(400).json({ error: "Friend code required" });
+      }
+      
+      const banned = await storage.banUser(friendCode, reason, "admin");
+      res.status(201).json(banned);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to ban user" });
+    }
+  });
+
+  app.delete("/api/admin/ban/:friendCode", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) {
+        return res.status(503).json({ error: "Admin access not configured" });
+      }
+      
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const success = await storage.unbanUser(req.params.friendCode);
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ error: "Banned user not found" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Failed to unban user" });
+    }
+  });
+
+  app.get("/api/admin/banned", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) {
+        return res.status(503).json({ error: "Admin access not configured" });
+      }
+      
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const banned = await storage.getBannedUsers();
+      res.json(banned);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch banned users" });
     }
   });
 
