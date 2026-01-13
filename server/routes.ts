@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema } from "@shared/schema";
+import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, BOSSES } from "@shared/schema";
 import { z } from "zod";
+import { sendPushNotification, type NotificationPayload } from "./push-service";
 
 const getAdminToken = () => {
   const token = process.env.ADMIN_TOKEN;
@@ -310,6 +311,148 @@ export async function registerRoutes(
       res.json(banned);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch banned users" });
+    }
+  });
+
+  app.post("/api/push/register", async (req, res) => {
+    try {
+      const validated = insertPushTokenSchema.parse(req.body);
+      const token = await storage.registerPushToken(validated);
+      res.status(201).json(token);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid token data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to register push token" });
+    }
+  });
+
+  app.delete("/api/push/unregister", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ error: "Token required" });
+      }
+      const success = await storage.removePushToken(token);
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to unregister push token" });
+    }
+  });
+
+  app.post("/api/push/notify/lobby/:id", async (req, res) => {
+    try {
+      const lobbyId = req.params.id;
+      const { type, senderId } = req.body;
+      
+      if (!senderId || typeof senderId !== 'string') {
+        return res.status(400).json({ error: "Sender ID required" });
+      }
+      
+      const lobby = await storage.getLobby(lobbyId);
+      if (!lobby) {
+        return res.status(404).json({ error: "Lobby not found" });
+      }
+      
+      const isLobbyMember = lobby.players.some(p => p.id === senderId);
+      if (!isLobbyMember) {
+        return res.status(403).json({ error: "Not authorized to send notifications to this lobby" });
+      }
+      
+      if (type === 'raid_starting' && lobby.hostId !== senderId) {
+        return res.status(403).json({ error: "Only the host can send raid starting notifications" });
+      }
+      
+      const boss = BOSSES.find(b => b.id === lobby.bossId);
+      const bossName = boss?.name || 'Unknown';
+      
+      const playerIds = lobby.players
+        .filter(p => p.id !== senderId)
+        .map(p => p.id);
+      
+      if (playerIds.length === 0) {
+        return res.json({ success: true, sent: 0 });
+      }
+      
+      const tokens = await storage.getPushTokensForUsers(playerIds);
+      
+      let payload: NotificationPayload;
+      
+      if (type === 'raid_starting') {
+        payload = {
+          type: 'raid_starting',
+          title: 'Raid Starting Now!',
+          body: `Your ${bossName} raid is starting - join the game!`,
+          data: { lobbyId, bossName },
+        };
+      } else if (type === 'all_ready') {
+        payload = {
+          type: 'all_ready',
+          title: 'Everyone Ready!',
+          body: `All players are ready for the ${bossName} raid!`,
+          data: { lobbyId, bossName },
+        };
+      } else {
+        return res.status(400).json({ error: "Invalid notification type" });
+      }
+      
+      const result = await sendPushNotification(tokens, payload);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send notifications" });
+    }
+  });
+
+  app.post("/api/push/notify/host/:hostId", async (req, res) => {
+    try {
+      const { hostId } = req.params;
+      const { type, playerName, lobbyId, senderId } = req.body;
+      
+      if (!senderId || typeof senderId !== 'string') {
+        return res.status(400).json({ error: "Sender ID required" });
+      }
+      
+      if (!lobbyId || typeof lobbyId !== 'string') {
+        return res.status(400).json({ error: "Lobby ID required" });
+      }
+      
+      const lobby = await storage.getLobby(lobbyId);
+      if (!lobby) {
+        return res.status(404).json({ error: "Lobby not found" });
+      }
+      
+      if (lobby.hostId !== hostId) {
+        return res.status(400).json({ error: "Invalid host ID for this lobby" });
+      }
+      
+      const isLobbyMember = lobby.players.some(p => p.id === senderId);
+      if (!isLobbyMember) {
+        return res.status(403).json({ error: "Not authorized" });
+      }
+      
+      const tokens = await storage.getPushTokensForUser(hostId);
+      
+      if (tokens.length === 0) {
+        return res.json({ success: true, sent: 0 });
+      }
+      
+      let payload: NotificationPayload;
+      
+      if (type === 'lobby_joined') {
+        payload = {
+          type: 'lobby_joined',
+          title: 'Player Joined',
+          body: `${playerName} joined your raid lobby`,
+          data: { lobbyId, playerName },
+        };
+      } else {
+        return res.status(400).json({ error: "Invalid notification type" });
+      }
+      
+      const result = await sendPushNotification(tokens, payload);
+      res.json({ success: true, ...result });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send notifications" });
     }
   });
 

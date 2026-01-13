@@ -20,6 +20,7 @@ import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
 import { triggerImpact } from "@/lib/haptics";
 import { playClickSound } from "@/lib/sounds";
+import { registerForPushNotifications, unregisterPushNotifications, setupNotificationListeners, showLocalNotification } from "@/lib/notifications";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { BOSSES } from "@shared/schema";
 import type { Lobby, Player, Boss, FilterType } from "@shared/schema";
@@ -58,17 +59,61 @@ export default function Home() {
     }
   }, [refreshedLobby, view]);
 
+  const pushEnabled = user?.notifications?.pushEnabled !== false;
+
+  // Initialize push notifications
+  useEffect(() => {
+    if (!user) return;
+    
+    const initPushNotifications = async () => {
+      if (pushEnabled) {
+        await registerForPushNotifications(user.id);
+      } else {
+        await unregisterPushNotifications();
+      }
+    };
+    
+    initPushNotifications();
+    
+    const cleanup = setupNotificationListeners((notification) => {
+      if (hapticEnabled) triggerImpact('medium');
+      showLocalNotification(notification.title, notification.body, notification.data);
+      
+      if (notification.type === 'raid_starting' && notification.data?.lobbyId) {
+        toast({
+          title: notification.title,
+          description: notification.body,
+        });
+      }
+    });
+    
+    return cleanup;
+  }, [user, pushEnabled]);
+
   const joinLobbyMutation = useMutation({
     mutationFn: async ({ lobbyId, player }: { lobbyId: string; player: Player }) => {
       const res = await apiRequest("POST", `/api/lobbies/${lobbyId}/join`, player);
       return res.json();
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
       setActiveLobby(data);
       setView("lobby");
       queryClient.invalidateQueries({ queryKey: ["/api/lobbies"] });
       const boss = BOSSES.find(b => b.id === data.bossId);
       toast({ title: "Joined Lobby!", description: `You joined ${boss?.name || 'the'} raid` });
+      
+      if (user && data.hostId !== user.id) {
+        try {
+          await apiRequest("POST", `/api/push/notify/host/${data.hostId}`, {
+            type: 'lobby_joined',
+            playerName: user.name,
+            lobbyId: data.id,
+            senderId: user.id,
+          });
+        } catch (e) {
+          console.log('Failed to notify host', e);
+        }
+      }
     },
     onError: () => {
       toast({ title: "Failed to join", description: "The lobby may be full", variant: "destructive" });
@@ -129,10 +174,19 @@ export default function Home() {
       const res = await apiRequest("PATCH", `/api/lobbies/${lobbyId}/start-raid`, { hostId });
       return res.json();
     },
-    onSuccess: (data: Lobby) => {
+    onSuccess: async (data: Lobby) => {
       setActiveLobby(data);
       queryClient.invalidateQueries({ queryKey: ["/api/lobbies"] });
       toast({ title: "Raid Started!", description: "All players have been notified" });
+      
+      try {
+        await apiRequest("POST", `/api/push/notify/lobby/${data.id}`, {
+          type: 'raid_starting',
+          senderId: user?.id,
+        });
+      } catch (e) {
+        console.log('Failed to send push notifications', e);
+      }
       
       const boss = BOSSES.find(b => b.id === data.bossId);
       if (boss && user && data.hostId === user.id) {

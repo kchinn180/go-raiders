@@ -111,6 +111,7 @@ export const subscriptionSchema = z.object({
 });
 
 export const notificationPrefsSchema = z.object({
+  pushEnabled: z.boolean().default(true),
   lobbyAlerts: z.boolean().default(true),
   friendRequests: z.boolean().default(true),
   raidReminders: z.boolean().default(true),

@@ -183,3 +183,4 @@ The app supports 10 languages via react-i18next:
 - User feedback system with host/app ratings
 - Admin dashboard for feedback analysis and user bans
 - User ban system preventing re-registration
+- Push notifications for raids, player joins, and events (Capacitor integration)

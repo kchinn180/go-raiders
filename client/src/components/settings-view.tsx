@@ -75,6 +75,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
   const TeamIcon = teamIcons[user.team] || User;
   
   const notifications = user.notifications || {
+    pushEnabled: true,
     lobbyAlerts: true,
     friendRequests: true,
     raidReminders: true,
@@ -368,6 +369,17 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           Notifications
         </h3>
         <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Push Notifications</p>
+              <p className="text-xs text-muted-foreground">Receive notifications on your device</p>
+            </div>
+            <Switch
+              checked={notifications.pushEnabled}
+              onCheckedChange={(v) => handleNotificationChange('pushEnabled', v)}
+              data-testid="switch-push-notifications"
+            />
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium">Lobby Alerts</p>
