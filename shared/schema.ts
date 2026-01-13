@@ -234,3 +234,38 @@ export const bannedUserSchema = z.object({
 });
 
 export type BannedUser = z.infer<typeof bannedUserSchema>;
+
+export const pushTokensTable = pgTable("push_tokens", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id", { length: 36 }).notNull(),
+  token: text("token").notNull().unique(),
+  platform: text("platform").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  lastUsed: timestamp("last_used").defaultNow(),
+});
+
+export const pushTokenSchema = z.object({
+  id: z.number().optional(),
+  userId: z.string().min(1).trim(),
+  token: z.string().min(1).trim(),
+  platform: z.enum(['ios', 'android', 'web']),
+  createdAt: z.number().optional(),
+  lastUsed: z.number().optional(),
+});
+
+export const insertPushTokenSchema = pushTokenSchema.omit({ id: true, createdAt: true, lastUsed: true });
+
+export type PushToken = z.infer<typeof pushTokenSchema>;
+export type InsertPushToken = z.infer<typeof insertPushTokenSchema>;
+export type DbPushToken = typeof pushTokensTable.$inferSelect;
+
+export const notificationTypeSchema = z.enum([
+  'raid_invite',
+  'raid_starting',
+  'friend_request',
+  'lobby_joined',
+  'all_ready',
+  'event_announcement'
+]);
+
+export type NotificationType = z.infer<typeof notificationTypeSchema>;

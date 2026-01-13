@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser } from "@shared/schema";
+import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken } from "@shared/schema";
 import type { Player as PlayerType } from "@shared/schema";
 import { BOSSES, TEAMS } from "@shared/schema";
 
@@ -30,6 +30,11 @@ export interface IStorage {
   isBanned(friendCode: string): Promise<boolean>;
   getBannedUsers(): Promise<BannedUser[]>;
   deleteUserByFriendCode(friendCode: string): Promise<boolean>;
+  
+  registerPushToken(data: InsertPushToken): Promise<PushToken>;
+  removePushToken(token: string): Promise<boolean>;
+  getPushTokensForUser(userId: string): Promise<PushToken[]>;
+  getPushTokensForUsers(userIds: string[]): Promise<PushToken[]>;
 }
 
 function generateMockLobbies(): Lobby[] {
@@ -68,6 +73,8 @@ export class MemStorage implements IStorage {
   private feedbackIdCounter: number;
   private bannedUsers: Map<string, BannedUser>;
   private bannedIdCounter: number;
+  private pushTokens: Map<string, PushToken>;
+  private pushTokenIdCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -76,6 +83,8 @@ export class MemStorage implements IStorage {
     this.feedbackIdCounter = 1;
     this.bannedUsers = new Map();
     this.bannedIdCounter = 1;
+    this.pushTokens = new Map();
+    this.pushTokenIdCounter = 1;
     
     const initialLobbies = generateMockLobbies();
     initialLobbies.forEach(lobby => {
@@ -308,6 +317,38 @@ export class MemStorage implements IStorage {
       }
     }
     return deleted;
+  }
+
+  async registerPushToken(data: InsertPushToken): Promise<PushToken> {
+    const existing = Array.from(this.pushTokens.values()).find(t => t.token === data.token);
+    if (existing) {
+      const updated: PushToken = { ...existing, userId: data.userId, lastUsed: Date.now() };
+      this.pushTokens.set(data.token, updated);
+      return updated;
+    }
+    
+    const id = this.pushTokenIdCounter++;
+    const pushToken: PushToken = {
+      ...data,
+      id,
+      createdAt: Date.now(),
+      lastUsed: Date.now(),
+    };
+    this.pushTokens.set(data.token, pushToken);
+    return pushToken;
+  }
+
+  async removePushToken(token: string): Promise<boolean> {
+    return this.pushTokens.delete(token);
+  }
+
+  async getPushTokensForUser(userId: string): Promise<PushToken[]> {
+    return Array.from(this.pushTokens.values()).filter(t => t.userId === userId);
+  }
+
+  async getPushTokensForUsers(userIds: string[]): Promise<PushToken[]> {
+    const userIdSet = new Set(userIds);
+    return Array.from(this.pushTokens.values()).filter(t => userIdSet.has(t.userId));
   }
 }
 
