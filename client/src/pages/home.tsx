@@ -9,12 +9,13 @@ import { HostView } from "@/components/host-view";
 import { LobbyView } from "@/components/lobby-view";
 import { ShopView } from "@/components/shop-view";
 import { SettingsView } from "@/components/settings-view";
-import { DailyChallenge } from "@/components/daily-challenge";
 import { PremiumModal } from "@/components/premium-modal";
 import { AutoJoinModal } from "@/components/auto-join-modal";
+import { FeedbackModal } from "@/components/feedback-modal";
 import { PrivacyPage } from "@/pages/privacy";
 import { TermsPage } from "@/pages/terms";
 import { AboutPage } from "@/pages/about";
+import { AdminPage } from "@/pages/admin";
 import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
 import { triggerImpact } from "@/lib/haptics";
@@ -23,8 +24,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { BOSSES } from "@shared/schema";
 import type { Lobby, Player, Boss, FilterType } from "@shared/schema";
 
-type ViewType = "join" | "host" | "shop" | "profile" | "lobby" | "daily";
-type LegalPage = "privacy" | "terms" | "about" | null;
+type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
+type LegalPage = "privacy" | "terms" | "about" | "admin" | null;
 
 export default function Home() {
   const { user, isLoading: userLoading, addRaidToHistory } = useUser();
@@ -34,6 +35,8 @@ export default function Home() {
   const [filter, setFilter] = useState<FilterType>("all");
   const [showPremium, setShowPremium] = useState(false);
   const [showAutoJoin, setShowAutoJoin] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [feedbackLobby, setFeedbackLobby] = useState<Lobby | null>(null);
   const [legalPage, setLegalPage] = useState<LegalPage>(null);
 
   const { data: lobbies = [], isLoading: lobbiesLoading, refetch } = useQuery<Lobby[]>({
@@ -232,6 +235,12 @@ export default function Home() {
 
   const handleLeaveLobby = useCallback(() => {
     if (!user || !activeLobby) return;
+    
+    if (activeLobby.raidStarted && !activeLobby.players.find(p => p.id === user.id)?.isHost) {
+      setFeedbackLobby(activeLobby);
+      setShowFeedback(true);
+    }
+    
     leaveLobbyMutation.mutate({ lobbyId: activeLobby.id, playerId: user.id });
   }, [user, activeLobby, leaveLobbyMutation]);
 
@@ -320,7 +329,7 @@ export default function Home() {
     }, 1500);
   }, [user, toast]);
 
-  const handleNavigateLegal = useCallback((page: 'privacy' | 'terms' | 'about') => {
+  const handleNavigateLegal = useCallback((page: 'privacy' | 'terms' | 'about' | 'admin') => {
     setLegalPage(page);
   }, []);
 
@@ -346,6 +355,9 @@ export default function Home() {
   if (legalPage === 'about') {
     return <AboutPage onBack={() => setLegalPage(null)} />;
   }
+  if (legalPage === 'admin') {
+    return <AdminPage onBack={() => setLegalPage(null)} />;
+  }
 
   return (
     <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
@@ -362,7 +374,6 @@ export default function Home() {
             onJoin={handleJoinLobby}
             onAutoJoin={handleAutoJoin}
             onQuickRaid={handleQuickRaid}
-            onDailyReward={() => setView("daily")}
             onRefresh={async () => { await refetch(); }}
           />
         )}
@@ -374,7 +385,6 @@ export default function Home() {
             onPremiumClick={() => setShowPremium(true)} 
           />
         )}
-        {view === "daily" && <DailyChallenge />}
         {view === "lobby" && activeLobby && (
           <LobbyView
             lobby={activeLobby}
@@ -394,6 +404,18 @@ export default function Home() {
         onClose={() => setShowAutoJoin(false)}
         onSelect={handleAutoJoinSelect}
       />
+
+      {feedbackLobby && user && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          onClose={() => {
+            setShowFeedback(false);
+            setFeedbackLobby(null);
+          }}
+          lobby={feedbackLobby}
+          userId={user.id}
+        />
+      )}
     </div>
   );
 }

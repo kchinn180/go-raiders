@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Lock, Users, CloudLightning, Timer, Shield, Flame, Zap, Sparkles } from "lucide-react";
+import { Lock, Users, CloudLightning, Clock, Shield, Flame, Zap, Sparkles } from "lucide-react";
 import { SafeImage } from "@/components/safe-image";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -26,8 +26,11 @@ const teamGlowClasses = {
   neutral: "team-glow-neutral",
 };
 
+const LOBBY_LIFESPAN_MS = 15 * 60 * 1000;
+
 export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
   const [lockCountdown, setLockCountdown] = useState(0);
+  const [timeRemaining, setTimeRemaining] = useState(0);
   
   useEffect(() => {
     if (!isLocked) {
@@ -45,6 +48,24 @@ export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
     const interval = setInterval(updateCountdown, 100);
     return () => clearInterval(interval);
   }, [isLocked, lobby.createdAt]);
+
+  useEffect(() => {
+    const updateTimeRemaining = () => {
+      const elapsed = Date.now() - lobby.createdAt;
+      const remaining = Math.max(0, Math.floor((LOBBY_LIFESPAN_MS - elapsed) / 1000));
+      setTimeRemaining(remaining);
+    };
+    
+    updateTimeRemaining();
+    const interval = setInterval(updateTimeRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [lobby.createdAt]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const boss = BOSSES.find((b) => b.id === lobby.bossId);
   const team = TEAMS.find((t) => t.id === lobby.team) || TEAMS[3];
@@ -137,9 +158,12 @@ export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
       </div>
 
       <div className="flex flex-col items-end gap-1">
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Timer className="w-3 h-3" />
-          <span className="text-xs font-bold">{lobby.timeLeft}m</span>
+        <div className={cn(
+          "flex items-center gap-1 font-mono",
+          timeRemaining < 60 ? "text-red-400" : timeRemaining < 180 ? "text-yellow-400" : "text-muted-foreground"
+        )}>
+          <Clock className="w-3 h-3" />
+          <span className="text-xs font-bold">{formatTime(timeRemaining)}</span>
         </div>
         <span
           className={cn(

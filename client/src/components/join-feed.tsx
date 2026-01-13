@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Radar, Gift, Zap, RefreshCw } from "lucide-react";
+import { Radar, Zap, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LobbyCard } from "@/components/lobby-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
 import { FILTERS, BOSSES } from "@shared/schema";
 import type { Lobby, FilterType } from "@shared/schema";
@@ -17,7 +16,6 @@ interface JoinFeedProps {
   onJoin: (lobby: Lobby) => void;
   onAutoJoin: () => void;
   onQuickRaid?: () => void;
-  onDailyReward?: () => void;
   onRefresh?: () => Promise<void>;
 }
 
@@ -30,11 +28,9 @@ export function JoinFeed({
   onJoin,
   onAutoJoin,
   onQuickRaid,
-  onDailyReward,
   onRefresh,
 }: JoinFeedProps) {
   const { t } = useTranslation();
-  const { canSpinToday } = useUser();
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -150,44 +146,21 @@ export function JoinFeed({
           {isRefreshing ? "Refreshing..." : "Pull down or tap to refresh"}
         </button>
       )}
-      <div className="flex gap-3">
-        {onDailyReward && (
-          <button
-            onClick={onDailyReward}
-            className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 p-4 rounded-2xl flex items-center gap-3 shadow-lg relative overflow-hidden active:scale-[0.98] transition-transform"
-            data-testid="button-daily-reward"
-          >
-            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Gift className="w-5 h-5 text-white" />
-            </div>
-            <div className="text-left text-white flex-1">
-              <div className="font-bold text-sm">{t("daily.title")}</div>
-              <div className="text-[10px] opacity-80">
-                {canSpinToday() ? t("daily.spin") : t("daily.comeBack")}
-              </div>
-            </div>
-            {canSpinToday() && (
-              <span className="absolute top-2 right-2 w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-            )}
-          </button>
-        )}
-        
-        {onQuickRaid && (
-          <button
-            onClick={onQuickRaid}
-            className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 p-4 rounded-2xl flex items-center gap-3 shadow-lg relative overflow-hidden active:scale-[0.98] transition-transform"
-            data-testid="button-quick-raid"
-          >
-            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <div className="text-left text-white flex-1">
-              <div className="font-bold text-sm">{t("quickRaid.title")}</div>
-              <div className="text-[10px] opacity-80">{t("quickRaid.desc")}</div>
-            </div>
-          </button>
-        )}
-      </div>
+      {onQuickRaid && (
+        <button
+          onClick={onQuickRaid}
+          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 p-4 rounded-2xl flex items-center gap-3 shadow-lg relative overflow-hidden active:scale-[0.98] transition-transform"
+          data-testid="button-quick-raid"
+        >
+          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
+            <Zap className="w-5 h-5 text-white" />
+          </div>
+          <div className="text-left text-white flex-1">
+            <div className="font-bold text-sm">{t("quickRaid.title")}</div>
+            <div className="text-[10px] opacity-80">{t("quickRaid.desc")}</div>
+          </div>
+        </button>
+      )}
 
       <button
         onClick={onAutoJoin}

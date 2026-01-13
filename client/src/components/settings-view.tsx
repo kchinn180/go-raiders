@@ -35,7 +35,7 @@ import { SafeImage } from "@/components/safe-image";
 import type { TeamId } from "@shared/schema";
 
 interface SettingsViewProps {
-  onNavigate: (page: 'privacy' | 'terms' | 'about') => void;
+  onNavigate: (page: 'privacy' | 'terms' | 'about' | 'admin') => void;
   onPremiumClick: () => void;
 }
 
@@ -505,6 +505,17 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           <div className="flex items-center gap-3">
             <Info className="w-5 h-5 text-muted-foreground" />
             <span className="font-medium">About GO Raiders</span>
+          </div>
+          <ChevronRight className="w-4 h-4 text-muted-foreground" />
+        </button>
+        <button
+          onClick={() => onNavigate('admin')}
+          className="w-full p-4 flex items-center justify-between hover-elevate text-left"
+          data-testid="button-admin"
+        >
+          <div className="flex items-center gap-3">
+            <Shield className="w-5 h-5 text-orange-500" />
+            <span className="font-medium">Admin Dashboard</span>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </button>

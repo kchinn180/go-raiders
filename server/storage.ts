@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { User, InsertUser, Lobby, InsertLobby, Player } from "@shared/schema";
+import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback } from "@shared/schema";
 import { BOSSES, TEAMS } from "@shared/schema";
 
 export interface IStorage {
@@ -18,6 +18,11 @@ export interface IStorage {
   updatePlayerReady(lobbyId: string, playerId: string, isReady: boolean): Promise<Lobby | undefined>;
   markPlayerSentRequest(lobbyId: string, playerId: string): Promise<Lobby | undefined>;
   startRaid(lobbyId: string, hostId: string): Promise<Lobby | undefined>;
+  closeLobby(lobbyId: string, hostId: string): Promise<Lobby | undefined>;
+  
+  createFeedback(feedback: InsertFeedback): Promise<Feedback>;
+  getAllFeedback(): Promise<Feedback[]>;
+  getFeedbackByHost(hostId: string): Promise<Feedback[]>;
 }
 
 function generateMockLobbies(): Lobby[] {
@@ -52,10 +57,14 @@ function generateMockLobbies(): Lobby[] {
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private lobbies: Map<string, Lobby>;
+  private feedback: Map<number, Feedback>;
+  private feedbackIdCounter: number;
 
   constructor() {
     this.users = new Map();
     this.lobbies = new Map();
+    this.feedback = new Map();
+    this.feedbackIdCounter = 1;
     
     const initialLobbies = generateMockLobbies();
     initialLobbies.forEach(lobby => {
@@ -82,8 +91,17 @@ export class MemStorage implements IStorage {
 
   async getLobbies(): Promise<Lobby[]> {
     const now = Date.now();
+    const LOBBY_LIFESPAN_MS = 15 * 60 * 1000;
+    
+    const entries = Array.from(this.lobbies.entries());
+    for (const [id, lobby] of entries) {
+      if (now - lobby.createdAt >= LOBBY_LIFESPAN_MS) {
+        this.lobbies.delete(id);
+      }
+    }
+    
     const activeLobbies = Array.from(this.lobbies.values())
-      .filter(lobby => now - lobby.createdAt < 600000)
+      .filter(lobby => !lobby.raidStarted)
       .sort((a, b) => b.createdAt - a.createdAt);
     return activeLobbies;
   }
@@ -189,6 +207,42 @@ export class MemStorage implements IStorage {
     };
     this.lobbies.set(lobbyId, updatedLobby);
     return updatedLobby;
+  }
+
+  async closeLobby(lobbyId: string, hostId: string): Promise<Lobby | undefined> {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return undefined;
+    if (lobby.hostId !== hostId) return undefined;
+
+    const updatedLobby = {
+      ...lobby,
+      raidStarted: true,
+      invitesSent: true,
+    };
+    this.lobbies.set(lobbyId, updatedLobby);
+    return updatedLobby;
+  }
+
+  async createFeedback(insertFeedback: InsertFeedback): Promise<Feedback> {
+    const id = this.feedbackIdCounter++;
+    const feedback: Feedback = {
+      ...insertFeedback,
+      id,
+      createdAt: Date.now(),
+    };
+    this.feedback.set(id, feedback);
+    return feedback;
+  }
+
+  async getAllFeedback(): Promise<Feedback[]> {
+    return Array.from(this.feedback.values())
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+
+  async getFeedbackByHost(hostId: string): Promise<Feedback[]> {
+    return Array.from(this.feedback.values())
+      .filter(f => f.hostId === hostId)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   }
 }
 

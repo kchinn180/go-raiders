@@ -182,3 +182,37 @@ export type RaidHistoryEntry = z.infer<typeof raidHistoryEntrySchema>;
 
 export const FILTERS = ['all', '1', '3', '5', 'mega', 'max', 'shadow'] as const;
 export type FilterType = typeof FILTERS[number];
+
+export const feedbackTable = pgTable("feedback", {
+  id: serial("id").primaryKey(),
+  lobbyId: text("lobby_id").notNull(),
+  userId: text("user_id").notNull(),
+  hostId: text("host_id").notNull(),
+  hostRating: integer("host_rating").notNull(),
+  hadIssues: boolean("had_issues").notNull().default(false),
+  issueDescription: text("issue_description"),
+  appRating: integer("app_rating"),
+  wouldRecommend: boolean("would_recommend"),
+  comments: text("comments"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const feedbackSchema = z.object({
+  id: z.number().optional(),
+  lobbyId: z.string(),
+  userId: z.string(),
+  hostId: z.string(),
+  hostRating: z.number().min(1).max(5),
+  hadIssues: z.boolean().default(false),
+  issueDescription: z.string().optional(),
+  appRating: z.number().min(1).max(5).optional(),
+  wouldRecommend: z.boolean().optional(),
+  comments: z.string().optional(),
+  createdAt: z.number().optional(),
+});
+
+export const insertFeedbackSchema = feedbackSchema.omit({ id: true, createdAt: true });
+
+export type Feedback = z.infer<typeof feedbackSchema>;
+export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
+export type DbFeedback = typeof feedbackTable.$inferSelect;

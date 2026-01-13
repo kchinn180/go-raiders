@@ -1,8 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertLobbySchema, playerSchema } from "@shared/schema";
+import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema } from "@shared/schema";
 import { z } from "zod";
+
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "go-raiders-admin-2024";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -154,6 +156,64 @@ export async function registerRoutes(
       res.json(user);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch user" });
+    }
+  });
+
+  app.patch("/api/lobbies/:id/close", async (req, res) => {
+    try {
+      const { hostId } = req.body;
+      if (!hostId) {
+        return res.status(400).json({ error: "Host ID required" });
+      }
+      const lobby = await storage.closeLobby(req.params.id, hostId);
+      if (!lobby) {
+        return res.status(404).json({ error: "Lobby not found or not host" });
+      }
+      res.json(lobby);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to close lobby" });
+    }
+  });
+
+  app.post("/api/feedback", async (req, res) => {
+    try {
+      const validated = insertFeedbackSchema.parse(req.body);
+      const feedback = await storage.createFeedback(validated);
+      res.status(201).json(feedback);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid feedback data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to submit feedback" });
+    }
+  });
+
+  app.get("/api/admin/feedback", async (req, res) => {
+    try {
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      
+      if (token !== ADMIN_TOKEN) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const feedback = await storage.getAllFeedback();
+      res.json(feedback);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch feedback" });
+    }
+  });
+
+  app.post("/api/admin/verify", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (token === ADMIN_TOKEN) {
+        res.json({ valid: true });
+      } else {
+        res.status(401).json({ valid: false, error: "Invalid token" });
+      }
+    } catch (error) {
+      res.status(500).json({ error: "Verification failed" });
     }
   });
 
