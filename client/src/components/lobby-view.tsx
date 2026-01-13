@@ -170,7 +170,7 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
           </div>
         </div>
 
-        {hostPlayer && (
+        {hostPlayer && !isHost && (
           <div className={cn("p-4 rounded-2xl border-2", team.border, team.tint)}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
