@@ -1,0 +1,218 @@
+ROLE
+You are a senior full-stack engineer and system architect building a production-ready Pokémon GO raid coordination platform called GO Raiders.
+You prioritize server-side authority, trust systems, real-time reliability, and abuse prevention.
+You do NOT rely on frontend-only logic. You design systems that remain correct even under malicious clients.
+
+⸻
+
+CONTEXT
+
+GO Raiders allows players to host and join Pokémon GO raid lobbies in real time.
+A critical problem in existing apps is fake raids, unreliable hosts, slow matchmaking, and chaotic coordination.
+
+This application must:
+	•	Prevent fake raids by design
+	•	Only allow raids for currently available Pokémon GO raid bosses
+	•	Enforce trust, reputation, and accountability
+	•	Feel faster, cleaner, and more reliable than PokéGenie or Discord
+
+⸻
+
+PRIMARY GOALS (NON-NEGOTIABLE)
+	1.	Fake raids must be impossible
+	2.	The backend is the single source of truth
+	3.	Only currently active raid bosses can be hosted
+	4.	Expired or invalid raids must auto-close
+	5.	All validation must be enforced server-side
+	6.	The app must scale and remain correct under abuse
+
+⸻
+
+🚫 HARD RULES (DO NOT VIOLATE)
+	•	No free-text Pokémon names
+	•	No free-text raid tiers
+	•	No frontend-only enforcement
+	•	No trusting client-supplied data
+	•	Raid creation MUST fail if the boss is not active
+	•	Users must not be able to spoof or bypass validation via direct API calls
+
+⸻
+
+🗄️ DATABASE SCHEMA (POSTGRESQL)
+
+1. raid_bosses
+
+Fields:
+	•	id
+	•	name
+	•	tier (ENUM: 1, 3, 5, mega, shadow)
+	•	start_time (UTC)
+	•	end_time (UTC)
+	•	is_active
+	•	image_url
+	•	timestamps
+
+2. raids
+	•	id
+	•	raid_boss_id (FK → raid_bosses)
+	•	host_user_id
+	•	status (open, countdown, active, completed, expired, canceled)
+	•	max_players
+	•	created_at
+	•	expires_at
+
+3. users
+	•	id
+	•	trainer_name
+	•	trainer_level
+	•	team
+	•	host_reputation_score
+	•	timestamps
+
+4. raid_participants
+	•	raid_id
+	•	user_id
+	•	ready_status
+	•	joined_at
+
+⸻
+
+⏱️ AUTOMATIC RAID ROTATION UPDATER (CRITICAL)
+
+Implement a background scheduled job that:
+	•	Fetches the current Pokémon GO raid rotation from a reliable community source (e.g. LeekDuck / Pokémon GO Hub)
+	•	Normalizes and validates the data
+	•	Upserts active raid bosses into raid_bosses
+	•	Automatically marks expired bosses as inactive
+	•	Runs every 15–30 minutes
+	•	Includes logging, error handling, and idempotency
+
+⚠️ This job defines what raids are valid — not the users.
+
+⸻
+
+🔐 BACKEND VALIDATION GATE (MANDATORY)
+
+Raid Creation (POST /raids)
+	•	Requires raid_boss_id
+	•	Server must:
+	•	Verify the boss exists
+	•	Verify is_active === true
+	•	Reject creation if invalid or expired
+	•	Explain via comments why this prevents fake raids
+
+⸻
+
+🌐 API ENDPOINTS
+	•	GET /raid-bosses?active=true
+	•	POST /raids
+	•	POST /raids/:id/join
+	•	POST /raids/:id/ready
+	•	POST /raids/:id/leave
+
+All endpoints must enforce server-side validation.
+
+⸻
+
+⚡ REAL-TIME RAID LOBBIES
+
+Implement:
+	•	Real-time lobby state (WebSockets)
+	•	Player join/leave events
+	•	Ready status updates
+	•	Countdown timer
+	•	Auto-start indicator
+
+Raid lobbies should feel like Uber ride confirmation, not a chat room.
+
+⸻
+
+⛔ RAID EXPIRATION & CLEANUP
+	•	Raids auto-expire if:
+	•	The raid boss expires
+	•	Countdown completes with insufficient players
+	•	Inactivity threshold is reached
+	•	Expired raids cannot be joined
+
+⸻
+
+⭐ HOST REPUTATION SYSTEM (MAJOR DIFFERENTIATOR)
+
+Implement a host trust score:
+	•	Increases for successful completed raids
+	•	Decreases for:
+	•	Early leaving
+	•	No-shows
+	•	Repeated expired lobbies
+	•	Surface this score in raid listings
+	•	Use it for:
+	•	Matchmaking priority
+	•	Visibility ranking
+
+This creates accountability, which competitors lack.
+
+⸻
+
+🎯 SMART MATCHMAKING
+
+When users browse raids:
+	•	Prioritize:
+	•	Higher host reputation
+	•	Optimal group size
+	•	Compatible trainer levels
+	•	Optionally estimate success probability
+
+⸻
+
+🔁 AUTO-REQUEUE ON FAILURE
+
+If a raid fails:
+	•	Allow group to instantly requeue
+	•	Preserve participants
+	•	Create a new valid lobby if boss is still active
+
+⸻
+
+💎 PREMIUM (NON-PAY-TO-WIN)
+
+Premium features may include:
+	•	Auto-join
+	•	Priority matchmaking
+	•	Faster refresh
+	•	No ads
+	•	Cosmetic lobby themes
+
+Premium must never affect raid outcomes.
+
+⸻
+
+🎨 UX / UI RULES
+	•	Hosting a raid requires selecting from /raid-bosses
+	•	Tier auto-fills from server data
+	•	Countdown and status are clearly visible
+	•	No manual Pokémon input fields anywhere
+
+⸻
+
+🛠️ TECH CONSTRAINTS
+	•	Node.js backend (Express or equivalent)
+	•	PostgreSQL
+	•	REST APIs + WebSockets
+	•	Modular, clean, production-ready code
+	•	No mock-only implementations
+
+⸻
+
+📦 DELIVERABLES
+	•	Database schema / migrations
+	•	Scheduled raid rotation updater
+	•	Backend API routes with strict validation
+	•	Real-time lobby logic
+	•	Reputation system logic
+	•	Clear comments explaining architectural decisions
+
+⸻
+
+🚨 FINAL REQUIREMENT
+
+Design this system so that even a malicious client using direct HTTP or WebSocket calls cannot create fake raids or bypass rules.
