@@ -326,7 +326,7 @@ export default function Home() {
 
   if (userLoading) {
     return (
-      <div className="min-h-screen h-[100dvh] bg-background flex items-center justify-center">
+      <div className="h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -348,10 +348,10 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen max-h-screen h-[100dvh] bg-background text-foreground flex flex-col overflow-hidden">
+    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
       <Header onPremiumClick={() => setShowPremium(true)} />
       
-      <main className="flex-1 overflow-y-auto no-scrollbar pb-24">
+      <main className="flex-1 overflow-y-auto no-scrollbar">
         {view === "join" && (
           <JoinFeed
             lobbies={lobbies}

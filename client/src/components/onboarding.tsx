@@ -50,7 +50,6 @@ export function Onboarding() {
       code: formatted,
       isPremium: false,
       isVerified: true,
-      coins: 100,
     };
 
     setUser(newUser);
@@ -58,7 +57,7 @@ export function Onboarding() {
 
   if (step === "landing") {
     return (
-      <div className="min-h-screen h-[100dvh] flex flex-col items-center justify-center p-8 bg-black text-center relative overflow-hidden">
+      <div className="h-full flex flex-col items-center justify-center p-8 bg-black text-center relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-orange-900/40 via-black to-black" />
         <div className="relative z-10 space-y-8 max-w-sm">
           <div className="w-32 h-32 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl overflow-hidden mb-8 ring-4 ring-orange-600/50">
@@ -92,7 +91,7 @@ export function Onboarding() {
 
   if (step === "terms") {
     return (
-      <div className="min-h-screen h-[100dvh] flex items-center justify-center p-6 bg-black">
+      <div className="h-full flex items-center justify-center p-6 bg-black">
         <div className="bg-zinc-900 w-full max-w-sm rounded-3xl p-6 border border-zinc-800 max-h-[80vh] flex flex-col">
           <h2 className="text-xl font-black text-white mb-4">Terms of Service</h2>
           <div className="flex-1 overflow-y-auto text-left space-y-4 text-xs text-zinc-400 mb-6 pr-2">
@@ -142,7 +141,7 @@ export function Onboarding() {
   }
 
   return (
-    <div className="min-h-screen h-[100dvh] flex items-center justify-center p-6 bg-gradient-to-b from-zinc-900 via-black to-black overflow-y-auto">
+    <div className="h-full flex items-center justify-center p-6 bg-gradient-to-b from-zinc-900 via-black to-black">
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center mb-8">
           <div className="w-20 h-20 rounded-2xl mx-auto mb-4 overflow-hidden ring-2 ring-orange-600/50">
