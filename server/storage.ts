@@ -52,15 +52,22 @@ function generateMockLobbies(): Lobby[] {
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private lobbies: Map<string, Lobby>;
+  private lastMockRefresh: number;
 
   constructor() {
     this.users = new Map();
     this.lobbies = new Map();
+    this.lastMockRefresh = Date.now();
     
+    this.refreshMockLobbies();
+  }
+
+  private refreshMockLobbies() {
     const initialLobbies = generateMockLobbies();
     initialLobbies.forEach(lobby => {
       this.lobbies.set(lobby.id, lobby);
     });
+    this.lastMockRefresh = Date.now();
   }
 
   async getUser(id: string): Promise<User | undefined> {
@@ -82,9 +89,18 @@ export class MemStorage implements IStorage {
 
   async getLobbies(): Promise<Lobby[]> {
     const now = Date.now();
-    const activeLobbies = Array.from(this.lobbies.values())
+    let activeLobbies = Array.from(this.lobbies.values())
       .filter(lobby => now - lobby.createdAt < 600000)
       .sort((a, b) => b.createdAt - a.createdAt);
+    
+    // Refresh mock lobbies if they've all expired (for demo purposes)
+    if (activeLobbies.length === 0) {
+      this.refreshMockLobbies();
+      activeLobbies = Array.from(this.lobbies.values())
+        .filter(lobby => now - lobby.createdAt < 600000)
+        .sort((a, b) => b.createdAt - a.createdAt);
+    }
+    
     return activeLobbies;
   }
 
