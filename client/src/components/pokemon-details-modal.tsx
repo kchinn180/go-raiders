@@ -280,16 +280,17 @@ export function PokemonDetailsModal({
   // State for nested counter details modal
   const [selectedCounterId, setSelectedCounterId] = useState<string | null>(null);
 
-  // Fetch raid boss details from API
+  // Fetch raid boss details from API - only when we have a valid pokemonId
+  // Include raidEndTime in key to differentiate between different lobby instances
   const { data: bossDetails, isLoading: bossLoading, isError: bossError, refetch: refetchBoss } = useQuery<RaidBossDetails>({
-    queryKey: ["/api/pokemon", pokemonId, "details", raidEndTime],
-    enabled: isOpen && !isCounter,
+    queryKey: ["/api/pokemon", pokemonId, "details", raidEndTime ?? "no-timer"],
+    enabled: isOpen && !isCounter && !!pokemonId && pokemonId.length > 0,
   });
 
-  // Fetch counter pokemon details from API (for nested modals)
+  // Fetch counter pokemon details from API (for nested modals) - only when we have a valid pokemonId
   const { data: counterDetails, isLoading: counterLoading, isError: counterError, refetch: refetchCounter } = useQuery<PokemonDetails>({
     queryKey: ["/api/pokemon/counter", pokemonId, "details"],
-    enabled: isOpen && isCounter,
+    enabled: isOpen && isCounter && !!pokemonId && pokemonId.length > 0,
   });
 
   // Use appropriate data based on whether this is a counter or raid boss
@@ -324,8 +325,17 @@ export function PokemonDetailsModal({
     }
   }, [onClose]);
 
-  // Don't render if not open
-  if (!isOpen) return null;
+  /**
+   * Reset nested modal state when this modal closes
+   */
+  useEffect(() => {
+    if (!isOpen) {
+      setSelectedCounterId(null);
+    }
+  }, [isOpen]);
+
+  // Don't render if not open or no valid pokemonId
+  if (!isOpen || !pokemonId || pokemonId.length === 0) return null;
 
   return (
     <>
