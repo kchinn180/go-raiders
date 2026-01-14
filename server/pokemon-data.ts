@@ -480,6 +480,530 @@ export const RAID_BOSS_DATA: ExtendedBossData[] = [
       { name: 'Discharge', type: 'electric', damage: 65, energy: 33, duration: 2.5 },
       { name: 'Vice Grip', type: 'normal', damage: 40, energy: 33, duration: 1.9 }
     ]
+  },
+  // ===== January 2026 Raid Rotation =====
+  {
+    id: 'genesect-burn',
+    name: 'Genesect (Burn Drive)',
+    types: ['bug', 'steel'],
+    stats: { attack: 252, defense: 199, stamina: 174 },
+    tier: 5,
+    cp: 47836,
+    image: 'https://img.pokemondb.net/sprites/home/normal/genesect-burn.png',
+    fastMoves: [
+      { name: 'Metal Claw', type: 'steel', damage: 8, energy: 7, duration: 0.7 },
+      { name: 'Fury Cutter', type: 'bug', damage: 3, energy: 6, duration: 0.4 }
+    ],
+    chargedMoves: [
+      { name: 'Techno Blast (Burn)', type: 'fire', damage: 120, energy: 50, duration: 2.3 },
+      { name: 'Magnet Bomb', type: 'steel', damage: 70, energy: 33, duration: 2.8 },
+      { name: 'X-Scissor', type: 'bug', damage: 45, energy: 33, duration: 1.6 },
+      { name: 'Zap Cannon', type: 'electric', damage: 150, energy: 100, duration: 3.7 }
+    ]
+  },
+  {
+    id: 'genesect-chill',
+    name: 'Genesect (Chill Drive)',
+    types: ['bug', 'steel'],
+    stats: { attack: 252, defense: 199, stamina: 174 },
+    tier: 5,
+    cp: 47836,
+    image: 'https://img.pokemondb.net/sprites/home/normal/genesect-douse.png',
+    fastMoves: [
+      { name: 'Metal Claw', type: 'steel', damage: 8, energy: 7, duration: 0.7 },
+      { name: 'Fury Cutter', type: 'bug', damage: 3, energy: 6, duration: 0.4 }
+    ],
+    chargedMoves: [
+      { name: 'Techno Blast (Chill)', type: 'ice', damage: 120, energy: 50, duration: 2.3 },
+      { name: 'Magnet Bomb', type: 'steel', damage: 70, energy: 33, duration: 2.8 },
+      { name: 'X-Scissor', type: 'bug', damage: 45, energy: 33, duration: 1.6 },
+      { name: 'Zap Cannon', type: 'electric', damage: 150, energy: 100, duration: 3.7 }
+    ]
+  },
+  {
+    id: 'thundurus-incarnate',
+    name: 'Thundurus (Incarnate)',
+    types: ['electric', 'flying'],
+    stats: { attack: 266, defense: 164, stamina: 188 },
+    tier: 5,
+    cp: 46044,
+    image: 'https://img.pokemondb.net/sprites/home/normal/thundurus-incarnate.png',
+    fastMoves: [
+      { name: 'Thunder Shock', type: 'electric', damage: 5, energy: 8, duration: 0.6 },
+      { name: 'Astonish', type: 'ghost', damage: 8, energy: 9, duration: 1.1 }
+    ],
+    chargedMoves: [
+      { name: 'Thunder', type: 'electric', damage: 100, energy: 100, duration: 2.4 },
+      { name: 'Crunch', type: 'dark', damage: 70, energy: 33, duration: 3.2 },
+      { name: 'Brick Break', type: 'fighting', damage: 40, energy: 33, duration: 1.6 },
+      { name: 'Thunder Punch', type: 'electric', damage: 45, energy: 33, duration: 1.8 }
+    ]
+  },
+  {
+    id: 'tornadus-incarnate',
+    name: 'Tornadus (Incarnate)',
+    types: ['flying'],
+    stats: { attack: 266, defense: 164, stamina: 188 },
+    tier: 5,
+    cp: 46044,
+    image: 'https://img.pokemondb.net/sprites/home/normal/tornadus-incarnate.png',
+    fastMoves: [
+      { name: 'Air Slash', type: 'flying', damage: 14, energy: 10, duration: 1.2 },
+      { name: 'Bite', type: 'dark', damage: 6, energy: 4, duration: 0.5 }
+    ],
+    chargedMoves: [
+      { name: 'Hurricane', type: 'flying', damage: 110, energy: 50, duration: 2.7 },
+      { name: 'Grass Knot', type: 'grass', damage: 90, energy: 50, duration: 2.6 },
+      { name: 'Dark Pulse', type: 'dark', damage: 80, energy: 50, duration: 3.0 },
+      { name: 'Hyper Beam', type: 'normal', damage: 150, energy: 100, duration: 3.8 }
+    ]
+  },
+  {
+    id: 'shadow-cresselia',
+    name: 'Shadow Cresselia',
+    types: ['psychic'],
+    stats: { attack: 152, defense: 258, stamina: 260 },
+    tier: 5,
+    cp: 33794,
+    image: 'https://img.pokemondb.net/sprites/home/normal/cresselia.png',
+    fastMoves: [
+      { name: 'Psycho Cut', type: 'psychic', damage: 5, energy: 8, duration: 0.6 },
+      { name: 'Confusion', type: 'psychic', damage: 20, energy: 15, duration: 1.6 }
+    ],
+    chargedMoves: [
+      { name: 'Moonblast', type: 'fairy', damage: 130, energy: 100, duration: 3.9 },
+      { name: 'Aurora Beam', type: 'ice', damage: 80, energy: 50, duration: 3.5 },
+      { name: 'Future Sight', type: 'psychic', damage: 120, energy: 100, duration: 2.7 },
+      { name: 'Grass Knot', type: 'grass', damage: 90, energy: 50, duration: 2.6, isElite: true }
+    ]
+  },
+  {
+    id: 'shadow-scyther',
+    name: 'Shadow Scyther',
+    types: ['bug', 'flying'],
+    stats: { attack: 218, defense: 170, stamina: 172 },
+    tier: 3,
+    cp: 17358,
+    image: 'https://img.pokemondb.net/sprites/home/normal/scyther.png',
+    fastMoves: [
+      { name: 'Fury Cutter', type: 'bug', damage: 3, energy: 6, duration: 0.4 },
+      { name: 'Air Slash', type: 'flying', damage: 14, energy: 10, duration: 1.2 }
+    ],
+    chargedMoves: [
+      { name: 'X-Scissor', type: 'bug', damage: 45, energy: 33, duration: 1.6 },
+      { name: 'Aerial Ace', type: 'flying', damage: 55, energy: 33, duration: 2.4 },
+      { name: 'Night Slash', type: 'dark', damage: 50, energy: 35, duration: 2.2 }
+    ]
+  },
+  {
+    id: 'shadow-aerodactyl',
+    name: 'Shadow Aerodactyl',
+    types: ['rock', 'flying'],
+    stats: { attack: 221, defense: 159, stamina: 190 },
+    tier: 3,
+    cp: 18678,
+    image: 'https://img.pokemondb.net/sprites/home/normal/aerodactyl.png',
+    fastMoves: [
+      { name: 'Rock Throw', type: 'rock', damage: 12, energy: 7, duration: 0.9 },
+      { name: 'Bite', type: 'dark', damage: 6, energy: 4, duration: 0.5 }
+    ],
+    chargedMoves: [
+      { name: 'Rock Slide', type: 'rock', damage: 80, energy: 50, duration: 2.7 },
+      { name: 'Ancient Power', type: 'rock', damage: 70, energy: 33, duration: 3.5 },
+      { name: 'Iron Head', type: 'steel', damage: 60, energy: 50, duration: 1.9 },
+      { name: 'Hyper Beam', type: 'normal', damage: 150, energy: 100, duration: 3.8 }
+    ]
+  },
+  {
+    id: 'shadow-sableye',
+    name: 'Shadow Sableye',
+    types: ['dark', 'ghost'],
+    stats: { attack: 141, defense: 136, stamina: 137 },
+    tier: 3,
+    cp: 8266,
+    image: 'https://img.pokemondb.net/sprites/home/normal/sableye.png',
+    fastMoves: [
+      { name: 'Shadow Claw', type: 'ghost', damage: 9, energy: 6, duration: 0.7 },
+      { name: 'Feint Attack', type: 'dark', damage: 10, energy: 9, duration: 0.9 }
+    ],
+    chargedMoves: [
+      { name: 'Shadow Sneak', type: 'ghost', damage: 50, energy: 33, duration: 2.9 },
+      { name: 'Foul Play', type: 'dark', damage: 70, energy: 50, duration: 2.0 },
+      { name: 'Power Gem', type: 'rock', damage: 80, energy: 50, duration: 2.9 }
+    ]
+  },
+  {
+    id: 'mega-blaziken',
+    name: 'Mega Blaziken',
+    types: ['fire', 'fighting'],
+    stats: { attack: 329, defense: 168, stamina: 190 },
+    tier: 4,
+    cp: 52318,
+    image: 'https://img.pokemondb.net/sprites/home/normal/blaziken-mega.png',
+    fastMoves: [
+      { name: 'Counter', type: 'fighting', damage: 12, energy: 8, duration: 0.9 },
+      { name: 'Fire Spin', type: 'fire', damage: 14, energy: 10, duration: 1.1 }
+    ],
+    chargedMoves: [
+      { name: 'Blast Burn', type: 'fire', damage: 110, energy: 50, duration: 3.3, isElite: true },
+      { name: 'Focus Blast', type: 'fighting', damage: 140, energy: 100, duration: 3.5 },
+      { name: 'Brave Bird', type: 'flying', damage: 130, energy: 50, duration: 2.0 },
+      { name: 'Stone Edge', type: 'rock', damage: 100, energy: 100, duration: 2.3 }
+    ]
+  },
+  {
+    id: 'mega-sceptile',
+    name: 'Mega Sceptile',
+    types: ['grass', 'dragon'],
+    stats: { attack: 320, defense: 186, stamina: 172 },
+    tier: 4,
+    cp: 45349,
+    image: 'https://img.pokemondb.net/sprites/home/normal/sceptile-mega.png',
+    fastMoves: [
+      { name: 'Fury Cutter', type: 'bug', damage: 3, energy: 6, duration: 0.4 },
+      { name: 'Bullet Seed', type: 'grass', damage: 8, energy: 13, duration: 1.1 }
+    ],
+    chargedMoves: [
+      { name: 'Frenzy Plant', type: 'grass', damage: 100, energy: 50, duration: 2.6, isElite: true },
+      { name: 'Leaf Blade', type: 'grass', damage: 70, energy: 33, duration: 2.4 },
+      { name: 'Dragon Claw', type: 'dragon', damage: 50, energy: 35, duration: 1.6 },
+      { name: 'Earthquake', type: 'ground', damage: 140, energy: 100, duration: 3.6 }
+    ]
+  },
+  {
+    id: 'mega-ampharos',
+    name: 'Mega Ampharos',
+    types: ['electric', 'dragon'],
+    stats: { attack: 294, defense: 203, stamina: 207 },
+    tier: 4,
+    cp: 50693,
+    image: 'https://img.pokemondb.net/sprites/home/normal/ampharos-mega.png',
+    fastMoves: [
+      { name: 'Volt Switch', type: 'electric', damage: 14, energy: 21, duration: 2.3 },
+      { name: 'Charge Beam', type: 'electric', damage: 8, energy: 15, duration: 1.1 }
+    ],
+    chargedMoves: [
+      { name: 'Zap Cannon', type: 'electric', damage: 150, energy: 100, duration: 3.7 },
+      { name: 'Thunder', type: 'electric', damage: 100, energy: 100, duration: 2.4 },
+      { name: 'Dragon Pulse', type: 'dragon', damage: 90, energy: 50, duration: 3.6 },
+      { name: 'Focus Blast', type: 'fighting', damage: 140, energy: 100, duration: 3.5 }
+    ]
+  },
+  {
+    id: 'onix',
+    name: 'Onix',
+    types: ['rock', 'ground'],
+    stats: { attack: 85, defense: 232, stamina: 111 },
+    tier: 3,
+    cp: 7988,
+    image: 'https://img.pokemondb.net/sprites/home/normal/onix.png',
+    fastMoves: [
+      { name: 'Rock Throw', type: 'rock', damage: 12, energy: 7, duration: 0.9 },
+      { name: 'Tackle', type: 'normal', damage: 5, energy: 5, duration: 0.5 }
+    ],
+    chargedMoves: [
+      { name: 'Stone Edge', type: 'rock', damage: 100, energy: 100, duration: 2.3 },
+      { name: 'Sand Tomb', type: 'ground', damage: 60, energy: 33, duration: 2.0 },
+      { name: 'Heavy Slam', type: 'steel', damage: 70, energy: 50, duration: 2.1 }
+    ]
+  },
+  {
+    id: 'magmar',
+    name: 'Magmar',
+    types: ['fire'],
+    stats: { attack: 206, defense: 154, stamina: 163 },
+    tier: 3,
+    cp: 14670,
+    image: 'https://img.pokemondb.net/sprites/home/normal/magmar.png',
+    fastMoves: [
+      { name: 'Ember', type: 'fire', damage: 10, energy: 10, duration: 1.0 },
+      { name: 'Karate Chop', type: 'fighting', damage: 8, energy: 10, duration: 0.8 }
+    ],
+    chargedMoves: [
+      { name: 'Fire Punch', type: 'fire', damage: 55, energy: 33, duration: 2.2 },
+      { name: 'Fire Blast', type: 'fire', damage: 140, energy: 100, duration: 4.2 },
+      { name: 'Flamethrower', type: 'fire', damage: 90, energy: 50, duration: 2.2 }
+    ]
+  },
+  {
+    id: 'diggersby',
+    name: 'Diggersby',
+    types: ['normal', 'ground'],
+    stats: { attack: 112, defense: 155, stamina: 198 },
+    tier: 3,
+    cp: 11051,
+    image: 'https://img.pokemondb.net/sprites/home/normal/diggersby.png',
+    fastMoves: [
+      { name: 'Mud Shot', type: 'ground', damage: 5, energy: 7, duration: 0.6 },
+      { name: 'Quick Attack', type: 'normal', damage: 8, energy: 10, duration: 0.8 }
+    ],
+    chargedMoves: [
+      { name: 'Earthquake', type: 'ground', damage: 140, energy: 100, duration: 3.6 },
+      { name: 'Dig', type: 'ground', damage: 100, energy: 50, duration: 4.7 },
+      { name: 'Hyper Beam', type: 'normal', damage: 150, energy: 100, duration: 3.8 },
+      { name: 'Fire Punch', type: 'fire', damage: 55, energy: 33, duration: 2.2 }
+    ]
+  },
+  {
+    id: 'ponyta',
+    name: 'Ponyta',
+    types: ['fire'],
+    stats: { attack: 170, defense: 127, stamina: 137 },
+    tier: 1,
+    cp: 5116,
+    image: 'https://img.pokemondb.net/sprites/home/normal/ponyta.png',
+    fastMoves: [
+      { name: 'Ember', type: 'fire', damage: 10, energy: 10, duration: 1.0 },
+      { name: 'Tackle', type: 'normal', damage: 5, energy: 5, duration: 0.5 }
+    ],
+    chargedMoves: [
+      { name: 'Flame Charge', type: 'fire', damage: 70, energy: 33, duration: 2.9 },
+      { name: 'Flame Wheel', type: 'fire', damage: 60, energy: 50, duration: 2.7 },
+      { name: 'Stomp', type: 'normal', damage: 55, energy: 33, duration: 1.7 }
+    ]
+  },
+  {
+    id: 'krabby',
+    name: 'Krabby',
+    types: ['water'],
+    stats: { attack: 181, defense: 124, stamina: 102 },
+    tier: 1,
+    cp: 4638,
+    image: 'https://img.pokemondb.net/sprites/home/normal/krabby.png',
+    fastMoves: [
+      { name: 'Bubble', type: 'water', damage: 12, energy: 14, duration: 1.2 },
+      { name: 'Mud Shot', type: 'ground', damage: 5, energy: 7, duration: 0.6 }
+    ],
+    chargedMoves: [
+      { name: 'Vice Grip', type: 'normal', damage: 40, energy: 33, duration: 1.9 },
+      { name: 'Bubble Beam', type: 'water', damage: 45, energy: 33, duration: 1.9 },
+      { name: 'Water Pulse', type: 'water', damage: 70, energy: 50, duration: 3.2 }
+    ]
+  },
+  {
+    id: 'sandygast',
+    name: 'Sandygast',
+    types: ['ghost', 'ground'],
+    stats: { attack: 141, defense: 136, stamina: 128 },
+    tier: 1,
+    cp: 4795,
+    image: 'https://img.pokemondb.net/sprites/home/normal/sandygast.png',
+    fastMoves: [
+      { name: 'Astonish', type: 'ghost', damage: 8, energy: 9, duration: 1.1 },
+      { name: 'Mud-Slap', type: 'ground', damage: 18, energy: 12, duration: 1.4 }
+    ],
+    chargedMoves: [
+      { name: 'Shadow Ball', type: 'ghost', damage: 100, energy: 50, duration: 3.0 },
+      { name: 'Sand Tomb', type: 'ground', damage: 60, energy: 33, duration: 2.0 },
+      { name: 'Earth Power', type: 'ground', damage: 100, energy: 50, duration: 3.6 }
+    ]
+  },
+  {
+    id: 'scorbunny',
+    name: 'Scorbunny',
+    types: ['fire'],
+    stats: { attack: 133, defense: 91, stamina: 137 },
+    tier: 1,
+    cp: 3988,
+    image: 'https://img.pokemondb.net/sprites/home/normal/scorbunny.png',
+    fastMoves: [
+      { name: 'Ember', type: 'fire', damage: 10, energy: 10, duration: 1.0 },
+      { name: 'Tackle', type: 'normal', damage: 5, energy: 5, duration: 0.5 }
+    ],
+    chargedMoves: [
+      { name: 'Flame Charge', type: 'fire', damage: 70, energy: 33, duration: 2.9 },
+      { name: 'Low Sweep', type: 'fighting', damage: 40, energy: 33, duration: 1.9 },
+      { name: 'Bounce', type: 'flying', damage: 85, energy: 50, duration: 2.4 }
+    ]
+  },
+  {
+    id: 'drampa-max',
+    name: 'Drampa (Max)',
+    types: ['normal', 'dragon'],
+    stats: { attack: 213, defense: 179, stamina: 186 },
+    tier: 1,
+    cp: 6500,
+    image: 'https://img.pokemondb.net/sprites/home/normal/drampa.png',
+    fastMoves: [
+      { name: 'Dragon Breath', type: 'dragon', damage: 6, energy: 4, duration: 0.5 },
+      { name: 'Extrasensory', type: 'psychic', damage: 12, energy: 12, duration: 1.1 }
+    ],
+    chargedMoves: [
+      { name: 'Dragon Pulse', type: 'dragon', damage: 90, energy: 50, duration: 3.6 },
+      { name: 'Fly', type: 'flying', damage: 80, energy: 50, duration: 2.0 },
+      { name: 'Outrage', type: 'dragon', damage: 110, energy: 50, duration: 3.9 }
+    ]
+  },
+  {
+    id: 'roggenrola-max',
+    name: 'Roggenrola (Max)',
+    types: ['rock'],
+    stats: { attack: 121, defense: 110, stamina: 146 },
+    tier: 1,
+    cp: 4200,
+    image: 'https://img.pokemondb.net/sprites/home/normal/roggenrola.png',
+    fastMoves: [
+      { name: 'Tackle', type: 'normal', damage: 5, energy: 5, duration: 0.5 },
+      { name: 'Smack Down', type: 'rock', damage: 16, energy: 8, duration: 1.2 }
+    ],
+    chargedMoves: [
+      { name: 'Stone Edge', type: 'rock', damage: 100, energy: 100, duration: 2.3 },
+      { name: 'Rock Blast', type: 'rock', damage: 50, energy: 33, duration: 2.1 },
+      { name: 'Bulldoze', type: 'ground', damage: 80, energy: 50, duration: 3.5 }
+    ]
+  },
+  {
+    id: 'reshiram',
+    name: 'Reshiram',
+    types: ['dragon', 'fire'],
+    stats: { attack: 275, defense: 211, stamina: 205 },
+    tier: 5,
+    cp: 53394,
+    image: 'https://img.pokemondb.net/sprites/home/normal/reshiram.png',
+    fastMoves: [
+      { name: 'Dragon Breath', type: 'dragon', damage: 6, energy: 4, duration: 0.5 },
+      { name: 'Fire Fang', type: 'fire', damage: 11, energy: 8, duration: 0.9 }
+    ],
+    chargedMoves: [
+      { name: 'Draco Meteor', type: 'dragon', damage: 150, energy: 100, duration: 3.6 },
+      { name: 'Overheat', type: 'fire', damage: 160, energy: 100, duration: 4.0 },
+      { name: 'Crunch', type: 'dark', damage: 70, energy: 33, duration: 3.2 },
+      { name: 'Stone Edge', type: 'rock', damage: 100, energy: 100, duration: 2.3 },
+      { name: 'Fusion Flare', type: 'fire', damage: 90, energy: 50, duration: 2.0, isElite: true }
+    ]
+  },
+  {
+    id: 'zekrom',
+    name: 'Zekrom',
+    types: ['dragon', 'electric'],
+    stats: { attack: 275, defense: 211, stamina: 205 },
+    tier: 5,
+    cp: 53394,
+    image: 'https://img.pokemondb.net/sprites/home/normal/zekrom.png',
+    fastMoves: [
+      { name: 'Dragon Breath', type: 'dragon', damage: 6, energy: 4, duration: 0.5 },
+      { name: 'Charge Beam', type: 'electric', damage: 8, energy: 15, duration: 1.1 }
+    ],
+    chargedMoves: [
+      { name: 'Draco Meteor', type: 'dragon', damage: 150, energy: 100, duration: 3.6 },
+      { name: 'Wild Charge', type: 'electric', damage: 90, energy: 50, duration: 2.6 },
+      { name: 'Crunch', type: 'dark', damage: 70, energy: 33, duration: 3.2 },
+      { name: 'Flash Cannon', type: 'steel', damage: 100, energy: 100, duration: 2.7 },
+      { name: 'Fusion Bolt', type: 'electric', damage: 90, energy: 50, duration: 2.0, isElite: true }
+    ]
+  },
+  {
+    id: 'kyurem-black',
+    name: 'Black Kyurem',
+    types: ['dragon', 'ice'],
+    stats: { attack: 310, defense: 183, stamina: 245 },
+    tier: 5,
+    cp: 48884,
+    image: 'https://img.pokemondb.net/sprites/home/normal/kyurem-black.png',
+    fastMoves: [
+      { name: 'Dragon Breath', type: 'dragon', damage: 6, energy: 4, duration: 0.5 },
+      { name: 'Shadow Claw', type: 'ghost', damage: 9, energy: 6, duration: 0.7 }
+    ],
+    chargedMoves: [
+      { name: 'Draco Meteor', type: 'dragon', damage: 150, energy: 100, duration: 3.6 },
+      { name: 'Blizzard', type: 'ice', damage: 140, energy: 100, duration: 3.1 },
+      { name: 'Iron Head', type: 'steel', damage: 60, energy: 50, duration: 1.9 },
+      { name: 'Stone Edge', type: 'rock', damage: 100, energy: 100, duration: 2.3 },
+      { name: 'Freeze Shock', type: 'ice', damage: 110, energy: 50, duration: 2.0, isElite: true }
+    ]
+  },
+  {
+    id: 'kyurem-white',
+    name: 'White Kyurem',
+    types: ['dragon', 'ice'],
+    stats: { attack: 310, defense: 183, stamina: 245 },
+    tier: 5,
+    cp: 48884,
+    image: 'https://img.pokemondb.net/sprites/home/normal/kyurem-white.png',
+    fastMoves: [
+      { name: 'Dragon Breath', type: 'dragon', damage: 6, energy: 4, duration: 0.5 },
+      { name: 'Psycho Cut', type: 'psychic', damage: 5, energy: 8, duration: 0.6 }
+    ],
+    chargedMoves: [
+      { name: 'Draco Meteor', type: 'dragon', damage: 150, energy: 100, duration: 3.6 },
+      { name: 'Blizzard', type: 'ice', damage: 140, energy: 100, duration: 3.1 },
+      { name: 'Focus Blast', type: 'fighting', damage: 140, energy: 100, duration: 3.5 },
+      { name: 'Ancient Power', type: 'rock', damage: 70, energy: 33, duration: 3.5 },
+      { name: 'Ice Burn', type: 'ice', damage: 110, energy: 50, duration: 2.0, isElite: true }
+    ]
+  },
+  // Shadow Raids (1-Star)
+  {
+    id: 'shadow-drowzee',
+    name: 'Shadow Drowzee',
+    types: ['psychic'],
+    stats: { attack: 89, defense: 136, stamina: 155 },
+    tier: 1,
+    cp: 4122,
+    image: 'https://img.pokemondb.net/sprites/home/normal/drowzee.png',
+    fastMoves: [
+      { name: 'Confusion', type: 'psychic', damage: 20, energy: 15, duration: 1.6 },
+      { name: 'Pound', type: 'normal', damage: 7, energy: 6, duration: 0.6 }
+    ],
+    chargedMoves: [
+      { name: 'Psybeam', type: 'psychic', damage: 70, energy: 50, duration: 3.2 },
+      { name: 'Psyshock', type: 'psychic', damage: 65, energy: 33, duration: 2.7 },
+      { name: 'Shadow Ball', type: 'ghost', damage: 100, energy: 50, duration: 3.0 }
+    ]
+  },
+  {
+    id: 'shadow-ralts',
+    name: 'Shadow Ralts',
+    types: ['psychic', 'fairy'],
+    stats: { attack: 79, defense: 59, stamina: 99 },
+    tier: 1,
+    cp: 2859,
+    image: 'https://img.pokemondb.net/sprites/home/normal/ralts.png',
+    fastMoves: [
+      { name: 'Confusion', type: 'psychic', damage: 20, energy: 15, duration: 1.6 },
+      { name: 'Charm', type: 'fairy', damage: 20, energy: 6, duration: 1.5 }
+    ],
+    chargedMoves: [
+      { name: 'Psyshock', type: 'psychic', damage: 65, energy: 33, duration: 2.7 },
+      { name: 'Disarming Voice', type: 'fairy', damage: 70, energy: 33, duration: 3.9 },
+      { name: 'Shadow Sneak', type: 'ghost', damage: 50, energy: 33, duration: 2.9 }
+    ]
+  },
+  {
+    id: 'shadow-bagon',
+    name: 'Shadow Bagon',
+    types: ['dragon'],
+    stats: { attack: 134, defense: 93, stamina: 128 },
+    tier: 1,
+    cp: 4484,
+    image: 'https://img.pokemondb.net/sprites/home/normal/bagon.png',
+    fastMoves: [
+      { name: 'Dragon Breath', type: 'dragon', damage: 6, energy: 4, duration: 0.5 },
+      { name: 'Bite', type: 'dark', damage: 6, energy: 4, duration: 0.5 }
+    ],
+    chargedMoves: [
+      { name: 'Twister', type: 'dragon', damage: 45, energy: 33, duration: 2.8 },
+      { name: 'Crunch', type: 'dark', damage: 70, energy: 33, duration: 3.2 },
+      { name: 'Flamethrower', type: 'fire', damage: 90, energy: 50, duration: 2.2 }
+    ]
+  },
+  {
+    id: 'shadow-snover',
+    name: 'Shadow Snover',
+    types: ['grass', 'ice'],
+    stats: { attack: 115, defense: 105, stamina: 155 },
+    tier: 1,
+    cp: 3896,
+    image: 'https://img.pokemondb.net/sprites/home/normal/snover.png',
+    fastMoves: [
+      { name: 'Powder Snow', type: 'ice', damage: 6, energy: 8, duration: 1.0 },
+      { name: 'Ice Shard', type: 'ice', damage: 12, energy: 12, duration: 1.2 }
+    ],
+    chargedMoves: [
+      { name: 'Ice Punch', type: 'ice', damage: 50, energy: 33, duration: 1.9 },
+      { name: 'Energy Ball', type: 'grass', damage: 90, energy: 50, duration: 3.9 },
+      { name: 'Stomp', type: 'normal', damage: 55, energy: 33, duration: 1.7 }
+    ]
   }
 ];
 

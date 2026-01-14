@@ -11,6 +11,7 @@ import { ShopView } from "@/components/shop-view";
 import { SettingsView } from "@/components/settings-view";
 import { PremiumModal } from "@/components/premium-modal";
 import { AutoJoinModal } from "@/components/auto-join-modal";
+import { QueueStatusModal } from "@/components/queue-status-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { PrivacyPage } from "@/pages/privacy";
 import { TermsPage } from "@/pages/terms";
@@ -23,7 +24,7 @@ import { playClickSound } from "@/lib/sounds";
 import { registerForPushNotifications, unregisterPushNotifications, setupNotificationListeners, showLocalNotification } from "@/lib/notifications";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { BOSSES } from "@shared/schema";
-import type { Lobby, Player, Boss, FilterType } from "@shared/schema";
+import type { Lobby, Player, FilterType } from "@shared/schema";
 
 type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
 type LegalPage = "privacy" | "terms" | "about" | "admin" | null;
@@ -39,6 +40,8 @@ export default function Home() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackLobby, setFeedbackLobby] = useState<Lobby | null>(null);
   const [legalPage, setLegalPage] = useState<LegalPage>(null);
+  const [showQueueStatus, setShowQueueStatus] = useState(false);
+  const [queueBossId, setQueueBossId] = useState<string | null>(null);
 
   const { data: lobbies = [], isLoading: lobbiesLoading, refetch } = useQuery<Lobby[]>({
     queryKey: ["/api/lobbies"],
@@ -333,55 +336,32 @@ export default function Home() {
     }
   }, [user]);
 
-  const handleAutoJoinSelect = useCallback((boss: Boss) => {
-    if (!user) return;
+  const handleQueueJoined = useCallback((bossId: string) => {
+    setQueueBossId(bossId);
+    setShowQueueStatus(true);
+    const boss = BOSSES.find(b => b.id === bossId);
+    toast({ 
+      title: `Joined Queue!`, 
+      description: `Waiting for ${boss?.name || 'raid'} lobby...` 
+    });
+  }, [toast]);
+
+  const handleQueueMatched = useCallback((lobbyId: string) => {
+    setShowQueueStatus(false);
+    setQueueBossId(null);
     
-    setShowAutoJoin(false);
-    toast({ title: `Searching for ${boss.name}...` });
-
-    setTimeout(() => {
-      const autoLobby: Lobby = {
-        id: `autojoin-${Date.now()}`,
-        bossId: boss.id,
-        hostId: "priority-host",
-        hostName: "EliteHost",
-        hostRating: "5.0",
-        players: [
-          {
-            id: "priority-host",
-            name: "EliteHost",
-            level: 50,
-            team: "valor",
-            isReady: true,
-            isHost: true,
-            isPremium: true,
-            friendCode: "1234 5678 9012",
-          },
-          {
-            id: user.id,
-            name: user.name,
-            level: user.level,
-            team: user.team,
-            isReady: false,
-            isPremium: user.isPremium,
-            friendCode: user.code,
-          },
-        ],
-        maxPlayers: 6,
-        team: "valor",
-        minLevel: 1,
-        weather: true,
-        createdAt: Date.now(),
-        timeLeft: 45,
-        raidStarted: false,
-        invitesSent: false,
-      };
-
-      setActiveLobby(autoLobby);
-      setView("lobby");
-      toast({ title: `Joined ${boss.name} Queue!`, description: "You've been placed in a priority lobby" });
-    }, 1500);
-  }, [user, toast]);
+    const lobby = lobbies.find(l => l.id === lobbyId);
+    if (lobby) {
+      handleJoinLobby(lobby);
+    } else {
+      refetch().then(() => {
+        const freshLobby = lobbies.find(l => l.id === lobbyId);
+        if (freshLobby) {
+          handleJoinLobby(freshLobby);
+        }
+      });
+    }
+  }, [lobbies, handleJoinLobby, refetch]);
 
   const handleNavigateLegal = useCallback((page: 'privacy' | 'terms' | 'about' | 'admin') => {
     setLegalPage(page);
@@ -456,7 +436,23 @@ export default function Home() {
       <AutoJoinModal
         isOpen={showAutoJoin}
         onClose={() => setShowAutoJoin(false)}
-        onSelect={handleAutoJoinSelect}
+        onQueueJoined={handleQueueJoined}
+        userId={user.id}
+        userName={user.name}
+        userLevel={user.level}
+        userTeam={user.team}
+        friendCode={user.code}
+        isPremium={user.isPremium}
+      />
+      <QueueStatusModal
+        isOpen={showQueueStatus}
+        onClose={() => {
+          setShowQueueStatus(false);
+          setQueueBossId(null);
+        }}
+        userId={user.id}
+        bossId={queueBossId || ''}
+        onMatched={handleQueueMatched}
       />
 
       {feedbackLobby && user && (

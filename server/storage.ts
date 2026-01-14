@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss } from "@shared/schema";
+import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus } from "@shared/schema";
 import type { Player as PlayerType } from "@shared/schema";
 import { ALL_BOSSES, TEAMS } from "@shared/schema";
 
@@ -40,12 +40,30 @@ export interface IStorage {
   removePushToken(token: string): Promise<boolean>;
   getPushTokensForUser(userId: string): Promise<PushToken[]>;
   getPushTokensForUsers(userIds: string[]): Promise<PushToken[]>;
+  
+  // Queue management (PokeGenie-style)
+  joinQueue(entry: InsertQueueEntry): Promise<QueueEntry>;
+  leaveQueue(userId: string, bossId?: string): Promise<boolean>;
+  getQueueStatus(userId: string, bossId: string): Promise<QueueStatus | null>;
+  getUserQueues(userId: string): Promise<QueueStatus[]>;
+  getQueueForBoss(bossId: string): Promise<QueueEntry[]>;
+  processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }>;
 }
 
-// Default active bosses (simulating current raid rotation)
+// Default active bosses (January 2026 Pokemon GO raid rotation)
 const DEFAULT_ACTIVE_BOSS_IDS = [
-  'rayquaza', 'mewtwo', 'dialga', 'palkia', 'lugia', 
-  'beldum', 'mega-charizard-x', 'machamp'
+  // 5-Star Legendary
+  'genesect-burn', 'genesect-chill', 'thundurus-incarnate',
+  // Shadow Raids
+  'shadow-cresselia', 'shadow-scyther', 'shadow-aerodactyl',
+  // Mega Raids
+  'mega-blaziken', 'mega-sceptile',
+  // Tier 3
+  'onix', 'magmar', 'diggersby',
+  // Tier 1
+  'ponyta', 'krabby', 'sandygast', 'scorbunny',
+  // Max Battles
+  'drampa-max'
 ];
 
 function generateMockLobbies(): Lobby[] {
@@ -88,6 +106,7 @@ export class MemStorage implements IStorage {
   private pushTokens: Map<string, PushToken>;
   private pushTokenIdCounter: number;
   private raidBosses: Map<string, RaidBoss>;
+  private queueEntries: Map<string, QueueEntry>;
 
   constructor() {
     this.users = new Map();
@@ -99,6 +118,7 @@ export class MemStorage implements IStorage {
     this.pushTokens = new Map();
     this.pushTokenIdCounter = 1;
     this.raidBosses = new Map();
+    this.queueEntries = new Map();
     
     // Initialize raid bosses from master list with active status
     ALL_BOSSES.forEach(boss => {
@@ -432,6 +452,166 @@ export class MemStorage implements IStorage {
   async getPushTokensForUsers(userIds: string[]): Promise<PushToken[]> {
     const userIdSet = new Set(userIds);
     return Array.from(this.pushTokens.values()).filter(t => userIdSet.has(t.userId));
+  }
+
+  // Queue management (PokeGenie-style)
+  async joinQueue(entry: InsertQueueEntry): Promise<QueueEntry> {
+    // Check if user is already in queue for this boss
+    const existingKey = `${entry.userId}-${entry.bossId}`;
+    const existing = this.queueEntries.get(existingKey);
+    if (existing && existing.status === 'waiting') {
+      return existing; // Already in queue
+    }
+    
+    const queueEntry: QueueEntry = {
+      id: randomUUID(),
+      ...entry,
+      joinedAt: Date.now(),
+      status: 'waiting',
+    };
+    
+    this.queueEntries.set(existingKey, queueEntry);
+    return queueEntry;
+  }
+
+  async leaveQueue(userId: string, bossId?: string): Promise<boolean> {
+    let removed = false;
+    
+    if (bossId) {
+      // Leave specific boss queue
+      const key = `${userId}-${bossId}`;
+      if (this.queueEntries.has(key)) {
+        const entry = this.queueEntries.get(key)!;
+        entry.status = 'cancelled';
+        this.queueEntries.set(key, entry);
+        removed = true;
+      }
+    } else {
+      // Leave all queues
+      for (const [key, entry] of this.queueEntries.entries()) {
+        if (entry.userId === userId && entry.status === 'waiting') {
+          entry.status = 'cancelled';
+          this.queueEntries.set(key, entry);
+          removed = true;
+        }
+      }
+    }
+    
+    return removed;
+  }
+
+  async getQueueStatus(userId: string, bossId: string): Promise<QueueStatus | null> {
+    const key = `${userId}-${bossId}`;
+    const entry = this.queueEntries.get(key);
+    
+    if (!entry || entry.status === 'cancelled' || entry.status === 'expired') {
+      return null;
+    }
+    
+    // Get all waiting entries for this boss, sorted by join time (premium first)
+    const bossQueue = Array.from(this.queueEntries.values())
+      .filter(e => e.bossId === bossId && e.status === 'waiting')
+      .sort((a, b) => {
+        // Premium users get priority
+        if (a.isPremium !== b.isPremium) {
+          return a.isPremium ? -1 : 1;
+        }
+        return a.joinedAt - b.joinedAt;
+      });
+    
+    const position = bossQueue.findIndex(e => e.userId === userId) + 1;
+    const boss = ALL_BOSSES.find(b => b.id === bossId);
+    
+    // Estimate wait time based on position and typical raid time (3-5 min per raid)
+    const avgWaitPerPerson = 45; // seconds
+    const estimatedWaitSeconds = Math.max(0, (position - 1) * avgWaitPerPerson);
+    
+    return {
+      bossId,
+      bossName: boss?.name || bossId,
+      position,
+      totalInQueue: bossQueue.length,
+      estimatedWaitSeconds,
+      status: entry.status,
+      matchedLobbyId: entry.matchedLobbyId,
+    };
+  }
+
+  async getUserQueues(userId: string): Promise<QueueStatus[]> {
+    const userEntries = Array.from(this.queueEntries.values())
+      .filter(e => e.userId === userId && e.status === 'waiting');
+    
+    const statuses: QueueStatus[] = [];
+    
+    for (const entry of userEntries) {
+      const status = await this.getQueueStatus(userId, entry.bossId);
+      if (status) {
+        statuses.push(status);
+      }
+    }
+    
+    return statuses;
+  }
+
+  async getQueueForBoss(bossId: string): Promise<QueueEntry[]> {
+    return Array.from(this.queueEntries.values())
+      .filter(e => e.bossId === bossId && e.status === 'waiting')
+      .sort((a, b) => {
+        if (a.isPremium !== b.isPremium) {
+          return a.isPremium ? -1 : 1;
+        }
+        return a.joinedAt - b.joinedAt;
+      });
+  }
+
+  async processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }> {
+    const matchedEntries: QueueEntry[] = [];
+    const affectedLobbies: Lobby[] = [];
+    
+    // Get all lobbies with space
+    const lobbiesWithSpace = Array.from(this.lobbies.values())
+      .filter(l => l.players.length < l.maxPlayers && !l.raidStarted);
+    
+    for (const lobby of lobbiesWithSpace) {
+      // Get queue for this boss
+      const queue = await this.getQueueForBoss(lobby.bossId);
+      
+      for (const entry of queue) {
+        // Check if lobby still has space
+        if (lobby.players.length >= lobby.maxPlayers) break;
+        
+        // Check minimum level requirement
+        if (entry.userLevel < lobby.minLevel) continue;
+        
+        // Add player to lobby
+        const player: Player = {
+          id: entry.userId,
+          name: entry.userName,
+          level: entry.userLevel,
+          team: entry.userTeam,
+          isReady: false,
+          isHost: false,
+          friendCode: entry.friendCode,
+          isPremium: entry.isPremium,
+        };
+        
+        lobby.players.push(player);
+        this.lobbies.set(lobby.id, lobby);
+        
+        // Update queue entry
+        entry.status = 'matched';
+        entry.matchedLobbyId = lobby.id;
+        this.queueEntries.set(`${entry.userId}-${entry.bossId}`, entry);
+        
+        matchedEntries.push(entry);
+        
+        if (!affectedLobbies.includes(lobby)) {
+          affectedLobbies.push(lobby);
+        }
+      }
+    }
+    
+    return { matched: matchedEntries, lobbies: affectedLobbies };
   }
 }
 

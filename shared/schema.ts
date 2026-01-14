@@ -73,29 +73,45 @@ export const TEAMS = [
 export type TeamId = 'valor' | 'mystic' | 'instinct' | 'neutral';
 
 // All available raid bosses (master list - server controls which are active)
+// Updated to January 2026 Pokemon GO raid rotation
 export const ALL_BOSSES = [
-  { id: 'rayquaza', name: 'Rayquaza', tier: 5, cp: 49808, image: 'https://img.pokemondb.net/sprites/home/normal/rayquaza.png', isShadow: false, isDynamax: false },
-  { id: 'mewtwo', name: 'Mewtwo', tier: 5, cp: 54148, image: 'https://img.pokemondb.net/sprites/home/normal/mewtwo.png', isShadow: false, isDynamax: false },
-  { id: 'groudon', name: 'Primal Groudon', tier: 6, cp: 92860, image: 'https://img.pokemondb.net/sprites/home/normal/groudon-primal.png', isShadow: false, isDynamax: false },
-  { id: 'kyogre', name: 'Primal Kyogre', tier: 6, cp: 92860, image: 'https://img.pokemondb.net/sprites/home/normal/kyogre-primal.png', isShadow: false, isDynamax: false },
-  { id: 'lugia', name: 'Shadow Lugia', tier: 5, cp: 45000, image: 'https://img.pokemondb.net/sprites/home/normal/lugia.png', isShadow: true, isDynamax: false },
-  { id: 'beldum', name: 'Beldum (Max)', tier: 1, cp: 5000, image: 'https://img.pokemondb.net/sprites/home/normal/beldum.png', isShadow: false, isDynamax: true },
-  { id: 'dialga', name: 'Dialga', tier: 5, cp: 53394, image: 'https://img.pokemondb.net/sprites/home/normal/dialga.png', isShadow: false, isDynamax: false },
-  { id: 'palkia', name: 'Palkia', tier: 5, cp: 54793, image: 'https://img.pokemondb.net/sprites/home/normal/palkia.png', isShadow: false, isDynamax: false },
-  { id: 'giratina', name: 'Giratina', tier: 5, cp: 41776, image: 'https://img.pokemondb.net/sprites/home/normal/giratina-altered.png', isShadow: false, isDynamax: false },
-  { id: 'darkrai', name: 'Darkrai', tier: 5, cp: 53623, image: 'https://img.pokemondb.net/sprites/home/normal/darkrai.png', isShadow: false, isDynamax: false },
-  { id: 'ho-oh', name: 'Ho-Oh', tier: 5, cp: 50064, image: 'https://img.pokemondb.net/sprites/home/normal/ho-oh.png', isShadow: false, isDynamax: false },
-  { id: 'suicune', name: 'Suicune', tier: 5, cp: 37761, image: 'https://img.pokemondb.net/sprites/home/normal/suicune.png', isShadow: false, isDynamax: false },
-  { id: 'raikou', name: 'Raikou', tier: 5, cp: 45435, image: 'https://img.pokemondb.net/sprites/home/normal/raikou.png', isShadow: false, isDynamax: false },
-  { id: 'entei', name: 'Entei', tier: 5, cp: 46073, image: 'https://img.pokemondb.net/sprites/home/normal/entei.png', isShadow: false, isDynamax: false },
-  { id: 'mega-charizard-x', name: 'Mega Charizard X', tier: 4, cp: 48895, image: 'https://img.pokemondb.net/sprites/home/normal/charizard-mega-x.png', isShadow: false, isDynamax: false },
-  { id: 'mega-blastoise', name: 'Mega Blastoise', tier: 4, cp: 44074, image: 'https://img.pokemondb.net/sprites/home/normal/blastoise-mega.png', isShadow: false, isDynamax: false },
-  { id: 'mega-venusaur', name: 'Mega Venusaur', tier: 4, cp: 42178, image: 'https://img.pokemondb.net/sprites/home/normal/venusaur-mega.png', isShadow: false, isDynamax: false },
-  { id: 'machamp', name: 'Machamp', tier: 3, cp: 19707, image: 'https://img.pokemondb.net/sprites/home/normal/machamp.png', isShadow: false, isDynamax: false },
-  { id: 'tyranitar', name: 'Tyranitar', tier: 4, cp: 37599, image: 'https://img.pokemondb.net/sprites/home/normal/tyranitar.png', isShadow: false, isDynamax: false },
-  { id: 'shinx', name: 'Shinx', tier: 1, cp: 2753, image: 'https://img.pokemondb.net/sprites/home/normal/shinx.png', isShadow: false, isDynamax: false },
-  { id: 'timburr', name: 'Timburr', tier: 1, cp: 4707, image: 'https://img.pokemondb.net/sprites/home/normal/timburr.png', isShadow: false, isDynamax: false },
-  { id: 'klink', name: 'Klink', tier: 1, cp: 3227, image: 'https://img.pokemondb.net/sprites/home/normal/klink.png', isShadow: false, isDynamax: false },
+  // 5-Star Legendary Raids (Current: January 2026)
+  { id: 'genesect-burn', name: 'Genesect (Burn Drive)', tier: 5, cp: 47836, image: 'https://img.pokemondb.net/sprites/home/normal/genesect-burn.png', isShadow: false, isDynamax: false },
+  { id: 'genesect-chill', name: 'Genesect (Chill Drive)', tier: 5, cp: 47836, image: 'https://img.pokemondb.net/sprites/home/normal/genesect-douse.png', isShadow: false, isDynamax: false },
+  { id: 'thundurus-incarnate', name: 'Thundurus (Incarnate)', tier: 5, cp: 46044, image: 'https://img.pokemondb.net/sprites/home/normal/thundurus-incarnate.png', isShadow: false, isDynamax: false },
+  { id: 'tornadus-incarnate', name: 'Tornadus (Incarnate)', tier: 5, cp: 46044, image: 'https://img.pokemondb.net/sprites/home/normal/tornadus-incarnate.png', isShadow: false, isDynamax: false },
+  // Shadow Raids (5-Star)
+  { id: 'shadow-cresselia', name: 'Shadow Cresselia', tier: 5, cp: 33794, image: 'https://img.pokemondb.net/sprites/home/normal/cresselia.png', isShadow: true, isDynamax: false },
+  // Shadow Raids (3-Star)
+  { id: 'shadow-scyther', name: 'Shadow Scyther', tier: 3, cp: 17358, image: 'https://img.pokemondb.net/sprites/home/normal/scyther.png', isShadow: true, isDynamax: false },
+  { id: 'shadow-aerodactyl', name: 'Shadow Aerodactyl', tier: 3, cp: 18678, image: 'https://img.pokemondb.net/sprites/home/normal/aerodactyl.png', isShadow: true, isDynamax: false },
+  { id: 'shadow-sableye', name: 'Shadow Sableye', tier: 3, cp: 8266, image: 'https://img.pokemondb.net/sprites/home/normal/sableye.png', isShadow: true, isDynamax: false },
+  // Shadow Raids (1-Star)
+  { id: 'shadow-drowzee', name: 'Shadow Drowzee', tier: 1, cp: 4122, image: 'https://img.pokemondb.net/sprites/home/normal/drowzee.png', isShadow: true, isDynamax: false },
+  { id: 'shadow-ralts', name: 'Shadow Ralts', tier: 1, cp: 2859, image: 'https://img.pokemondb.net/sprites/home/normal/ralts.png', isShadow: true, isDynamax: false },
+  { id: 'shadow-bagon', name: 'Shadow Bagon', tier: 1, cp: 4484, image: 'https://img.pokemondb.net/sprites/home/normal/bagon.png', isShadow: true, isDynamax: false },
+  { id: 'shadow-snover', name: 'Shadow Snover', tier: 1, cp: 3896, image: 'https://img.pokemondb.net/sprites/home/normal/snover.png', isShadow: true, isDynamax: false },
+  // Mega Raids
+  { id: 'mega-blaziken', name: 'Mega Blaziken', tier: 4, cp: 52318, image: 'https://img.pokemondb.net/sprites/home/normal/blaziken-mega.png', isShadow: false, isDynamax: false },
+  { id: 'mega-sceptile', name: 'Mega Sceptile', tier: 4, cp: 45349, image: 'https://img.pokemondb.net/sprites/home/normal/sceptile-mega.png', isShadow: false, isDynamax: false },
+  { id: 'mega-ampharos', name: 'Mega Ampharos', tier: 4, cp: 50693, image: 'https://img.pokemondb.net/sprites/home/normal/ampharos-mega.png', isShadow: false, isDynamax: false },
+  // Tier 3 Raids
+  { id: 'onix', name: 'Onix', tier: 3, cp: 7988, image: 'https://img.pokemondb.net/sprites/home/normal/onix.png', isShadow: false, isDynamax: false },
+  { id: 'magmar', name: 'Magmar', tier: 3, cp: 14670, image: 'https://img.pokemondb.net/sprites/home/normal/magmar.png', isShadow: false, isDynamax: false },
+  { id: 'diggersby', name: 'Diggersby', tier: 3, cp: 11051, image: 'https://img.pokemondb.net/sprites/home/normal/diggersby.png', isShadow: false, isDynamax: false },
+  // Tier 1 Raids
+  { id: 'ponyta', name: 'Ponyta', tier: 1, cp: 5116, image: 'https://img.pokemondb.net/sprites/home/normal/ponyta.png', isShadow: false, isDynamax: false },
+  { id: 'krabby', name: 'Krabby', tier: 1, cp: 4638, image: 'https://img.pokemondb.net/sprites/home/normal/krabby.png', isShadow: false, isDynamax: false },
+  { id: 'sandygast', name: 'Sandygast', tier: 1, cp: 4795, image: 'https://img.pokemondb.net/sprites/home/normal/sandygast.png', isShadow: false, isDynamax: false },
+  { id: 'scorbunny', name: 'Scorbunny', tier: 1, cp: 3988, image: 'https://img.pokemondb.net/sprites/home/normal/scorbunny.png', isShadow: false, isDynamax: false },
+  // Max Battles (Dynamax)
+  { id: 'drampa-max', name: 'Drampa (Max)', tier: 1, cp: 6500, image: 'https://img.pokemondb.net/sprites/home/normal/drampa.png', isShadow: false, isDynamax: true },
+  { id: 'roggenrola-max', name: 'Roggenrola (Max)', tier: 1, cp: 4200, image: 'https://img.pokemondb.net/sprites/home/normal/roggenrola.png', isShadow: false, isDynamax: true },
+  // Special Event: Kyurem Fusion Raid Day (Jan 10)
+  { id: 'reshiram', name: 'Reshiram', tier: 5, cp: 53394, image: 'https://img.pokemondb.net/sprites/home/normal/reshiram.png', isShadow: false, isDynamax: false },
+  { id: 'zekrom', name: 'Zekrom', tier: 5, cp: 53394, image: 'https://img.pokemondb.net/sprites/home/normal/zekrom.png', isShadow: false, isDynamax: false },
+  { id: 'kyurem-black', name: 'Black Kyurem', tier: 5, cp: 48884, image: 'https://img.pokemondb.net/sprites/home/normal/kyurem-black.png', isShadow: false, isDynamax: false },
+  { id: 'kyurem-white', name: 'White Kyurem', tier: 5, cp: 48884, image: 'https://img.pokemondb.net/sprites/home/normal/kyurem-white.png', isShadow: false, isDynamax: false },
 ] as const;
 
 // RaidBoss with active status (server-controlled)
@@ -226,6 +242,34 @@ export type RaidHistoryEntry = z.infer<typeof raidHistoryEntrySchema>;
 
 export const FILTERS = ['all', '1', '3', '5', 'mega', 'max', 'shadow'] as const;
 export type FilterType = typeof FILTERS[number];
+
+// Queue system for PokeGenie-style boss matching
+export const queueEntrySchema = z.object({
+  id: z.string(),
+  bossId: z.string(),
+  userId: z.string(),
+  userName: z.string(),
+  userLevel: z.number(),
+  userTeam: z.enum(['valor', 'mystic', 'instinct', 'neutral']),
+  friendCode: z.string(),
+  isPremium: z.boolean().default(false),
+  joinedAt: z.number(),
+  status: z.enum(['waiting', 'matched', 'expired', 'cancelled']).default('waiting'),
+  matchedLobbyId: z.string().optional(),
+});
+
+export type QueueEntry = z.infer<typeof queueEntrySchema>;
+export type InsertQueueEntry = Omit<QueueEntry, 'id' | 'joinedAt' | 'status'>;
+
+export interface QueueStatus {
+  bossId: string;
+  bossName: string;
+  position: number;
+  totalInQueue: number;
+  estimatedWaitSeconds: number;
+  status: 'waiting' | 'matched' | 'expired' | 'cancelled';
+  matchedLobbyId?: string;
+}
 
 export const feedbackTable = pgTable("feedback", {
   id: serial("id").primaryKey(),

@@ -1,7 +1,8 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES } from "@shared/schema";
+import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema } from "@shared/schema";
+import type { InsertQueueEntry } from "@shared/schema";
 import { z } from "zod";
 import { sendPushNotification, type NotificationPayload } from "./push-service";
 import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
@@ -395,6 +396,105 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Queue System (PokeGenie-style) =====
+  
+  // Join the queue for a specific boss
+  app.post("/api/queue/join", async (req, res) => {
+    try {
+      const { bossId, userId, userName, userLevel, userTeam, friendCode, isPremium } = req.body;
+      
+      if (!bossId || !userId || !userName || !userLevel || !userTeam || !friendCode) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+      
+      // Verify boss is active
+      const isActive = await storage.isRaidBossActive(bossId);
+      if (!isActive) {
+        return res.status(400).json({ error: "This raid boss is not currently available" });
+      }
+      
+      const entry: InsertQueueEntry = {
+        bossId,
+        userId,
+        userName,
+        userLevel,
+        userTeam,
+        friendCode,
+        isPremium: isPremium || false,
+      };
+      
+      const queueEntry = await storage.joinQueue(entry);
+      const status = await storage.getQueueStatus(userId, bossId);
+      
+      // Trigger queue processing to see if there's an immediate match
+      await storage.processQueueMatches();
+      
+      // Get updated status after processing
+      const updatedStatus = await storage.getQueueStatus(userId, bossId);
+      
+      res.status(201).json(updatedStatus || status);
+    } catch (error) {
+      console.error("Error joining queue:", error);
+      res.status(500).json({ error: "Failed to join queue" });
+    }
+  });
+
+  // Leave the queue for a specific boss or all queues
+  app.post("/api/queue/leave", async (req, res) => {
+    try {
+      const { userId, bossId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "User ID required" });
+      }
+      
+      const success = await storage.leaveQueue(userId, bossId);
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to leave queue" });
+    }
+  });
+
+  // Get queue status for a specific boss
+  app.get("/api/queue/status/:userId/:bossId", async (req, res) => {
+    try {
+      const { userId, bossId } = req.params;
+      const status = await storage.getQueueStatus(userId, bossId);
+      
+      if (!status) {
+        return res.status(404).json({ error: "Not in queue" });
+      }
+      
+      res.json(status);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get queue status" });
+    }
+  });
+
+  // Get all queues a user is in
+  app.get("/api/queue/user/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const queues = await storage.getUserQueues(userId);
+      res.json(queues);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get user queues" });
+    }
+  });
+
+  // Process queue matches (can be called periodically or on events)
+  app.post("/api/queue/process", async (req, res) => {
+    try {
+      const result = await storage.processQueueMatches();
+      res.json({
+        matchedCount: result.matched.length,
+        lobbiesAffected: result.lobbies.length,
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to process queue" });
+    }
+  });
+
   app.post("/api/push/register", async (req, res) => {
     try {
       const validated = insertPushTokenSchema.parse(req.body);
@@ -478,7 +578,7 @@ export async function registerRoutes(
       }
       
       const result = await sendPushNotification(tokens, payload);
-      res.json({ success: true, ...result });
+      res.json({ ...result });
     } catch (error) {
       res.status(500).json({ error: "Failed to send notifications" });
     }
@@ -531,7 +631,7 @@ export async function registerRoutes(
       }
       
       const result = await sendPushNotification(tokens, payload);
-      res.json({ success: true, ...result });
+      res.json({ ...result });
     } catch (error) {
       res.status(500).json({ error: "Failed to send notifications" });
     }
