@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, RAID_CAPACITY, ELITE_EARLY_ACCESS_MS } from "./storage";
-import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema, subscriptionSchema } from "@shared/schema";
+import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema, subscriptionSchema, insertReportSchema } from "@shared/schema";
 import type { InsertQueueEntry, Subscription } from "@shared/schema";
 import { z } from "zod";
 import { sendPushNotification, type NotificationPayload } from "./push-service";
@@ -406,6 +406,40 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Invalid feedback data", details: error.errors });
       }
       res.status(500).json({ error: "Failed to submit feedback" });
+    }
+  });
+
+  app.post("/api/reports", async (req, res) => {
+    try {
+      const validated = insertReportSchema.parse(req.body);
+      const report = await storage.createReport(validated);
+      res.status(201).json(report);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid report data", details: error.errors });
+      }
+      res.status(500).json({ error: "Failed to submit report" });
+    }
+  });
+
+  app.get("/api/admin/reports", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) {
+        return res.status(503).json({ error: "Admin access not configured" });
+      }
+      
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      
+      if (!token || token !== adminToken) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      
+      const reports = await storage.getAllReports();
+      res.json(reports);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch reports" });
     }
   });
 

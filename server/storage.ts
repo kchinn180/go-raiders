@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus, Subscription } from "@shared/schema";
+import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus, Subscription, Report, InsertReport } from "@shared/schema";
 import type { Player as PlayerType } from "@shared/schema";
 import { ALL_BOSSES, TEAMS } from "@shared/schema";
 
@@ -79,6 +79,11 @@ export interface IStorage {
   getQueueForBoss(bossId: string): Promise<QueueEntry[]>;
   getQueueCounts(): Promise<Record<string, number>>;
   processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }>;
+  
+  // Report management
+  createReport(report: InsertReport): Promise<Report>;
+  getAllReports(): Promise<Report[]>;
+  getReportsByUser(userId: string): Promise<Report[]>;
 }
 
 // Default active bosses (January 2026 Pokemon GO raid rotation)
@@ -138,6 +143,8 @@ export class MemStorage implements IStorage {
   private pushTokenIdCounter: number;
   private raidBosses: Map<string, RaidBoss>;
   private queueEntries: Map<string, QueueEntry>;
+  private reports: Map<number, Report>;
+  private reportsIdCounter: number;
 
   constructor() {
     this.users = new Map();
@@ -150,6 +157,8 @@ export class MemStorage implements IStorage {
     this.pushTokenIdCounter = 1;
     this.raidBosses = new Map();
     this.queueEntries = new Map();
+    this.reports = new Map();
+    this.reportsIdCounter = 1;
     
     // Initialize raid bosses from master list with active status
     ALL_BOSSES.forEach(boss => {
@@ -728,6 +737,29 @@ export class MemStorage implements IStorage {
     }
     
     return { matched: matchedEntries, lobbies: affectedLobbies };
+  }
+
+  async createReport(insertReport: InsertReport): Promise<Report> {
+    const id = this.reportsIdCounter++;
+    const report: Report = {
+      ...insertReport,
+      id,
+      status: 'pending',
+      createdAt: Date.now(),
+    };
+    this.reports.set(id, report);
+    return report;
+  }
+
+  async getAllReports(): Promise<Report[]> {
+    return Array.from(this.reports.values())
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+
+  async getReportsByUser(userId: string): Promise<Report[]> {
+    return Array.from(this.reports.values())
+      .filter(r => r.reportedUserId === userId)
+      .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   }
 }
 
