@@ -237,8 +237,12 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
     // Regular players cannot unready - only hosts can toggle
     if (myPlayer.isReady && !isHost) return;
     
-    if (hapticEnabled) triggerImpact('medium');
-    if (soundEnabled) playReadySound();
+    try {
+      if (hapticEnabled) triggerImpact('medium');
+      if (soundEnabled) playReadySound();
+    } catch {
+      // Ignore haptic/sound errors
+    }
     
     const updatedPlayers = lobby.players.map((p) =>
       p.id === user.id ? { ...p, isReady: !p.isReady } : p
@@ -457,109 +461,141 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
           </div>
         </div>
 
-        {!isHost && !myPlayer?.hasSentRequest && (
-          <Button
-            onClick={() => markSentRequest(user.id)}
-            variant="secondary"
-            className="w-full"
-            data-testid="button-sent-request"
-          >
-            <Send className="w-4 h-4 mr-2" />
-            I Sent Friend Request
-          </Button>
-        )}
 
         {isHost && onStartRaid && !lobby.raidStarted && (
           <Button
             onClick={() => {
-              if (hapticEnabled) triggerNotification('success');
+              try {
+                if (hapticEnabled) triggerNotification('success');
+              } catch {}
               onStartRaid();
             }}
-            className="w-full py-6 text-lg font-black rounded-2xl bg-gradient-to-r from-green-600 to-emerald-600"
+            size="sm"
+            className="w-full py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-green-600 to-emerald-600"
             data-testid="button-start-raid"
           >
-            <Rocket className="w-5 h-5 mr-2" />
-            INVITES SENT - START RAID!
+            <Rocket className="w-4 h-4 mr-1" />
+            SEND INVITES
           </Button>
         )}
 
         {lobby.raidStarted && (
-          <div className="space-y-3">
-            <div className="bg-green-600/20 border-2 border-green-500 rounded-2xl p-4 text-center">
-              <div className="flex items-center justify-center gap-2 text-green-400 font-bold">
-                <Rocket className="w-5 h-5" />
-                <span>RAID IN PROGRESS!</span>
+          <div className="space-y-2">
+            <div className="bg-green-600/20 border border-green-500 rounded-xl p-3 text-center">
+              <div className="flex items-center justify-center gap-2 text-green-400 font-bold text-sm">
+                <Rocket className="w-4 h-4" />
+                <span>INVITES SENT!</span>
               </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                Invites sent - Accept and join the raid!
+              <p className="text-xs text-muted-foreground mt-1">
+                Accept and join the raid!
               </p>
             </div>
             {isHost && (
               <Button
                 onClick={() => {
-                  if (hapticEnabled) triggerImpact('medium');
+                  try {
+                    if (hapticEnabled) triggerImpact('medium');
+                  } catch {}
                   toast({ title: "Backup invites sent!", description: "Resending invites to all players" });
                 }}
-                variant="outline"
-                className="w-full py-4 font-bold rounded-xl border-2 border-yellow-500/50 text-yellow-500"
+                variant="ghost"
+                size="sm"
+                className="w-full py-2 text-xs font-medium rounded-lg"
                 data-testid="button-resend-invites"
               >
-                <Send className="w-4 h-4 mr-2" />
-                RESEND INVITES
+                <Send className="w-3 h-3 mr-1" />
+                Resend Invites
               </Button>
             )}
           </div>
         )}
 
-        {/* Ready and Go to Game buttons - side by side */}
-        <div className="flex gap-3">
+        {/* Action buttons for joiners: combined friend request + ready */}
+        {!isHost && (
           <Button
-            onClick={toggleReady}
-            disabled={myPlayer?.isReady && !isHost}
+            onClick={() => {
+              if (!myPlayer?.isReady) {
+                try {
+                  if (hapticEnabled) triggerImpact('medium');
+                  if (soundEnabled) playReadySound();
+                } catch {
+                  // Ignore haptic/sound errors
+                }
+                
+                // Combine both updates into a single onUpdateLobby call
+                const updatedPlayers = lobby.players.map((p) =>
+                  p.id === user.id 
+                    ? { ...p, isReady: true, hasSentRequest: true } 
+                    : p
+                );
+                onUpdateLobby({ ...lobby, players: updatedPlayers });
+                toast({ title: "Marked as Sent", description: "Host has been notified" });
+              }
+            }}
+            disabled={myPlayer?.isReady}
+            size="sm"
             className={cn(
-              "flex-1 py-6 text-lg font-black rounded-2xl transition-all",
+              "w-full py-3 text-sm font-bold rounded-xl transition-all",
               myPlayer?.isReady
                 ? "bg-green-600 hover:bg-green-700"
-                : team.bg,
-              myPlayer?.isReady && !isHost && "opacity-90 cursor-not-allowed"
+                : "bg-yellow-500 hover:bg-yellow-600 text-black",
+              myPlayer?.isReady && "opacity-90 cursor-not-allowed"
+            )}
+            data-testid="button-joiner-ready"
+          >
+            {myPlayer?.isReady ? (
+              <>
+                <Check className="w-4 h-4 mr-1" />
+                READY - Friend Request Sent
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4 mr-1" />
+                Send Friend Request & Ready Up
+              </>
+            )}
+          </Button>
+        )}
+
+        {/* Host ready button */}
+        {isHost && (
+          <Button
+            onClick={toggleReady}
+            size="sm"
+            className={cn(
+              "w-full py-3 text-sm font-bold rounded-xl transition-all",
+              myPlayer?.isReady
+                ? "bg-green-600 hover:bg-green-700"
+                : "bg-yellow-500 hover:bg-yellow-600 text-black"
             )}
             data-testid="button-toggle-ready"
           >
             {myPlayer?.isReady ? (
-              isHost ? (
-                <>
-                  <Check className="w-5 h-5 mr-2" />
-                  READY
-                </>
-              ) : (
-                <>
-                  <Check className="w-5 h-5 mr-2" />
-                  LOCKED IN
-                </>
-              )
+              <>
+                <Check className="w-4 h-4 mr-1" />
+                READY
+              </>
             ) : (
               "READY UP"
             )}
           </Button>
-          
-          {/* GO TO GAME BUTTON
-           * Opens Pokémon GO app directly using deep link
-           * Works on iOS/Android via pokemongo:// URL scheme
-           * No fallback - just attempts to open the game
-           */}
-          <Button
-            onClick={() => {
+        )}
+
+        {/* GO TO GAME BUTTON - Blue color */}
+        <Button
+          onClick={() => {
+            try {
               if (hapticEnabled) triggerImpact('medium');
-              window.location.href = 'pokemongo://';
-            }}
-            variant="secondary"
-            className="py-6 px-4 text-lg font-black rounded-2xl"
-            data-testid="button-go-to-game"
-          >
-            <ExternalLink className="w-5 h-5 mr-1" />
-            GO
-          </Button>
-        </div>
+            } catch {}
+            window.location.href = 'pokemongo://';
+          }}
+          size="sm"
+          className="w-full py-3 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700"
+          data-testid="button-go-to-game"
+        >
+          <ExternalLink className="w-4 h-4 mr-1" />
+          GO TO GAME
+        </Button>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>

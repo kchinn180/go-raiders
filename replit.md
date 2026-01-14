@@ -63,7 +63,12 @@ The frontend is built with **React** and **TypeScript**, utilizing **Wouter** fo
 - **In-App Purchases** - Elite subscriptions via Apple App Store and Google Play Store only ($6.99/month, $69.90/year)
 - **Webhook endpoints** - Added /api/webhooks/apple and /api/webhooks/google for subscription lifecycle events
 - **Restore purchases** - Added restore purchases functionality per App Store guidelines
-- **Go to Game button** - Added button in lobby view to open Pokémon GO app directly via deep link
+- **Go to Game button** - Added button in lobby view to open Pokémon GO app directly via deep link (blue color)
+- **UI: Smaller lobby buttons** - All lobby buttons reduced in size with py-3 and text-sm
+- **UI: Ready button colors** - Yellow initially, green after ready up
+- **UI: Joiner combined button** - Friend request + ready combined into single button for joiners
+- **UI: Host invite button** - Resend invites button uses ghost variant (background color)
+- **BUG FIX: Ready button crash** - Fixed WebSocket cleanup and wrapped haptic calls in try-catch
 - **Real-time WebSocket** - Instant lobby updates when players ready up, invites sent, players join/leave
 - **Push notifications** - All players receive push notification when host sends invites
 - **UI: Bottom padding** - Increased bottom padding (pb-24) to fix last raid being cut off

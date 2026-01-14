@@ -130,8 +130,15 @@ export function useLobbyWebSocket({
         clearTimeout(reconnectTimeoutRef.current);
       }
       if (wsRef.current) {
-        wsRef.current.send(JSON.stringify({ type: "leave_lobby" }));
-        wsRef.current.close();
+        try {
+          // Only send leave message if WebSocket is still open
+          if (wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: "leave_lobby" }));
+          }
+          wsRef.current.close();
+        } catch (e) {
+          // Ignore errors during cleanup
+        }
         wsRef.current = null;
       }
     };
