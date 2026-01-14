@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, RAID_CAPACITY, ELITE_EARLY_ACCESS_MS } from "./storage";
 import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema, subscriptionSchema } from "@shared/schema";
 import type { InsertQueueEntry, Subscription } from "@shared/schema";
 import { z } from "zod";
@@ -137,10 +137,67 @@ export async function registerRoutes(
     }
   });
 
+  /**
+   * Join Lobby Endpoint - with Elite Early Access Enforcement
+   * 
+   * SERVER-SIDE TIERED ACCESS ENFORCEMENT:
+   * - Premium/Elite users: Can join any lobby immediately (no timer restriction)
+   * - Basic users: Must wait ELITE_EARLY_ACCESS_MS (10 seconds) after lobby creation
+   * 
+   * SECURITY: Premium status is verified from SERVER-SIDE storage, NOT from
+   * client-provided data. This prevents users from bypassing the timer by
+   * spoofing isPremium in the request body.
+   * 
+   * Validation Flow:
+   * 1. Validate player data schema
+   * 2. Check if lobby exists
+   * 3. Check capacity limits
+   * 4. LOOK UP user from storage to get TRUSTED premium status
+   * 5. ENFORCE Elite Early Access timer for non-Premium users
+   * 6. Allow join if all checks pass
+   */
   app.post("/api/lobbies/:id/join", async (req, res) => {
     try {
       const player = playerSchema.parse(req.body);
-      const lobby = await storage.joinLobby(req.params.id, player);
+      
+      // Get the lobby to check Elite Early Access timer
+      const existingLobby = await storage.getLobby(req.params.id);
+      if (!existingLobby) {
+        return res.status(404).json({ error: "Lobby not found" });
+      }
+      
+      // SECURITY: Look up user from storage to get TRUSTED premium status
+      // Do NOT trust client-provided isPremium flag - it can be spoofed
+      const trustedUser = await storage.getUser(player.id);
+      const isPlayerPremium = trustedUser?.isPremium === true;
+      
+      // SERVER-SIDE ELITE EARLY ACCESS ENFORCEMENT
+      // Basic users cannot join lobbies less than 10 seconds old
+      const lobbyAge = Date.now() - existingLobby.createdAt;
+      const isEliteEarlyAccessPeriod = lobbyAge < ELITE_EARLY_ACCESS_MS;
+      
+      if (isEliteEarlyAccessPeriod && !isPlayerPremium) {
+        const remainingSeconds = Math.ceil((ELITE_EARLY_ACCESS_MS - lobbyAge) / 1000);
+        console.log(`[SECURITY] Basic user ${player.id} blocked from joining lobby ${req.params.id} - Elite Early Access period (${remainingSeconds}s remaining)`);
+        return res.status(403).json({ 
+          error: "Elite Early Access", 
+          message: `Premium users get early access. Please wait ${remainingSeconds} seconds.`,
+          remainingMs: ELITE_EARLY_ACCESS_MS - lobbyAge
+        });
+      }
+      
+      // Check capacity before joining
+      if (existingLobby.players.length >= existingLobby.maxPlayers) {
+        return res.status(400).json({ error: "Lobby is full" });
+      }
+      
+      // Use the TRUSTED premium status from storage, not from client
+      const trustedPlayer = {
+        ...player,
+        isPremium: isPlayerPremium
+      };
+      
+      const lobby = await storage.joinLobby(req.params.id, trustedPlayer);
       if (!lobby) {
         return res.status(404).json({ error: "Lobby not found or full" });
       }
@@ -163,6 +220,72 @@ export async function registerRoutes(
       res.json({ success: true, lobby });
     } catch (error) {
       res.status(500).json({ error: "Failed to leave lobby" });
+    }
+  });
+
+  /**
+   * Update Lobby Capacity - HOST ONLY
+   * 
+   * This endpoint allows ONLY the lobby host to modify raid capacity.
+   * Non-hosts attempting to change capacity will receive a 403 Forbidden error.
+   * 
+   * SECURITY: The server VERIFIES the provided hostId matches the actual lobby host
+   * stored in the database. This prevents spoofing attacks where a user provides
+   * a fake hostId to gain host privileges.
+   * 
+   * Validation Rules (enforced server-side):
+   * 1. Lobby must exist
+   * 2. Requester's hostId must MATCH the lobby's actual hostId (server-side verification)
+   * 3. New capacity must be between RAID_CAPACITY.MIN (2) and RAID_CAPACITY.MAX (10)
+   * 4. Cannot reduce capacity below current player count
+   * 
+   * Use case: Host wants to reserve slots for friends by limiting capacity
+   * 
+   * @body hostId - The ID of the user making the request (verified against lobby.hostId)
+   * @body capacity - The new maximum player count (2-10)
+   */
+  app.patch("/api/lobbies/:id/capacity", async (req, res) => {
+    try {
+      const { hostId, capacity } = req.body;
+      
+      if (!hostId) {
+        return res.status(400).json({ error: "Host ID required" });
+      }
+      
+      if (typeof capacity !== "number") {
+        return res.status(400).json({ 
+          error: "Invalid capacity", 
+          message: "Capacity must be a number" 
+        });
+      }
+      
+      // SECURITY: First verify the lobby exists and check the ACTUAL host
+      const existingLobby = await storage.getLobby(req.params.id);
+      if (!existingLobby) {
+        return res.status(404).json({ error: "Lobby not found" });
+      }
+      
+      // SECURITY: Verify the requester is ACTUALLY the host
+      // This prevents spoofing attacks where someone sends a fake hostId
+      if (existingLobby.hostId !== hostId) {
+        console.log(`[SECURITY] User ${hostId} attempted to modify capacity for lobby ${req.params.id} but is not the host (actual host: ${existingLobby.hostId})`);
+        return res.status(403).json({ 
+          error: "Permission denied",
+          message: "Only the raid host can modify capacity" 
+        });
+      }
+      
+      // Use storage method which also validates capacity constraints
+      const result = await storage.updateLobbyCapacity(req.params.id, hostId, capacity);
+      
+      if (result.error) {
+        // All remaining errors are validation errors (capacity range, player count)
+        return res.status(400).json({ error: result.error });
+      }
+      
+      res.json(result.lobby);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update lobby capacity" });
     }
   });
 

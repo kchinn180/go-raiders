@@ -221,7 +221,37 @@ When environment variables are not configured, the system operates in developmen
 4. Exclusive Elite badge
 5. Advanced raid counters & tips
 
+## Host Capacity Control
+Raid hosts can adjust lobby capacity from 2-10 players to reserve slots for friends.
+- **Host-only permission**: Only the lobby host can modify capacity (enforced server-side)
+- **Capacity range**: 2 (minimum for raids) to 10 (max remote invites)
+- **Live validation**: Cannot reduce below current player count
+- **API**: `PATCH /api/lobbies/:id/capacity` with server-side host verification
+
+## Pokémon Filter
+Multi-select filter in the Join Feed allowing users to filter lobbies by specific Pokémon.
+- Works alongside tier filters (both must match)
+- Persists until user explicitly clears selection
+- Shows context-aware empty state when no matches found
+- Displays "LIVE" indicator for bosses with active lobbies
+
+## Elite Early Access Security
+Server-side enforcement of the 10-second Elite Early Access period.
+- **Server-side validation**: Premium status is verified from storage, NOT from client data
+- **Anti-spoofing**: Client-provided `isPremium` flag is ignored; server looks up trusted status
+- Basic users blocked during early access period with remaining time displayed
+- Premium users bypass the timer entirely
+
+## Security Notes
+**Current Limitations**: The app uses client-side user identity storage (common for mobile companion apps like Pokémon GO tools). While the server validates premium status from storage rather than trusting client input, full session-based authentication would provide additional security for production deployments.
+
+**Recommended for Production**: Implement proper session/JWT authentication to verify caller identity server-side before all mutations.
+
 ## Recent Changes
+- **Host capacity control** with server-side permission enforcement and slider UI
+- **Pokémon filter** with multi-select and persistence in join feed
+- **Enhanced lock overlay** with prominent blur, pulsing lock icon, and large countdown timer
+- **Server-side Elite Early Access** enforcement with anti-spoofing protection
 - **Secure In-App Purchase system** with Apple/Google receipt verification
 - **Premium middleware** for protecting Elite-only API endpoints
 - **Subscription API routes** for purchase verification, status checking, and restore

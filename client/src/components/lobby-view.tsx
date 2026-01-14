@@ -1,4 +1,16 @@
-import { useState, useEffect, useRef } from "react";
+/**
+ * LobbyView Component
+ * 
+ * Displays the lobby view for a raid with player management and coordination.
+ * 
+ * HOST CAPACITY CONTROL:
+ * - Only the host can modify raid capacity (slider visible only to hosts)
+ * - Capacity range: 2-10 players (enforced both client and server-side)
+ * - Cannot reduce below current player count
+ * - Changes are sent to server which validates host permission
+ */
+
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Copy,
   Check,
@@ -13,8 +25,10 @@ import {
   Zap,
   LogOut,
   Rocket,
+  Settings2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,18 +64,99 @@ const teamIcons = {
   neutral: Users,
 };
 
+// Raid capacity constraints (must match server-side RAID_CAPACITY constants)
+const RAID_CAPACITY = {
+  MIN: 2,
+  MAX: 10,
+  DEFAULT: 6,
+} as const;
+
 export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }: LobbyViewProps) {
   const { toast } = useToast();
   const { user } = useUser();
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const lastTimeLeftRef = useRef(lobby.timeLeft);
   const soundPlayedRef = useRef(false);
+  
+  // HOST CAPACITY CONTROL STATE
+  // Track pending capacity for optimistic UI updates
+  const [pendingCapacity, setPendingCapacity] = useState<number | null>(null);
+  const [isUpdatingCapacity, setIsUpdatingCapacity] = useState(false);
 
   const boss = BOSSES.find((b) => b.id === lobby.bossId);
   const team = TEAMS.find((t) => t.id === lobby.team) || TEAMS[3];
   
   const hapticEnabled = user?.notifications?.hapticFeedback !== false;
   const soundEnabled = user?.notifications?.soundEffects !== false;
+  
+  /**
+   * HOST CAPACITY UPDATE HANDLER
+   * 
+   * Allows ONLY the host to modify raid capacity.
+   * Sends request to server which validates:
+   * 1. User is the host (server-side enforcement)
+   * 2. New capacity is within valid range (2-10)
+   * 3. Cannot reduce below current player count
+   */
+  const updateCapacity = useCallback(async (newCapacity: number) => {
+    if (!isHost || !user) return;
+    
+    // Client-side validation (server will also validate)
+    if (newCapacity < RAID_CAPACITY.MIN || newCapacity > RAID_CAPACITY.MAX) {
+      toast({
+        title: "Invalid capacity",
+        description: `Capacity must be between ${RAID_CAPACITY.MIN} and ${RAID_CAPACITY.MAX}`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (newCapacity < lobby.players.length) {
+      toast({
+        title: "Cannot reduce capacity",
+        description: `Current player count is ${lobby.players.length}`,
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setIsUpdatingCapacity(true);
+    setPendingCapacity(newCapacity);
+    
+    try {
+      const response = await fetch(`/api/lobbies/${lobby.id}/capacity`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          hostId: user.id,
+          capacity: newCapacity
+        })
+      });
+      
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update capacity');
+      }
+      
+      const updatedLobby = await response.json();
+      onUpdateLobby(updatedLobby);
+      
+      if (hapticEnabled) triggerImpact('light');
+      toast({
+        title: "Capacity updated",
+        description: `Raid now has ${newCapacity} spots`
+      });
+    } catch (error) {
+      toast({
+        title: "Failed to update capacity",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUpdatingCapacity(false);
+      setPendingCapacity(null);
+    }
+  }, [isHost, user, lobby.id, lobby.players.length, onUpdateLobby, hapticEnabled, toast]);
 
   useEffect(() => {
     const allReady = lobby.players.every(p => p.isReady);
@@ -158,7 +253,7 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
           <div className="flex items-center gap-3">
             <Users className="w-5 h-5 text-muted-foreground" />
             <div>
-              <span className="font-bold">{lobby.players.length}/{lobby.maxPlayers}</span>
+              <span className="font-bold">{lobby.players.length}/{pendingCapacity ?? lobby.maxPlayers}</span>
               <span className="text-muted-foreground text-sm ml-2">Raiders</span>
             </div>
           </div>
@@ -169,6 +264,65 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
             {readyCount}/{lobby.players.length} Ready
           </div>
         </div>
+        
+        {/* HOST CAPACITY CONTROL SLIDER
+         * Only visible to the lobby host.
+         * Allows host to adjust raid capacity from 2-10 players.
+         * Used to reserve slots for friends or limit raid size.
+         * Changes are validated server-side (host permission check).
+         */}
+        {isHost && (
+          <div className="bg-card p-4 rounded-2xl border border-card-border space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Settings2 className="w-4 h-4 text-muted-foreground" />
+                <span className="font-bold text-sm">Raid Capacity</span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Host Only
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <span className="text-xs text-muted-foreground w-4">{RAID_CAPACITY.MIN}</span>
+              <Slider
+                value={[pendingCapacity ?? lobby.maxPlayers]}
+                min={RAID_CAPACITY.MIN}
+                max={RAID_CAPACITY.MAX}
+                step={1}
+                disabled={isUpdatingCapacity}
+                onValueChange={(values) => {
+                  const newValue = values[0];
+                  // Only update if valid (not below current player count)
+                  if (newValue >= lobby.players.length) {
+                    setPendingCapacity(newValue);
+                  }
+                }}
+                onValueCommit={(values) => {
+                  const newValue = values[0];
+                  if (newValue !== lobby.maxPlayers) {
+                    updateCapacity(newValue);
+                  }
+                }}
+                className="flex-1"
+                data-testid="slider-raid-capacity"
+              />
+              <span className="text-xs text-muted-foreground w-4">{RAID_CAPACITY.MAX}</span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                Current: {lobby.players.length} players
+              </span>
+              <span className={cn(
+                "text-sm font-bold",
+                isUpdatingCapacity && "animate-pulse"
+              )}>
+                Max: {pendingCapacity ?? lobby.maxPlayers} spots
+              </span>
+            </div>
+          </div>
+        )}
 
         {hostPlayer && !isHost && (
           <div className={cn("p-4 rounded-2xl border-2", team.border, team.tint)}>

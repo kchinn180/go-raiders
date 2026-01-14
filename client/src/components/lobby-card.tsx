@@ -9,6 +9,24 @@
  * - Weather boost indicator
  * - Elite Early Access lock for new lobbies
  * - Details button to view comprehensive Pokémon information
+ * 
+ * BASIC VS PREMIUM TIERED ACCESS VISUALS:
+ * 
+ * For BASIC users viewing locked raids:
+ * - Prominent blur effect over the entire card
+ * - Large, animated lock icon
+ * - Highly visible countdown timer with pulsing animation
+ * - Clear messaging explaining why access is restricted
+ * - Timer ticks down in real-time (10 second countdown)
+ * 
+ * For PREMIUM/ELITE users:
+ * - No blur, lock, or countdown (instant access)
+ * - All card details fully visible
+ * - Can join immediately when tapping
+ * 
+ * SECURITY NOTE: Visual indicators are for UX only.
+ * Server-side validation in the join endpoint is the
+ * authoritative enforcement point for Elite Early Access.
  */
 
 import { useState, useEffect } from "react";
@@ -106,15 +124,45 @@ export function LobbyCard({ lobby, isLocked, onJoin, onShowDetails }: LobbyCardP
       )}
       data-testid={`lobby-card-${lobby.id}`}
     >
+      {/* BASIC USER LOCK OVERLAY
+       * Displayed when a Basic (non-Premium) user tries to view a lobby
+       * that is still within the Elite Early Access period (10 seconds).
+       * 
+       * Features:
+       * - Strong blur effect to indicate restricted access
+       * - Large, pulsing lock icon
+       * - Prominent countdown timer (large, visible)
+       * - Clear messaging about Premium benefits
+       * - Timer updates in real-time
+       */}
       {isLocked && lockCountdown > 0 && (
-        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center backdrop-blur-sm bg-background/80 rounded-xl">
-          <Lock className="w-5 h-5 text-yellow-500 mb-1" />
-          <span className="text-xs font-black text-yellow-500">
-            {lockCountdown}s
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center backdrop-blur-md bg-background/90 rounded-xl border-2 border-yellow-500/50">
+          {/* Animated lock icon */}
+          <div className="animate-pulse mb-2">
+            <div className="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center border-2 border-yellow-500/50">
+              <Lock className="w-6 h-6 text-yellow-500" />
+            </div>
+          </div>
+          
+          {/* Large countdown timer */}
+          <div className="text-3xl font-black text-yellow-500 tabular-nums animate-pulse">
+            {lockCountdown}
+          </div>
+          <span className="text-xs font-bold text-yellow-400 uppercase tracking-wide">
+            seconds
           </span>
-          <span className="text-[10px] text-muted-foreground mt-0.5">
-            Elite Early Access
-          </span>
+          
+          {/* Access restriction messaging */}
+          <div className="mt-3 text-center px-4">
+            <span className="text-xs font-bold text-yellow-400 flex items-center justify-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              Elite Early Access
+              <Sparkles className="w-3 h-3" />
+            </span>
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Premium users get instant access
+            </p>
+          </div>
         </div>
       )}
 

@@ -6,16 +6,23 @@
  * - Quick Raid button for instant lobby joining
  * - Auto Join button for premium users
  * - Filter chips for raid tiers (All, 1, 3, 5, Mega, Shadow, Max)
+ * - POKÉMON FILTER: Multi-select filter for specific Pokémon species
+ *   - Works alongside tier filters
+ *   - Persists until user explicitly clears it
+ *   - Shows empty state when no raids match the filter
  * - Lobby cards with Details button for Pokémon information
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { RefreshCw, Radar } from "lucide-react";
+import { RefreshCw, Radar, Filter, X, ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LobbyCard } from "@/components/lobby-card";
 import { PokemonDetailsModal } from "@/components/pokemon-details-modal";
 import { QueueBossBar } from "@/components/queue-boss-bar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { SafeImage } from "@/components/safe-image";
 import { cn } from "@/lib/utils";
 import { FILTERS, BOSSES } from "@shared/schema";
 import type { Lobby, FilterType } from "@shared/schema";
@@ -61,6 +68,41 @@ export function JoinFeed({
   
   // State for Pokemon details modal
   const [detailsInfo, setDetailsInfo] = useState<{ bossId: string; endTime: number } | null>(null);
+  
+  /**
+   * POKÉMON FILTER STATE
+   * 
+   * Multi-select filter allowing users to filter lobbies by specific Pokémon species.
+   * - selectedPokemon: Set of boss IDs the user wants to see
+   * - isPokemonFilterOpen: Controls the collapsible filter panel visibility
+   * - Filter persists until user explicitly clears it
+   * - Works alongside the tier filter (both must match for lobby to show)
+   */
+  const [selectedPokemon, setSelectedPokemon] = useState<Set<string>>(new Set());
+  const [isPokemonFilterOpen, setIsPokemonFilterOpen] = useState(false);
+  
+  /**
+   * Toggle a Pokémon in the filter selection
+   * If already selected, removes it. If not selected, adds it.
+   */
+  const togglePokemonFilter = useCallback((bossId: string) => {
+    setSelectedPokemon(prev => {
+      const next = new Set(prev);
+      if (next.has(bossId)) {
+        next.delete(bossId);
+      } else {
+        next.add(bossId);
+      }
+      return next;
+    });
+  }, []);
+  
+  /**
+   * Clear all Pokémon filter selections
+   */
+  const clearPokemonFilter = useCallback(() => {
+    setSelectedPokemon(new Set());
+  }, []);
   
   /**
    * Handler for showing Pokemon details modal from lobby cards
@@ -117,16 +159,38 @@ export function JoinFeed({
     );
   }
 
+  /**
+   * LOBBY FILTERING LOGIC
+   * 
+   * Filters lobbies based on two criteria that work together:
+   * 1. TIER FILTER: Category-based filter (All, 1, 3, 5, Mega, Shadow, Max)
+   * 2. POKÉMON FILTER: Specific Pokémon species filter (multi-select)
+   * 
+   * Both filters must match for a lobby to be displayed.
+   * If Pokémon filter is empty (no selections), only tier filter applies.
+   */
   const filteredLobbies = lobbies.filter((lobby) => {
-    if (filter === "all") return true;
     const boss = BOSSES.find((b) => b.id === lobby.bossId);
     if (!boss) return false;
-
+    
+    // POKÉMON FILTER CHECK
+    // If user has selected specific Pokémon, only show lobbies with those Pokémon
+    // If no Pokémon selected, this check passes (all Pokémon allowed)
+    const pokemonFilterPassed = selectedPokemon.size === 0 || selectedPokemon.has(lobby.bossId);
+    if (!pokemonFilterPassed) return false;
+    
+    // TIER FILTER CHECK
+    // "all" tier shows everything that passed the Pokémon filter
+    if (filter === "all") return true;
+    
     if (filter === "mega") return boss.name.toLowerCase().includes("mega");
     if (filter === "shadow") return boss.isShadow;
     if (filter === "max") return boss.isDynamax;
     return boss.tier.toString() === filter;
   });
+  
+  // Get unique bosses that have active lobbies for the Pokémon filter display
+  const availableBossIds = new Set(lobbies.map(l => l.bossId));
 
   const handleManualRefresh = async () => {
     if (onRefresh && !isRefreshing) {
@@ -204,13 +268,121 @@ export function JoinFeed({
           </button>
         ))}
       </div>
+      
+      {/* POKÉMON FILTER SECTION
+       * Multi-select filter for specific Pokémon species
+       * - Collapsible panel to save screen space
+       * - Shows selected count badge when collapsed
+       * - Clear button to reset all selections
+       */}
+      <div className="bg-card border border-card-border rounded-xl">
+        <button
+          onClick={() => setIsPokemonFilterOpen(!isPokemonFilterOpen)}
+          className="w-full p-3 flex items-center justify-between gap-2"
+          data-testid="button-pokemon-filter-toggle"
+        >
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm font-semibold">Pokémon Filter</span>
+            {selectedPokemon.size > 0 && (
+              <Badge variant="secondary" className="text-xs">
+                {selectedPokemon.size} selected
+              </Badge>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {selectedPokemon.size > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 px-2 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  clearPokemonFilter();
+                }}
+                data-testid="button-clear-pokemon-filter"
+              >
+                <X className="w-3 h-3 mr-1" />
+                Clear
+              </Button>
+            )}
+            {isPokemonFilterOpen ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            )}
+          </div>
+        </button>
+        
+        {isPokemonFilterOpen && (
+          <div className="px-3 pb-3 border-t border-card-border">
+            <p className="text-xs text-muted-foreground py-2">
+              Select Pokémon to filter raids. Only lobbies with selected Pokémon will appear.
+            </p>
+            <div className="grid grid-cols-4 gap-2 max-h-[200px] overflow-y-auto">
+              {BOSSES.map((boss) => {
+                const isSelected = selectedPokemon.has(boss.id);
+                const hasActiveLobbies = availableBossIds.has(boss.id);
+                
+                return (
+                  <button
+                    key={boss.id}
+                    onClick={() => togglePokemonFilter(boss.id)}
+                    className={cn(
+                      "p-2 rounded-lg flex flex-col items-center transition-all border",
+                      isSelected
+                        ? "bg-primary/20 border-primary ring-1 ring-primary/30"
+                        : "bg-card border-card-border hover-elevate",
+                      !hasActiveLobbies && "opacity-50"
+                    )}
+                    data-testid={`pokemon-filter-${boss.id}`}
+                  >
+                    <SafeImage
+                      src={boss.image}
+                      alt={boss.name}
+                      className="w-8 h-8"
+                      fallbackChar={boss.name[0]}
+                    />
+                    <span className="text-[9px] font-medium truncate w-full text-center mt-1 leading-tight">
+                      {boss.name.length > 10 ? boss.name.slice(0, 10) + '...' : boss.name}
+                    </span>
+                    {hasActiveLobbies && (
+                      <span className="text-[8px] text-green-500 font-bold">LIVE</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-3">
         {filteredLobbies.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
             <Radar className="w-12 h-12 mx-auto mb-4 opacity-50" />
             <p className="font-semibold">No lobbies found</p>
-            <p className="text-sm">Try a different filter or check back soon</p>
+            {/* EMPTY STATE MESSAGE
+             * Provides context-aware messaging based on active filters:
+             * - If Pokémon filter is active: explain that no matching Pokémon raids exist
+             * - Otherwise: generic message about trying different filters
+             */}
+            {selectedPokemon.size > 0 ? (
+              <>
+                <p className="text-sm">No raids available for your selected Pokémon.</p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
+                  onClick={clearPokemonFilter}
+                  data-testid="button-clear-pokemon-filter-empty"
+                >
+                  Clear Pokémon Filter
+                </Button>
+              </>
+            ) : (
+              <p className="text-sm">Try a different filter or check back soon</p>
+            )}
           </div>
         ) : (
           filteredLobbies.map((lobby) => {

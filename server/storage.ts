@@ -3,6 +3,22 @@ import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeed
 import type { Player as PlayerType } from "@shared/schema";
 import { ALL_BOSSES, TEAMS } from "@shared/schema";
 
+/**
+ * Raid Capacity Constants
+ * Pokémon GO raid rules: minimum 2 players, maximum 10 (6 local + 10 remote invites, but lobbies cap at 10)
+ */
+export const RAID_CAPACITY = {
+  MIN: 2,  // Minimum players for a raid lobby
+  MAX: 10, // Maximum players allowed in remote raid lobbies
+  DEFAULT: 6, // Default capacity when hosting
+} as const;
+
+/**
+ * Elite Early Access Configuration
+ * Basic users must wait this duration before joining new lobbies
+ */
+export const ELITE_EARLY_ACCESS_MS = 10000; // 10 seconds
+
 export interface IStorage {
   // Raid boss management
   getActiveRaidBosses(): Promise<RaidBoss[]>;
@@ -21,6 +37,17 @@ export interface IStorage {
   createLobby(lobby: InsertLobby): Promise<Lobby>;
   updateLobby(id: string, updates: Partial<Lobby>): Promise<Lobby | undefined>;
   deleteLobby(id: string): Promise<boolean>;
+  
+  /**
+   * Update lobby capacity - HOST ONLY
+   * 
+   * Only the lobby host can modify the player capacity.
+   * Capacity must be between RAID_CAPACITY.MIN and RAID_CAPACITY.MAX.
+   * Cannot set capacity below current player count.
+   * 
+   * @returns Updated lobby or error object with reason
+   */
+  updateLobbyCapacity(lobbyId: string, hostId: string, newCapacity: number): Promise<{ lobby?: Lobby; error?: string }>;
   
   joinLobby(lobbyId: string, player: Player): Promise<Lobby | undefined>;
   leaveLobby(lobbyId: string, playerId: string): Promise<Lobby | undefined>;
@@ -283,6 +310,55 @@ export class MemStorage implements IStorage {
 
   async deleteLobby(id: string): Promise<boolean> {
     return this.lobbies.delete(id);
+  }
+
+  /**
+   * Update Lobby Capacity - HOST ONLY PERMISSION
+   * 
+   * This method enforces that ONLY the raid host can modify lobby capacity.
+   * Non-hosts attempting to change capacity will receive an error.
+   * 
+   * Validation Rules:
+   * 1. Lobby must exist
+   * 2. Requester must be the host (hostId match)
+   * 3. New capacity must be within RAID_CAPACITY.MIN (2) and RAID_CAPACITY.MAX (10)
+   * 4. Cannot reduce capacity below current player count (to avoid kicking players)
+   * 
+   * @param lobbyId - The lobby to update
+   * @param hostId - The ID of the user making the request (must match lobby.hostId)
+   * @param newCapacity - The new maximum player count (2-10)
+   * @returns Object with lobby on success, or error message on failure
+   */
+  async updateLobbyCapacity(lobbyId: string, hostId: string, newCapacity: number): Promise<{ lobby?: Lobby; error?: string }> {
+    const lobby = this.lobbies.get(lobbyId);
+    
+    // Validation 1: Lobby must exist
+    if (!lobby) {
+      return { error: "Lobby not found" };
+    }
+    
+    // Validation 2: HOST-ONLY - Only the lobby host can modify capacity
+    if (lobby.hostId !== hostId) {
+      console.log(`[SECURITY] Non-host ${hostId} attempted to modify capacity for lobby ${lobbyId} (host: ${lobby.hostId})`);
+      return { error: "Only the host can modify raid capacity" };
+    }
+    
+    // Validation 3: Capacity within valid range
+    if (newCapacity < RAID_CAPACITY.MIN || newCapacity > RAID_CAPACITY.MAX) {
+      return { error: `Capacity must be between ${RAID_CAPACITY.MIN} and ${RAID_CAPACITY.MAX} players` };
+    }
+    
+    // Validation 4: Cannot reduce below current player count
+    if (newCapacity < lobby.players.length) {
+      return { error: `Cannot reduce capacity below current player count (${lobby.players.length})` };
+    }
+    
+    // Update the lobby capacity
+    const updatedLobby = { ...lobby, maxPlayers: newCapacity };
+    this.lobbies.set(lobbyId, updatedLobby);
+    
+    console.log(`[LOBBY] Host ${hostId} updated capacity for lobby ${lobbyId}: ${lobby.maxPlayers} -> ${newCapacity}`);
+    return { lobby: updatedLobby };
   }
 
   async joinLobby(lobbyId: string, player: Player): Promise<Lobby | undefined> {
