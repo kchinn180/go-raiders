@@ -36,6 +36,7 @@ export function HostView({ onHost }: HostViewProps) {
   const [selectedGymTeam, setSelectedGymTeam] = useState<TeamId>("valor");
   const [minLevel, setMinLevel] = useState(1);
   const [weather, setWeather] = useState(false);
+  const [maxPlayers, setMaxPlayers] = useState(6); // Raid capacity (2-6)
   
   // State for Pokemon details modal
   const [detailsBossId, setDetailsBossId] = useState<string | null>(null);
@@ -74,7 +75,7 @@ export function HostView({ onHost }: HostViewProps) {
       hostName: user.name,
       hostRating: "5.0",
       players: [hostPlayer],
-      maxPlayers: 6,
+      maxPlayers: maxPlayers,
       team: selectedGymTeam,
       minLevel: user.isPremium ? minLevel : 1,
       weather,
@@ -300,6 +301,34 @@ export function HostView({ onHost }: HostViewProps) {
             onCheckedChange={setWeather}
             data-testid="switch-weather"
           />
+        </div>
+
+        {/* Raid Capacity Slider */}
+        <div className="space-y-3 pt-2 border-t border-card-border">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="font-semibold block flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary" />
+                Raid Capacity
+              </label>
+              <span className="text-sm text-muted-foreground">
+                Maximum players in lobby
+              </span>
+            </div>
+            <span className="text-lg font-bold w-8 text-right">{maxPlayers}</span>
+          </div>
+          <Slider
+            value={[maxPlayers]}
+            onValueChange={(val) => setMaxPlayers(val[0])}
+            min={2}
+            max={6}
+            step={1}
+            className="w-full"
+            data-testid="slider-max-players"
+          />
+          <p className="text-xs text-muted-foreground text-center">
+            Host + up to {maxPlayers - 1} remote invites
+          </p>
         </div>
       </div>
 

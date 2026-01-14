@@ -128,6 +128,27 @@ export async function registerRoutes(
         });
       }
       
+      // ENFORCEMENT: Host can only host ONE raid at a time
+      const allLobbies = await storage.getLobbies();
+      const existingHostLobby = allLobbies.find(l => l.hostId === validated.hostId);
+      if (existingHostLobby) {
+        return res.status(400).json({
+          error: "Already hosting",
+          message: "You can only host one raid at a time. Close your current lobby first."
+        });
+      }
+      
+      // ENFORCEMENT: User can only be in ONE lobby at a time (as host or joiner)
+      const existingPlayerLobby = allLobbies.find(l => 
+        l.players.some(p => p.id === validated.hostId)
+      );
+      if (existingPlayerLobby) {
+        return res.status(400).json({
+          error: "Already in a lobby",
+          message: "Leave your current lobby before hosting a new raid."
+        });
+      }
+      
       const lobby = await storage.createLobby(validated);
       res.status(201).json(lobby);
     } catch (error) {
@@ -192,6 +213,18 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Lobby is full" });
       }
       
+      // ENFORCEMENT: Joiner can only join ONE lobby at a time
+      const allLobbies = await storage.getLobbies();
+      const existingPlayerLobby = allLobbies.find(l => 
+        l.players.some(p => p.id === player.id) && l.id !== req.params.id
+      );
+      if (existingPlayerLobby) {
+        return res.status(400).json({
+          error: "Already in a lobby",
+          message: "You can only be in one lobby at a time. Leave your current lobby first."
+        });
+      }
+      
       // Use the TRUSTED premium status from storage, not from client
       const trustedPlayer = {
         ...player,
@@ -222,10 +255,22 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Player ID required" });
       }
       const lobbyBefore = await storage.getLobby(req.params.id);
-      const leavingPlayer = lobbyBefore?.players.find(p => p.id === playerId);
+      if (!lobbyBefore) {
+        return res.json({ success: true, lobby: null, deleted: true });
+      }
+      
+      const leavingPlayer = lobbyBefore.players.find(p => p.id === playerId);
+      const isHost = leavingPlayer?.isHost === true;
       
       const lobby = await storage.leaveLobby(req.params.id, playerId);
       
+      // If host left, lobby is deleted - notify all players via WebSocket
+      if (isHost) {
+        lobbyWSManager.broadcastLobbyClosed(req.params.id, "Host has left the lobby");
+        return res.json({ success: true, lobby: null, deleted: true });
+      }
+      
+      // Regular player left
       if (lobby && leavingPlayer) {
         lobbyWSManager.broadcastPlayerLeft(req.params.id, playerId, leavingPlayer.name);
         lobbyWSManager.broadcastLobbyUpdate(lobby);

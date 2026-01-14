@@ -71,6 +71,12 @@ The frontend is built with **React** and **TypeScript**, utilizing **Wouter** fo
 - **BUG FIX: Ready button crash** - Fixed WebSocket cleanup and wrapped haptic calls in try-catch
 - **Real-time WebSocket** - Instant lobby updates when players ready up, invites sent, players join/leave
 - **Push notifications** - All players receive push notification when host sends invites
+- **HOST: Combined Ready + Send Invites** - Single button that marks host ready and sends invites; host cannot unready after pressing
+- **HOST: Capacity slider on setup page** - Raid capacity (2-6) now configured before lobby creation, not inside lobby
+- **OPTIMISTIC UPDATES** - Buttons respond instantly with local state, synced when server confirms
+- **HOST: One raid at a time** - Server enforces hosts can only host ONE raid; must close current to start new
+- **JOINER: One lobby at a time** - Server enforces joiners can only join ONE lobby at a time
+- **HOST LEAVES = LOBBY CLOSED** - When host leaves, entire lobby is deleted and all joiners notified via WebSocket
 - **UI: Bottom padding** - Increased bottom padding (pb-24) to fix last raid being cut off
 - **UI: Removed scrollbar styling** - Natural page scrolling without hidden scrollbars
 - **UI: Boss type indicators** - Added Mega (tier 4) and Max (isDynamax) badges to lobby cards alongside existing Shadow badge

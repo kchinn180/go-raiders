@@ -150,6 +150,10 @@ export default function Home() {
   const createLobbyMutation = useMutation({
     mutationFn: async (lobby: Omit<Lobby, "id" | "createdAt">) => {
       const res = await apiRequest("POST", "/api/lobbies", lobby);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || data.error || "Failed to create lobby");
+      }
       return res.json();
     },
     onSuccess: (data) => {
@@ -158,8 +162,8 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["/api/lobbies"] });
       toast({ title: "Raid Published!", description: "Your lobby is now visible to other trainers" });
     },
-    onError: () => {
-      toast({ title: "Failed to create lobby", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Cannot host raid", description: error.message, variant: "destructive" });
     },
   });
 
@@ -189,10 +193,16 @@ export default function Home() {
       const res = await apiRequest("POST", `/api/lobbies/${lobbyId}/leave`, { playerId });
       return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       setActiveLobby(null);
       setView("join");
       queryClient.invalidateQueries({ queryKey: ["/api/lobbies"] });
+      if (data?.deleted) {
+        toast({ title: "Lobby Closed", description: "The raid lobby has been closed" });
+      }
+    },
+    onError: () => {
+      toast({ title: "Failed to leave", description: "Please try again", variant: "destructive" });
     },
   });
 

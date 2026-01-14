@@ -86,6 +86,9 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
   const [pendingCapacity, setPendingCapacity] = useState<number | null>(null);
   const [isUpdatingCapacity, setIsUpdatingCapacity] = useState(false);
   
+  // OPTIMISTIC STATE: Track local ready state for instant button feedback
+  const [optimisticReady, setOptimisticReady] = useState<boolean | null>(null);
+  
   // Scroll to top when entering lobby so friend codes are visible
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -127,6 +130,15 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
         title: `${playerName} left the lobby`,
         duration: 2000,
       });
+    },
+    onLobbyClosed: (reason) => {
+      toast({
+        title: "Lobby Closed",
+        description: reason,
+        variant: "destructive",
+      });
+      // Trigger leave to clean up state
+      onLeave();
     },
     hapticEnabled,
   });
@@ -219,6 +231,16 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
   const hostPlayer = lobby.players.find((p) => p.isHost);
   const readyCount = lobby.players.filter((p) => p.isReady).length;
   const allReady = readyCount === lobby.players.length;
+  
+  // Use optimistic ready state for instant UI feedback, fallback to server state
+  const displayReady = optimisticReady !== null ? optimisticReady : (myPlayer?.isReady || false);
+  
+  // Reset optimistic state when server data catches up
+  useEffect(() => {
+    if (myPlayer && optimisticReady !== null && myPlayer.isReady === optimisticReady) {
+      setOptimisticReady(null);
+    }
+  }, [myPlayer?.isReady, optimisticReady]);
 
   const copyCode = async (code: string, playerName: string) => {
     try {
@@ -462,28 +484,39 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
         </div>
 
 
-        {isHost && onStartRaid && !lobby.raidStarted && (
+        {/* HOST: Combined Ready + Send Invites Button */}
+        {isHost && !lobby.raidStarted && (
           <Button
             onClick={() => {
+              // OPTIMISTIC: Update UI immediately
+              setOptimisticReady(true);
+              
               try {
                 if (hapticEnabled) triggerNotification('success');
+                if (soundEnabled) playReadySound();
               } catch {}
-              onStartRaid();
+              // Mark host as ready and send invites in one action
+              const updatedPlayers = lobby.players.map((p) =>
+                p.id === user.id ? { ...p, isReady: true } : p
+              );
+              onUpdateLobby({ ...lobby, players: updatedPlayers });
+              if (onStartRaid) onStartRaid();
             }}
             size="sm"
             className="w-full py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-green-600 to-emerald-600"
-            data-testid="button-start-raid"
+            data-testid="button-send-invites"
           >
             <Rocket className="w-4 h-4 mr-1" />
-            SEND INVITES
+            READY & SEND INVITES
           </Button>
         )}
 
+        {/* INVITES SENT banner for everyone */}
         {lobby.raidStarted && (
           <div className="space-y-2">
             <div className="bg-green-600/20 border border-green-500 rounded-xl p-3 text-center">
               <div className="flex items-center justify-center gap-2 text-green-400 font-bold text-sm">
-                <Rocket className="w-4 h-4" />
+                <Check className="w-4 h-4" />
                 <span>INVITES SENT!</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -511,10 +544,13 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
         )}
 
         {/* Action buttons for joiners: combined friend request + ready */}
-        {!isHost && (
+        {!isHost && !lobby.raidStarted && (
           <Button
             onClick={() => {
-              if (!myPlayer?.isReady) {
+              if (!displayReady) {
+                // OPTIMISTIC: Update UI immediately
+                setOptimisticReady(true);
+                
                 try {
                   if (hapticEnabled) triggerImpact('medium');
                   if (soundEnabled) playReadySound();
@@ -529,21 +565,20 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
                     : p
                 );
                 onUpdateLobby({ ...lobby, players: updatedPlayers });
-                toast({ title: "Marked as Sent", description: "Host has been notified" });
               }
             }}
-            disabled={myPlayer?.isReady}
+            disabled={displayReady}
             size="sm"
             className={cn(
               "w-full py-3 text-sm font-bold rounded-xl transition-all",
-              myPlayer?.isReady
+              displayReady
                 ? "bg-green-600 hover:bg-green-700"
                 : "bg-yellow-500 hover:bg-yellow-600 text-black",
-              myPlayer?.isReady && "opacity-90 cursor-not-allowed"
+              displayReady && "opacity-90 cursor-not-allowed"
             )}
             data-testid="button-joiner-ready"
           >
-            {myPlayer?.isReady ? (
+            {displayReady ? (
               <>
                 <Check className="w-4 h-4 mr-1" />
                 READY - Friend Request Sent
@@ -557,28 +592,14 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
           </Button>
         )}
 
-        {/* Host ready button */}
-        {isHost && (
-          <Button
-            onClick={toggleReady}
-            size="sm"
-            className={cn(
-              "w-full py-3 text-sm font-bold rounded-xl transition-all",
-              myPlayer?.isReady
-                ? "bg-green-600 hover:bg-green-700"
-                : "bg-yellow-500 hover:bg-yellow-600 text-black"
-            )}
-            data-testid="button-toggle-ready"
-          >
-            {myPlayer?.isReady ? (
-              <>
-                <Check className="w-4 h-4 mr-1" />
-                READY
-              </>
-            ) : (
-              "READY UP"
-            )}
-          </Button>
+        {/* Joiner: Show locked state after raid started */}
+        {!isHost && lobby.raidStarted && myPlayer?.isReady && (
+          <div className="bg-green-600/20 border border-green-500 rounded-xl p-3 text-center">
+            <div className="flex items-center justify-center gap-2 text-green-400 font-bold text-sm">
+              <Check className="w-4 h-4" />
+              <span>READY - Friend Request Sent</span>
+            </div>
+          </div>
         )}
 
         {/* GO TO GAME BUTTON - Blue color */}

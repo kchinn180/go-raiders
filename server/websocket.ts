@@ -99,6 +99,20 @@ class LobbyWebSocketManager {
   broadcastPlayerLeft(lobbyId: string, playerId: string, playerName: string) {
     this.broadcastToLobby(lobbyId, "player_left", { playerId, playerName });
   }
+
+  broadcastLobbyClosed(lobbyId: string, reason: string) {
+    this.broadcastToLobby(lobbyId, "lobby_closed", { lobbyId, reason, timestamp: Date.now() });
+    // Clear all client associations for this lobby
+    this.clients.forEach((client) => {
+      if (client.lobbyId === lobbyId) {
+        client.lobbyId = undefined;
+        client.userId = undefined;
+      }
+    });
+  }
+
+  // Map to track lobby associations (for cleanup)
+  private lobbies: Map<string, Set<WebSocket>> = new Map();
 }
 
 export const lobbyWSManager = new LobbyWebSocketManager();

@@ -15,6 +15,7 @@ interface UseLobbyWebSocketOptions {
   onInvitesSent?: () => void;
   onPlayerJoined?: (playerName: string) => void;
   onPlayerLeft?: (playerName: string) => void;
+  onLobbyClosed?: (reason: string) => void;
   hapticEnabled?: boolean;
 }
 
@@ -26,6 +27,7 @@ export function useLobbyWebSocket({
   onInvitesSent,
   onPlayerJoined,
   onPlayerLeft,
+  onLobbyClosed,
   hapticEnabled = true,
 }: UseLobbyWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -101,6 +103,14 @@ export function useLobbyWebSocket({
               }
               break;
             }
+
+            case "lobby_closed": {
+              const { reason } = message.data as { reason: string };
+              if (onLobbyClosed) {
+                onLobbyClosed(reason);
+              }
+              break;
+            }
           }
         } catch (e) {
           console.error("[WS] Failed to parse message:", e);
@@ -120,7 +130,7 @@ export function useLobbyWebSocket({
       console.error("[WS] Failed to connect:", e);
       reconnectTimeoutRef.current = setTimeout(connect, 3000);
     }
-  }, [lobbyId, userId, onLobbyUpdate, onPlayerReady, onInvitesSent, onPlayerJoined, onPlayerLeft, hapticEnabled]);
+  }, [lobbyId, userId, onLobbyUpdate, onPlayerReady, onInvitesSent, onPlayerJoined, onPlayerLeft, onLobbyClosed, hapticEnabled]);
 
   useEffect(() => {
     connect();
