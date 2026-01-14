@@ -163,6 +163,17 @@ The app supports 10 languages via react-i18next:
   - `go-raiders-complete.tar.gz` - Full project with build
   - `go-raiders-source-only.tar.gz` - Source code only
 
+## Server-Side Raid Boss Validation
+- Master list of 22 raid bosses defined in `ALL_BOSSES` (shared/schema.ts)
+- Server controls which bosses are currently active via `isActive` flag
+- Time windows (startTime/endTime) for automatic rotation expiry
+- **API Endpoints**:
+  - `GET /api/bosses/active` - Returns only currently available raid bosses
+  - `GET /api/bosses/all` - Returns all bosses (for admin/display purposes)
+- **Host View**: Fetches active bosses from server, shows loading state
+- **Lobby Creation Validation**: Server rejects lobbies with inactive bosses
+- Default active rotation: rayquaza, mewtwo, dialga, palkia, lugia, beldum, mega-charizard-x, machamp
+
 ## Recent Changes
 - Initial MVP implementation with full raid coordination features
 - Dark/Light theme support
@@ -184,3 +195,4 @@ The app supports 10 languages via react-i18next:
 - Admin dashboard for feedback analysis and user bans
 - User ban system preventing re-registration
 - Push notifications for raids, player joins, and events (Capacitor integration)
+- Server-side raid boss validation with active rotation management

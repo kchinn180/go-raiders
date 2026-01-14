@@ -145,8 +145,18 @@ export class MemStorage implements IStorage {
     if (!boss || !boss.isActive) return false;
     
     const now = Date.now();
-    if (boss.endTime && now > boss.endTime) return false;
-    if (boss.startTime && now < boss.startTime) return false;
+    
+    // Check if boss has expired - update stored state if so
+    if (boss.endTime && now > boss.endTime) {
+      boss.isActive = false;
+      this.raidBosses.set(bossId, boss);
+      return false;
+    }
+    
+    // Check if boss hasn't started yet - not available until startTime
+    if (boss.startTime && now < boss.startTime) {
+      return false;
+    }
     
     return true;
   }

@@ -1,13 +1,14 @@
-import { useState } from "react";
-import { CloudLightning, Plus, Sparkles, Lock, Flame, Shield, Zap, Users } from "lucide-react";
+import { useState, useEffect } from "react";
+import { CloudLightning, Plus, Sparkles, Lock, Flame, Shield, Zap, Users, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { SafeImage } from "@/components/safe-image";
 import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
-import { BOSSES, TEAMS } from "@shared/schema";
-import type { Lobby, Player, TeamId } from "@shared/schema";
+import { TEAMS } from "@shared/schema";
+import type { Lobby, Player, TeamId, RaidBoss } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 interface HostViewProps {
   onHost: (lobby: Lobby) => void;
@@ -22,10 +23,23 @@ const teamIcons = {
 
 export function HostView({ onHost }: HostViewProps) {
   const { user } = useUser();
-  const [selectedBoss, setSelectedBoss] = useState<string>(BOSSES[0].id);
+  const [selectedBoss, setSelectedBoss] = useState<string>("");
   const [selectedGymTeam, setSelectedGymTeam] = useState<TeamId>("valor");
   const [minLevel, setMinLevel] = useState(1);
   const [weather, setWeather] = useState(false);
+
+  // Fetch active bosses from server
+  const { data: activeBosses = [], isLoading, isError, refetch } = useQuery<RaidBoss[]>({
+    queryKey: ["/api/bosses/active"],
+    retry: 2,
+  });
+
+  // Set default selected boss when active bosses load
+  useEffect(() => {
+    if (activeBosses.length > 0 && !selectedBoss) {
+      setSelectedBoss(activeBosses[0].id);
+    }
+  }, [activeBosses, selectedBoss]);
 
   if (!user) return null;
 
@@ -54,29 +68,66 @@ export function HostView({ onHost }: HostViewProps) {
       weather,
       createdAt: Date.now(),
       timeLeft: 45,
+      raidStarted: false,
+      invitesSent: false,
     };
 
     onHost(newLobby);
   };
 
-  const selectedBossData = BOSSES.find((b) => b.id === selectedBoss);
+  const selectedBossData = activeBosses.find((b) => b.id === selectedBoss);
   const selectedTeamData = TEAMS.find((t) => t.id === selectedGymTeam) || TEAMS[0];
+
+  if (isLoading) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center min-h-[400px] gap-4">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <p className="text-muted-foreground">Loading available raid bosses...</p>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="p-4 text-center space-y-4 min-h-[400px] flex flex-col items-center justify-center">
+        <p className="text-destructive font-medium">Failed to load raid bosses</p>
+        <p className="text-sm text-muted-foreground">There was a problem connecting to the server.</p>
+        <Button 
+          onClick={() => refetch()} 
+          variant="outline" 
+          className="mt-2"
+          data-testid="button-retry-bosses"
+        >
+          Try Again
+        </Button>
+      </div>
+    );
+  }
+
+  if (activeBosses.length === 0) {
+    return (
+      <div className="p-4 text-center space-y-4 min-h-[400px] flex flex-col items-center justify-center">
+        <p className="text-muted-foreground">No raid bosses are currently available.</p>
+        <p className="text-sm text-muted-foreground">Check back later for new raid rotations!</p>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-6 pb-28">
       <div className="text-center">
         <h2 className="text-2xl font-black">Host a Raid</h2>
         <p className="text-muted-foreground text-sm">
-          Select a boss and configure your lobby
+          Select from {activeBosses.length} currently available raid bosses
         </p>
       </div>
 
       <div className="space-y-4">
         <label className="text-xs font-bold text-muted-foreground uppercase block">
-          Select Boss
+          Active Raid Bosses ({activeBosses.length})
         </label>
-        <div className="grid grid-cols-3 gap-3">
-          {BOSSES.slice(0, 6).map((boss) => (
+        <div className="grid grid-cols-3 gap-3 max-h-[320px] overflow-y-auto pr-1">
+          {activeBosses.map((boss) => (
             <button
               key={boss.id}
               onClick={() => setSelectedBoss(boss.id)}
