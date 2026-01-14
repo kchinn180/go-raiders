@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Users, Clock, Loader2, CheckCircle, XCircle, Crown, Zap } from "lucide-react";
+import { X, Users, Clock, Loader2, CheckCircle, XCircle, Crown, Zap, Info } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/safe-image";
@@ -10,7 +10,7 @@ import { triggerNotification, triggerImpact } from "@/lib/haptics";
 import { playRewardSound } from "@/lib/sounds";
 import { useUser } from "@/lib/user-context";
 import { purchaseSubscription, fetchProducts, type SubscriptionProduct } from "@/lib/subscription";
-import { useScrollLock } from "@/lib/use-scroll-lock";
+import { PokemonDetailsModal } from "@/components/pokemon-details-modal";
 
 interface QueueStatusModalProps {
   isOpen: boolean;
@@ -33,9 +33,7 @@ export function QueueStatusModal({
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const onMatchedRef = useRef(onMatched);
-  
-  // Lock body scroll when modal is open
-  useScrollLock(isOpen);
+  const [showBossInfo, setShowBossInfo] = useState(false);
   
   useEffect(() => {
     onMatchedRef.current = onMatched;
@@ -117,6 +115,7 @@ export function QueueStatusModal({
   useEffect(() => {
     if (!isOpen) {
       setHasNotifiedMatch(false);
+      setShowBossInfo(false);
     }
   }, [isOpen]);
 
@@ -199,7 +198,18 @@ export function QueueStatusModal({
                   </div>
                 </div>
               )}
-              <h2 className="text-xl font-black">{status?.bossName || boss?.name}</h2>
+              <div className="flex items-center justify-center gap-2">
+                <h2 className="text-xl font-black">{status?.bossName || boss?.name}</h2>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => setShowBossInfo(true)}
+                  data-testid="button-boss-info"
+                >
+                  <Info className="w-4 h-4 text-muted-foreground" />
+                </Button>
+              </div>
               <p className="text-sm text-muted-foreground">Queue Position</p>
             </div>
 
@@ -278,6 +288,13 @@ export function QueueStatusModal({
           </>
         )}
       </div>
+
+      {/* Boss Info Modal */}
+      <PokemonDetailsModal
+        pokemonId={bossId}
+        isOpen={showBossInfo}
+        onClose={() => setShowBossInfo(false)}
+      />
     </div>
   );
 }

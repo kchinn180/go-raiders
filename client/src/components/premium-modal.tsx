@@ -21,7 +21,6 @@ import { X, Sparkles, Zap, Radar, Users, Star, Clock, ShieldCheck, Check, Loader
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
-import { useScrollLock } from "@/lib/use-scroll-lock";
 import { purchaseSubscription, restorePurchases, type SubscriptionProduct } from "@/lib/subscription";
 import { cn } from "@/lib/utils";
 
@@ -75,9 +74,6 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
   const [isRestoring, setIsRestoring] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   
-  // Lock body scroll when modal is open
-  useScrollLock(isOpen);
-
   if (!isOpen) return null;
 
   const currentProduct = selectedPlan === 'yearly' ? ELITE_YEARLY : ELITE_MONTHLY;

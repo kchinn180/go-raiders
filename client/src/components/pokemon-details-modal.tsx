@@ -21,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SafeImage } from "@/components/safe-image";
 import { cn } from "@/lib/utils";
-import { useScrollLock } from "@/lib/use-scroll-lock";
 import type { 
   PokemonDetails, 
   CounterPokemon, 
@@ -278,9 +277,6 @@ export function PokemonDetailsModal({
   onClose,
   isCounter = false
 }: PokemonDetailsModalProps) {
-  // Lock body scroll when modal is open
-  useScrollLock(isOpen);
-  
   // State for nested counter details modal
   const [selectedCounterId, setSelectedCounterId] = useState<string | null>(null);
 
@@ -333,15 +329,6 @@ export function PokemonDetailsModal({
   }, []);
 
   /**
-   * Handles clicking outside the modal to close it
-   */
-  const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose();
-    }
-  }, [onClose]);
-
-  /**
    * Reset nested modal state when this modal closes
    */
   useEffect(() => {
@@ -355,19 +342,14 @@ export function PokemonDetailsModal({
 
   return (
     <>
-      {/* Main Modal Backdrop */}
+      {/* Main Modal - Full screen overlay that scrolls naturally */}
       <div 
-        className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-        onClick={handleBackdropClick}
+        className="fixed inset-0 z-50 bg-background overflow-y-auto"
         data-testid="modal-pokemon-details"
       >
-        {/* Modal Content */}
-        <div 
-          className="bg-background border border-card-border rounded-2xl w-full max-w-lg max-h-[85vh] overflow-hidden flex flex-col"
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Modal Header */}
-          <div className="flex items-center justify-between p-4 border-b border-card-border shrink-0">
+        {/* Modal Header - Sticky at top */}
+        <div className="sticky top-0 z-10 bg-background border-b border-card-border">
+          <div className="flex items-center justify-between p-4">
             <h2 className="font-bold text-lg">
               {isCounter ? "Counter Details" : "Raid Boss Details"}
             </h2>
@@ -380,9 +362,10 @@ export function PokemonDetailsModal({
               <X className="w-5 h-5" />
             </Button>
           </div>
+        </div>
 
-          {/* Modal Body */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+        {/* Modal Body - Natural scrolling */}
+        <div className="p-4 pb-24 space-y-6">
             {/* Loading State */}
             {isLoading && (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
@@ -532,10 +515,9 @@ export function PokemonDetailsModal({
             )}
           </div>
         </div>
-      </div>
 
       {/* Nested Counter Details Modal */}
-      {selectedCounterId && (
+      {selectedCounterId !== null && (
         <PokemonDetailsModal
           pokemonId={selectedCounterId}
           isOpen={true}

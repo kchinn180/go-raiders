@@ -301,7 +301,7 @@ export function JoinFeed({
             <p className="text-xs text-muted-foreground py-2">
               Select bosses to filter raids. Only lobbies with selected bosses will appear.
             </p>
-            <div className="grid grid-cols-4 gap-2 max-h-[200px] overflow-y-auto">
+            <div className="grid grid-cols-4 gap-2">
               {BOSSES.map((boss) => {
                 const isSelected = selectedBosses.has(boss.id);
                 const hasActiveLobbies = availableBossIds.has(boss.id);

@@ -11,7 +11,6 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import type { Lobby } from "@shared/schema";
-import { useScrollLock } from "@/lib/use-scroll-lock";
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -100,7 +99,6 @@ function YesNoQuestion({ label, value, onChange, icon: Icon }: { label: string; 
 }
 
 export function FeedbackModal({ isOpen, onClose, lobby, userId, isHost = false }: FeedbackModalProps) {
-  useScrollLock(isOpen);
   const { toast } = useToast();
   
   const [didParticipate, setDidParticipate] = useState<boolean | null>(null);
