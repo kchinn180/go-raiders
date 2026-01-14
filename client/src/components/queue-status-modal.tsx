@@ -10,6 +10,7 @@ import { triggerNotification, triggerImpact } from "@/lib/haptics";
 import { playRewardSound } from "@/lib/sounds";
 import { useUser } from "@/lib/user-context";
 import { purchaseSubscription, fetchProducts, type SubscriptionProduct } from "@/lib/subscription";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 interface QueueStatusModalProps {
   isOpen: boolean;
@@ -32,6 +33,9 @@ export function QueueStatusModal({
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const onMatchedRef = useRef(onMatched);
+  
+  // Lock body scroll when modal is open
+  useScrollLock(isOpen);
   
   useEffect(() => {
     onMatchedRef.current = onMatched;

@@ -206,7 +206,7 @@ export function JoinFeed({
   return (
     <div 
       ref={containerRef}
-      className="p-4 space-y-4 pb-28 relative overflow-y-auto"
+      className="p-4 space-y-4 pb-8 relative"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}

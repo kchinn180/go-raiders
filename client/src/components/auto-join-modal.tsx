@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { BOSSES } from "@shared/schema";
 import type { Boss, RaidBoss, QueueStatus } from "@shared/schema";
 import { triggerImpact } from "@/lib/haptics";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 interface AutoJoinModalProps {
   isOpen: boolean;
@@ -32,6 +33,9 @@ export function AutoJoinModal({
   friendCode,
   isPremium,
 }: AutoJoinModalProps) {
+  // Lock body scroll when modal is open
+  useScrollLock(isOpen);
+  
   const [search, setSearch] = useState("");
   const [selectedBoss, setSelectedBoss] = useState<Boss | null>(null);
   const queryClient = useQueryClient();

@@ -2,6 +2,7 @@ import { X, Sparkles, Zap, Radar, Users, Star, Clock, ShieldCheck, Check } from 
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 interface PremiumModalProps {
   isOpen: boolean;
@@ -20,6 +21,9 @@ const features = [
 export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
   const { user, upgradeToPremium } = useUser();
   const { toast } = useToast();
+  
+  // Lock body scroll when modal is open
+  useScrollLock(isOpen);
 
   if (!isOpen) return null;
 

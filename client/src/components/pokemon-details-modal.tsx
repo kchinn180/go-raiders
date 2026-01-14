@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SafeImage } from "@/components/safe-image";
 import { cn } from "@/lib/utils";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 import type { 
   PokemonDetails, 
   CounterPokemon, 
@@ -277,6 +278,9 @@ export function PokemonDetailsModal({
   onClose,
   isCounter = false
 }: PokemonDetailsModalProps) {
+  // Lock body scroll when modal is open
+  useScrollLock(isOpen);
+  
   // State for nested counter details modal
   const [selectedCounterId, setSelectedCounterId] = useState<string | null>(null);
 

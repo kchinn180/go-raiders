@@ -349,7 +349,7 @@ export default function Home() {
     <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
       <Header onPremiumClick={() => setShowPremium(true)} />
       
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 overflow-y-auto overscroll-contain pb-24">
         {view === "join" && (
           <JoinFeed
             lobbies={lobbies}
