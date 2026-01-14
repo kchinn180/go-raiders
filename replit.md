@@ -142,11 +142,26 @@ The app supports 10 languages via react-i18next:
 - In-memory lobby storage with database backup option
 - Ready for Redis pub/sub for real-time updates at scale
 
-## User Feedback System
-- Feedback modal appears after leaving a completed raid
-- Host rating (1-5 stars), app rating, issue reporting
-- "Would you recommend" toggle with optional comments
-- All feedback stored server-side for admin analysis
+## User Feedback & Reporting System
+- **Enhanced feedback modal** appears after leaving a completed raid with:
+  - Participation tracking (did you participate, correct boss, trainer count, win status)
+  - Host rating (1-5 stars)
+  - "Thank Host" coin tip system (0, 10, 25, 50, 100 coins)
+  - "Would you recommend" toggle with optional comments
+  - Scroll lock to prevent background scrolling when modal is open
+- **Player reporting system** with reason categories:
+  - `no_invite` - Never received invite
+  - `wrong_boss` - Wrong raid boss
+  - `left_early` - Host left early
+  - `harassment` - Harassment or abuse
+  - `cheating` - Cheating or exploits
+  - `other` - Other issue
+- **API Endpoints**:
+  - `POST /api/feedback` - Submit raid feedback
+  - `POST /api/reports` - Submit player report
+  - `GET /api/admin/feedback` - View all feedback (admin only)
+  - `GET /api/admin/reports` - View all reports (admin only)
+- Report status tracking: pending, reviewed, resolved, dismissed
 
 ## Admin Dashboard
 - Token-based authentication using ADMIN_TOKEN secret
