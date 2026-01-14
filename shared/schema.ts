@@ -313,3 +313,162 @@ export const notificationTypeSchema = z.enum([
 ]);
 
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
+
+// ============================================================================
+// POKÉMON TYPE SYSTEM AND DETAILED DATA
+// ============================================================================
+
+/**
+ * All 18 Pokémon types in the game
+ * Used for type effectiveness calculations, weaknesses, and resistances
+ */
+export const POKEMON_TYPES = [
+  'normal', 'fire', 'water', 'electric', 'grass', 'ice',
+  'fighting', 'poison', 'ground', 'flying', 'psychic', 'bug',
+  'rock', 'ghost', 'dragon', 'dark', 'steel', 'fairy'
+] as const;
+
+export type PokemonType = typeof POKEMON_TYPES[number];
+
+/**
+ * Type effectiveness multipliers
+ * 1.6 = super effective (1.6x damage in Pokémon GO)
+ * 0.625 = not very effective (0.625x damage)
+ * 0.390625 = doubly resisted (0.625 * 0.625)
+ * 0.244140625 = immune/triply resisted
+ */
+export const TYPE_EFFECTIVENESS: Record<PokemonType, Partial<Record<PokemonType, number>>> = {
+  normal: { rock: 0.625, ghost: 0.390625, steel: 0.625 },
+  fire: { fire: 0.625, water: 0.625, grass: 1.6, ice: 1.6, bug: 1.6, rock: 0.625, dragon: 0.625, steel: 1.6 },
+  water: { fire: 1.6, water: 0.625, grass: 0.625, ground: 1.6, rock: 1.6, dragon: 0.625 },
+  electric: { water: 1.6, electric: 0.625, grass: 0.625, ground: 0.390625, flying: 1.6, dragon: 0.625 },
+  grass: { fire: 0.625, water: 1.6, grass: 0.625, poison: 0.625, ground: 1.6, flying: 0.625, bug: 0.625, rock: 1.6, dragon: 0.625, steel: 0.625 },
+  ice: { fire: 0.625, water: 0.625, grass: 1.6, ice: 0.625, ground: 1.6, flying: 1.6, dragon: 1.6, steel: 0.625 },
+  fighting: { normal: 1.6, ice: 1.6, poison: 0.625, flying: 0.625, psychic: 0.625, bug: 0.625, rock: 1.6, ghost: 0.390625, dark: 1.6, steel: 1.6, fairy: 0.625 },
+  poison: { grass: 1.6, poison: 0.625, ground: 0.625, rock: 0.625, ghost: 0.625, steel: 0.390625, fairy: 1.6 },
+  ground: { fire: 1.6, electric: 1.6, grass: 0.625, poison: 1.6, flying: 0.390625, bug: 0.625, rock: 1.6, steel: 1.6 },
+  flying: { electric: 0.625, grass: 1.6, fighting: 1.6, bug: 1.6, rock: 0.625, steel: 0.625 },
+  psychic: { fighting: 1.6, poison: 1.6, psychic: 0.625, dark: 0.390625, steel: 0.625 },
+  bug: { fire: 0.625, grass: 1.6, fighting: 0.625, poison: 0.625, flying: 0.625, psychic: 1.6, ghost: 0.625, dark: 1.6, steel: 0.625, fairy: 0.625 },
+  rock: { fire: 1.6, ice: 1.6, fighting: 0.625, ground: 0.625, flying: 1.6, bug: 1.6, steel: 0.625 },
+  ghost: { normal: 0.390625, psychic: 1.6, ghost: 1.6, dark: 0.625 },
+  dragon: { dragon: 1.6, steel: 0.625, fairy: 0.390625 },
+  dark: { fighting: 0.625, psychic: 1.6, ghost: 1.6, dark: 0.625, fairy: 0.625 },
+  steel: { fire: 0.625, water: 0.625, electric: 0.625, ice: 1.6, rock: 1.6, steel: 0.625, fairy: 1.6 },
+  fairy: { fire: 0.625, fighting: 1.6, poison: 0.625, dragon: 1.6, dark: 1.6, steel: 0.625 }
+};
+
+/**
+ * Move data structure for fast and charged moves
+ */
+export interface PokemonMove {
+  name: string;
+  type: PokemonType;
+  damage: number;
+  energy: number; // Energy gain (fast) or cost (charged)
+  duration: number; // In seconds
+  isLegacy?: boolean;
+  isElite?: boolean;
+}
+
+/**
+ * Base stats for a Pokémon (Attack, Defense, Stamina)
+ */
+export interface PokemonStats {
+  attack: number;
+  defense: number;
+  stamina: number;
+}
+
+/**
+ * Extended Pokémon details for the details modal
+ * Includes types, moves, stats, and calculated weaknesses/resistances
+ */
+export interface PokemonDetails {
+  id: string;
+  name: string;
+  types: PokemonType[];
+  stats: PokemonStats;
+  fastMoves: PokemonMove[];
+  chargedMoves: PokemonMove[];
+  weaknesses: { type: PokemonType; multiplier: number }[];
+  resistances: { type: PokemonType; multiplier: number }[];
+  tier?: number;
+  cp?: number;
+  image: string;
+  raidEndTime?: number; // Unix timestamp when raid ends
+}
+
+/**
+ * Counter Pokémon recommendation with effectiveness score
+ */
+export interface CounterPokemon {
+  id: string;
+  name: string;
+  types: PokemonType[];
+  stats: PokemonStats;
+  image: string;
+  fastMove: PokemonMove;
+  chargedMove: PokemonMove;
+  effectivenessScore: number; // Calculated DPS * effectiveness
+  dps: number; // Damage per second
+}
+
+/**
+ * Complete raid boss details response from API
+ */
+export interface RaidBossDetails {
+  pokemon: PokemonDetails;
+  counters: CounterPokemon[];
+  estimatedPlayers: number; // Minimum players recommended
+}
+
+// Zod schemas for validation
+export const pokemonMoveSchema = z.object({
+  name: z.string(),
+  type: z.enum(POKEMON_TYPES),
+  damage: z.number(),
+  energy: z.number(),
+  duration: z.number(),
+  isLegacy: z.boolean().optional(),
+  isElite: z.boolean().optional()
+});
+
+export const pokemonStatsSchema = z.object({
+  attack: z.number(),
+  defense: z.number(),
+  stamina: z.number()
+});
+
+export const pokemonDetailsSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  types: z.array(z.enum(POKEMON_TYPES)),
+  stats: pokemonStatsSchema,
+  fastMoves: z.array(pokemonMoveSchema),
+  chargedMoves: z.array(pokemonMoveSchema),
+  weaknesses: z.array(z.object({ type: z.enum(POKEMON_TYPES), multiplier: z.number() })),
+  resistances: z.array(z.object({ type: z.enum(POKEMON_TYPES), multiplier: z.number() })),
+  tier: z.number().optional(),
+  cp: z.number().optional(),
+  image: z.string(),
+  raidEndTime: z.number().optional()
+});
+
+export const counterPokemonSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  types: z.array(z.enum(POKEMON_TYPES)),
+  stats: pokemonStatsSchema,
+  image: z.string(),
+  fastMove: pokemonMoveSchema,
+  chargedMove: pokemonMoveSchema,
+  effectivenessScore: z.number(),
+  dps: z.number()
+});
+
+export const raidBossDetailsSchema = z.object({
+  pokemon: pokemonDetailsSchema,
+  counters: z.array(counterPokemonSchema),
+  estimatedPlayers: z.number()
+});

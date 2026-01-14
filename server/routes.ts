@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES } from "@shared/schema";
 import { z } from "zod";
 import { sendPushNotification, type NotificationPayload } from "./push-service";
+import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
 
 const getAdminToken = () => {
   const token = process.env.ADMIN_TOKEN;
@@ -36,6 +37,56 @@ export async function registerRoutes(
       res.json(allBosses);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch bosses" });
+    }
+  });
+
+  /**
+   * Get detailed information for a specific raid boss
+   * Includes types, moves, stats, weaknesses, resistances, and recommended counters
+   * 
+   * @param bossId - The boss ID to look up
+   * @query raidEndTime - Optional timestamp when the raid ends (for countdown timer)
+   * @returns Complete raid boss details with calculated counters
+   */
+  app.get("/api/pokemon/:bossId/details", async (req, res) => {
+    try {
+      const { bossId } = req.params;
+      const raidEndTime = req.query.raidEndTime ? parseInt(req.query.raidEndTime as string) : undefined;
+      
+      const details = getRaidBossDetails(bossId, raidEndTime);
+      
+      if (!details) {
+        return res.status(404).json({ error: "Pokémon not found" });
+      }
+      
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching Pokémon details:", error);
+      res.status(500).json({ error: "Failed to fetch Pokémon details" });
+    }
+  });
+
+  /**
+   * Get detailed information for a counter Pokémon
+   * Used when users click on a counter to see its full details
+   * 
+   * @param counterId - The counter Pokémon ID to look up
+   * @returns Complete Pokémon details including types, moves, stats, weaknesses
+   */
+  app.get("/api/pokemon/counter/:counterId/details", async (req, res) => {
+    try {
+      const { counterId } = req.params;
+      
+      const details = getCounterPokemonDetails(counterId);
+      
+      if (!details) {
+        return res.status(404).json({ error: "Counter Pokémon not found" });
+      }
+      
+      res.json(details);
+    } catch (error) {
+      console.error("Error fetching counter Pokémon details:", error);
+      res.status(500).json({ error: "Failed to fetch counter Pokémon details" });
     }
   });
 
