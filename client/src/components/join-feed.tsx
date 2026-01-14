@@ -10,10 +10,11 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Radar, Zap, RefreshCw } from "lucide-react";
+import { Zap, RefreshCw, Radar } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LobbyCard } from "@/components/lobby-card";
 import { PokemonDetailsModal } from "@/components/pokemon-details-modal";
+import { QueueBossBar } from "@/components/queue-boss-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { FILTERS, BOSSES } from "@shared/schema";
@@ -26,9 +27,14 @@ interface JoinFeedProps {
   setFilter: (filter: FilterType) => void;
   isPremium: boolean;
   onJoin: (lobby: Lobby) => void;
-  onAutoJoin: () => void;
   onQuickRaid?: () => void;
   onRefresh?: () => Promise<void>;
+  userId: string;
+  userName: string;
+  userLevel: number;
+  userTeam: 'valor' | 'mystic' | 'instinct' | 'neutral';
+  friendCode: string;
+  onQueueJoined: (bossId: string) => void;
 }
 
 export function JoinFeed({
@@ -38,9 +44,14 @@ export function JoinFeed({
   setFilter,
   isPremium,
   onJoin,
-  onAutoJoin,
   onQuickRaid,
   onRefresh,
+  userId,
+  userName,
+  userLevel,
+  userTeam,
+  friendCode,
+  onQueueJoined,
 }: JoinFeedProps) {
   const { t } = useTranslation();
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -184,26 +195,15 @@ export function JoinFeed({
         </button>
       )}
 
-      <button
-        onClick={onAutoJoin}
-        className="w-full bg-gradient-to-r from-orange-600 to-red-700 p-4 rounded-3xl flex items-center justify-between shadow-xl relative overflow-hidden active:scale-[0.98] transition-transform"
-        data-testid="button-auto-join"
-      >
-        <div className="flex items-center relative z-10">
-          <div className="p-3 bg-white/20 rounded-2xl mr-4 backdrop-blur-sm">
-            <Radar className="w-6 h-6 text-white" />
-          </div>
-          <div className="text-left text-white">
-            <div className="font-black text-lg">{t("join.autoJoin")}</div>
-            <div className="text-xs opacity-80 font-medium">
-              Find boss & skip queue instantly
-            </div>
-          </div>
-        </div>
-        <div className="bg-white text-orange-600 text-xs font-black px-3 py-1 rounded-full relative z-10">
-          {isPremium ? "READY" : "PRO"}
-        </div>
-      </button>
+      <QueueBossBar
+        userId={userId}
+        userName={userName}
+        userLevel={userLevel}
+        userTeam={userTeam}
+        friendCode={friendCode}
+        isPremium={isPremium}
+        onQueueJoined={onQueueJoined}
+      />
 
       <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
         {FILTERS.map((f) => (

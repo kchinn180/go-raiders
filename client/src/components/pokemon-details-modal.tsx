@@ -281,15 +281,27 @@ export function PokemonDetailsModal({
   const [selectedCounterId, setSelectedCounterId] = useState<string | null>(null);
 
   // Fetch raid boss details from API - only when we have a valid pokemonId
-  // Include raidEndTime in key to differentiate between different lobby instances
   const { data: bossDetails, isLoading: bossLoading, isError: bossError, refetch: refetchBoss } = useQuery<RaidBossDetails>({
-    queryKey: ["/api/pokemon", pokemonId, "details", raidEndTime ?? "no-timer"],
+    queryKey: ['/api/pokemon/details', pokemonId, raidEndTime ?? 'no-timer'],
+    queryFn: async () => {
+      const url = raidEndTime 
+        ? `/api/pokemon/${pokemonId}/details?raidEndTime=${raidEndTime}`
+        : `/api/pokemon/${pokemonId}/details`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to fetch boss details');
+      return response.json();
+    },
     enabled: isOpen && !isCounter && !!pokemonId && pokemonId.length > 0,
   });
 
-  // Fetch counter pokemon details from API (for nested modals) - only when we have a valid pokemonId
+  // Fetch counter pokemon details from API (for nested modals)
   const { data: counterDetails, isLoading: counterLoading, isError: counterError, refetch: refetchCounter } = useQuery<PokemonDetails>({
-    queryKey: ["/api/pokemon/counter", pokemonId, "details"],
+    queryKey: ['/api/pokemon/counter/details', pokemonId],
+    queryFn: async () => {
+      const response = await fetch(`/api/pokemon/counter/${pokemonId}/details`);
+      if (!response.ok) throw new Error('Failed to fetch counter details');
+      return response.json();
+    },
     enabled: isOpen && isCounter && !!pokemonId && pokemonId.length > 0,
   });
 

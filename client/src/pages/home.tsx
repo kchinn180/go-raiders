@@ -10,7 +10,6 @@ import { LobbyView } from "@/components/lobby-view";
 import { ShopView } from "@/components/shop-view";
 import { SettingsView } from "@/components/settings-view";
 import { PremiumModal } from "@/components/premium-modal";
-import { AutoJoinModal } from "@/components/auto-join-modal";
 import { QueueStatusModal } from "@/components/queue-status-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
 import { PrivacyPage } from "@/pages/privacy";
@@ -36,7 +35,6 @@ export default function Home() {
   const [activeLobby, setActiveLobby] = useState<Lobby | null>(null);
   const [filter, setFilter] = useState<FilterType>("all");
   const [showPremium, setShowPremium] = useState(false);
-  const [showAutoJoin, setShowAutoJoin] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
   const [feedbackLobby, setFeedbackLobby] = useState<Lobby | null>(null);
   const [legalPage, setLegalPage] = useState<LegalPage>(null);
@@ -328,14 +326,6 @@ export default function Home() {
     startRaidMutation.mutate({ lobbyId: activeLobby.id, hostId: user.id });
   }, [user, activeLobby, startRaidMutation]);
 
-  const handleAutoJoin = useCallback(() => {
-    if (user?.isPremium) {
-      setShowAutoJoin(true);
-    } else {
-      setShowPremium(true);
-    }
-  }, [user]);
-
   const handleQueueJoined = useCallback((bossId: string) => {
     setQueueBossId(bossId);
     setShowQueueStatus(true);
@@ -406,9 +396,14 @@ export default function Home() {
             setFilter={setFilter}
             isPremium={user.isPremium}
             onJoin={handleJoinLobby}
-            onAutoJoin={handleAutoJoin}
             onQuickRaid={handleQuickRaid}
             onRefresh={async () => { await refetch(); }}
+            userId={user.id}
+            userName={user.name}
+            userLevel={user.level}
+            userTeam={user.team}
+            friendCode={user.code}
+            onQueueJoined={handleQueueJoined}
           />
         )}
         {view === "host" && <HostView onHost={handleHostLobby} />}
@@ -433,17 +428,6 @@ export default function Home() {
       <BottomNav currentView={view} setView={setView} hasActiveLobby={!!activeLobby} />
 
       <PremiumModal isOpen={showPremium} onClose={() => setShowPremium(false)} />
-      <AutoJoinModal
-        isOpen={showAutoJoin}
-        onClose={() => setShowAutoJoin(false)}
-        onQueueJoined={handleQueueJoined}
-        userId={user.id}
-        userName={user.name}
-        userLevel={user.level}
-        userTeam={user.team}
-        friendCode={user.code}
-        isPremium={user.isPremium}
-      />
       <QueueStatusModal
         isOpen={showQueueStatus}
         onClose={() => {
