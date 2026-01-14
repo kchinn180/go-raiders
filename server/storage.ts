@@ -171,10 +171,14 @@ export class MemStorage implements IStorage {
       });
     });
     
-    const initialLobbies = generateMockLobbies();
-    initialLobbies.forEach(lobby => {
-      this.lobbies.set(lobby.id, lobby);
-    });
+    // Only generate mock lobbies in development mode
+    // In production, lobbies are only created when hosts create raids
+    if (process.env.NODE_ENV !== 'production') {
+      const initialLobbies = generateMockLobbies();
+      initialLobbies.forEach(lobby => {
+        this.lobbies.set(lobby.id, lobby);
+      });
+    }
   }
 
   async getActiveRaidBosses(): Promise<RaidBoss[]> {
@@ -601,7 +605,8 @@ export class MemStorage implements IStorage {
       }
     } else {
       // Leave all queues
-      for (const [key, entry] of this.queueEntries.entries()) {
+      const entries = Array.from(this.queueEntries.entries());
+      for (const [key, entry] of entries) {
         if (entry.userId === userId && entry.status === 'waiting') {
           entry.status = 'cancelled';
           this.queueEntries.set(key, entry);

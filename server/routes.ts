@@ -8,6 +8,7 @@ import { sendPushNotification, type NotificationPayload } from "./push-service";
 import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
 import { verifyPurchaseReceipt, ELITE_PRODUCTS } from "./services/subscription";
 import { requirePremium } from "./middleware/require-premium";
+import { lobbyWSManager } from "./websocket";
 
 const getAdminToken = () => {
   const token = process.env.ADMIN_TOKEN;
@@ -201,6 +202,10 @@ export async function registerRoutes(
       if (!lobby) {
         return res.status(404).json({ error: "Lobby not found or full" });
       }
+      
+      lobbyWSManager.broadcastPlayerJoined(lobby, trustedPlayer.name);
+      lobbyWSManager.broadcastLobbyUpdate(lobby);
+      
       res.json(lobby);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -216,7 +221,16 @@ export async function registerRoutes(
       if (!playerId) {
         return res.status(400).json({ error: "Player ID required" });
       }
+      const lobbyBefore = await storage.getLobby(req.params.id);
+      const leavingPlayer = lobbyBefore?.players.find(p => p.id === playerId);
+      
       const lobby = await storage.leaveLobby(req.params.id, playerId);
+      
+      if (lobby && leavingPlayer) {
+        lobbyWSManager.broadcastPlayerLeft(req.params.id, playerId, leavingPlayer.name);
+        lobbyWSManager.broadcastLobbyUpdate(lobby);
+      }
+      
       res.json({ success: true, lobby });
     } catch (error) {
       res.status(500).json({ error: "Failed to leave lobby" });
@@ -299,6 +313,13 @@ export async function registerRoutes(
       if (!lobby) {
         return res.status(404).json({ error: "Lobby not found" });
       }
+      
+      const player = lobby.players.find(p => p.id === playerId);
+      if (player) {
+        lobbyWSManager.broadcastPlayerReady(lobby.id, playerId, player.name, isReady);
+        lobbyWSManager.broadcastLobbyUpdate(lobby);
+      }
+      
       res.json(lobby);
     } catch (error) {
       res.status(500).json({ error: "Failed to update ready status" });
@@ -331,6 +352,23 @@ export async function registerRoutes(
       if (!lobby) {
         return res.status(404).json({ error: "Lobby not found or not host" });
       }
+      
+      lobbyWSManager.broadcastInvitesSent(lobby.id);
+      lobbyWSManager.broadcastLobbyUpdate(lobby);
+      
+      const playerIds = lobby.players.filter(p => !p.isHost).map(p => p.id);
+      if (playerIds.length > 0) {
+        const boss = ALL_BOSSES.find(b => b.id === lobby.bossId);
+        const tokens = await storage.getPushTokensForUsers(playerIds);
+        const notification: NotificationPayload = {
+          type: 'raid_starting',
+          title: "Invites Sent!",
+          body: `Host is sending raid invites for ${boss?.name || 'the raid'}! Open Pokémon GO now!`,
+          data: { lobbyId: lobby.id }
+        };
+        await sendPushNotification(tokens, notification);
+      }
+      
       res.json(lobby);
     } catch (error) {
       res.status(500).json({ error: "Failed to start raid" });

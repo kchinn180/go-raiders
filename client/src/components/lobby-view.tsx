@@ -26,6 +26,7 @@ import {
   LogOut,
   Rocket,
   Settings2,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -45,6 +46,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
 import { triggerImpact, triggerNotification } from "@/lib/haptics";
 import { playRaidCountdown, playReadySound } from "@/lib/sounds";
+import { useLobbyWebSocket } from "@/lib/use-lobby-websocket";
 import { cn } from "@/lib/utils";
 import { BOSSES, TEAMS } from "@shared/schema";
 import type { Lobby, Player } from "@shared/schema";
@@ -94,6 +96,40 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
   
   const hapticEnabled = user?.notifications?.hapticFeedback !== false;
   const soundEnabled = user?.notifications?.soundEffects !== false;
+  
+  useLobbyWebSocket({
+    lobbyId: lobby.id,
+    userId: user?.id || '',
+    onLobbyUpdate: onUpdateLobby,
+    onPlayerReady: (playerId, playerName, isReady) => {
+      if (isReady && soundEnabled) {
+        playReadySound();
+      }
+      toast({
+        title: isReady ? `${playerName} is ready!` : `${playerName} is no longer ready`,
+        duration: 2000,
+      });
+    },
+    onInvitesSent: () => {
+      toast({
+        title: "Invites Sent!",
+        description: "Open Pokémon GO now to accept the raid invite!",
+      });
+    },
+    onPlayerJoined: (playerName) => {
+      toast({
+        title: `${playerName} joined!`,
+        duration: 2000,
+      });
+    },
+    onPlayerLeft: (playerName) => {
+      toast({
+        title: `${playerName} left the lobby`,
+        duration: 2000,
+      });
+    },
+    hapticEnabled,
+  });
   
   /**
    * HOST CAPACITY UPDATE HANDLER
@@ -475,34 +511,55 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
           </div>
         )}
 
-        <Button
-          onClick={toggleReady}
-          disabled={myPlayer?.isReady && !isHost}
-          className={cn(
-            "w-full py-6 text-lg font-black rounded-2xl transition-all",
-            myPlayer?.isReady
-              ? "bg-green-600 hover:bg-green-700"
-              : team.bg,
-            myPlayer?.isReady && !isHost && "opacity-90 cursor-not-allowed"
-          )}
-          data-testid="button-toggle-ready"
-        >
-          {myPlayer?.isReady ? (
-            isHost ? (
-              <>
-                <Check className="w-5 h-5 mr-2" />
-                READY (TAP TO UNREADY)
-              </>
+        {/* Ready and Go to Game buttons - side by side */}
+        <div className="flex gap-3">
+          <Button
+            onClick={toggleReady}
+            disabled={myPlayer?.isReady && !isHost}
+            className={cn(
+              "flex-1 py-6 text-lg font-black rounded-2xl transition-all",
+              myPlayer?.isReady
+                ? "bg-green-600 hover:bg-green-700"
+                : team.bg,
+              myPlayer?.isReady && !isHost && "opacity-90 cursor-not-allowed"
+            )}
+            data-testid="button-toggle-ready"
+          >
+            {myPlayer?.isReady ? (
+              isHost ? (
+                <>
+                  <Check className="w-5 h-5 mr-2" />
+                  READY
+                </>
+              ) : (
+                <>
+                  <Check className="w-5 h-5 mr-2" />
+                  LOCKED IN
+                </>
+              )
             ) : (
-              <>
-                <Check className="w-5 h-5 mr-2" />
-                READY - LOCKED IN!
-              </>
-            )
-          ) : (
-            "TAP WHEN READY"
-          )}
-        </Button>
+              "READY UP"
+            )}
+          </Button>
+          
+          {/* GO TO GAME BUTTON
+           * Opens Pokémon GO app directly using deep link
+           * Works on iOS/Android via pokemongo:// URL scheme
+           * No fallback - just attempts to open the game
+           */}
+          <Button
+            onClick={() => {
+              if (hapticEnabled) triggerImpact('medium');
+              window.location.href = 'pokemongo://';
+            }}
+            variant="secondary"
+            className="py-6 px-4 text-lg font-black rounded-2xl"
+            data-testid="button-go-to-game"
+          >
+            <ExternalLink className="w-5 h-5 mr-1" />
+            GO
+          </Button>
+        </div>
 
         <AlertDialog>
           <AlertDialogTrigger asChild>

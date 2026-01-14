@@ -195,7 +195,7 @@ export function JoinFeed({
   return (
     <div 
       ref={containerRef}
-      className="p-4 space-y-4 pb-8 relative"
+      className="p-4 space-y-4 pb-24 relative"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -233,7 +233,7 @@ export function JoinFeed({
         onQueueJoined={onQueueJoined}
       />
 
-      <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+      <div className="flex gap-2 overflow-x-auto py-1">
         {FILTERS.map((f) => (
           <button
             key={f}

@@ -59,7 +59,12 @@ The frontend is built with **React** and **TypeScript**, utilizing **Wouter** fo
 - Prevents pages from opening at previous scroll position
 
 ## Recent Changes
+- **Production mode** - Test lobbies only appear in development mode; production shows only real host-created raids
+- **Go to Game button** - Added button in lobby view to open Pokémon GO app directly via deep link
+- **Real-time WebSocket** - Instant lobby updates when players ready up, invites sent, players join/leave
+- **Push notifications** - All players receive push notification when host sends invites
+- **UI: Bottom padding** - Increased bottom padding (pb-24) to fix last raid being cut off
+- **UI: Removed scrollbar styling** - Natural page scrolling without hidden scrollbars
 - **UI: Boss type indicators** - Added Mega (tier 4) and Max (isDynamax) badges to lobby cards alongside existing Shadow badge
-- **UI: Hidden refresh text** - Replaced visible text with minimal icon-only refresh button
 - **UI: Scroll reset** - Pages now always start scrolled to the top when navigating
 - **SECURITY: Client-side premium bypass vulnerability fixed** - Replaced `upgradeToPremium()` with `syncPremiumFromServer()`
