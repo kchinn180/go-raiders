@@ -78,6 +78,9 @@ The frontend is built with **React** and **TypeScript**, utilizing **Wouter** fo
 - **JOINER: One lobby at a time** - Server enforces joiners can only join ONE lobby at a time
 - **HOST LEAVES = LOBBY CLOSED** - When host leaves, entire lobby is deleted and all joiners notified via WebSocket
 - **UI: Bottom padding** - Increased bottom padding (pb-24) to fix last raid being cut off
+- **UI: Removed member count** - Removed "X/Y Raiders" display from lobby, only Ready count shown
+- **UI: Boss types displayed** - Pokemon types now shown next to tier and CP in lobby (e.g., "Bug/Steel")
+- **RAID LOCK** - After host clicks "Start Raid", no new users can join the lobby
 - **UI: Removed scrollbar styling** - Natural page scrolling without hidden scrollbars
 - **UI: Boss type indicators** - Added Mega (tier 4) and Max (isDynamax) badges to lobby cards alongside existing Shadow badge
 - **UI: Scroll reset** - Pages now always start scrolled to the top when navigating
