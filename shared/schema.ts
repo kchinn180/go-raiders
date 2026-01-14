@@ -107,11 +107,7 @@ export const ALL_BOSSES = [
   // Max Battles (Dynamax)
   { id: 'drampa-max', name: 'Drampa (Max)', tier: 1, cp: 6500, image: 'https://img.pokemondb.net/sprites/home/normal/drampa.png', isShadow: false, isDynamax: true },
   { id: 'roggenrola-max', name: 'Roggenrola (Max)', tier: 1, cp: 4200, image: 'https://img.pokemondb.net/sprites/home/normal/roggenrola.png', isShadow: false, isDynamax: true },
-  // Special Event: Kyurem Fusion Raid Day (Jan 10)
-  { id: 'reshiram', name: 'Reshiram', tier: 5, cp: 53394, image: 'https://img.pokemondb.net/sprites/home/normal/reshiram.png', isShadow: false, isDynamax: false },
-  { id: 'zekrom', name: 'Zekrom', tier: 5, cp: 53394, image: 'https://img.pokemondb.net/sprites/home/normal/zekrom.png', isShadow: false, isDynamax: false },
-  { id: 'kyurem-black', name: 'Black Kyurem', tier: 5, cp: 48884, image: 'https://img.pokemondb.net/sprites/home/normal/kyurem-black.png', isShadow: false, isDynamax: false },
-  { id: 'kyurem-white', name: 'White Kyurem', tier: 5, cp: 48884, image: 'https://img.pokemondb.net/sprites/home/normal/kyurem-white.png', isShadow: false, isDynamax: false },
+  { id: 'beldum-max', name: 'Beldum (Max)', tier: 1, cp: 4100, image: 'https://img.pokemondb.net/sprites/home/normal/beldum.png', isShadow: false, isDynamax: true },
 ] as const;
 
 // RaidBoss with active status (server-controlled)
