@@ -1,294 +1,66 @@
 # GO Raiders - Pokémon GO Raid Coordination App
 
 ## Overview
-GO Raiders is a Pokémon GO raid coordination application that allows trainers to find and join raid lobbies, host their own raids, and coordinate with other players in real-time. The app uses Pokémon names/images from PokémonDB and official team names (Valor, Mystic, Instinct).
+GO Raiders is a Pokémon GO raid coordination application designed to help trainers find and join raid lobbies, host their own raids, and coordinate with other players in real-time. The app aims to enhance the Pokémon GO raiding experience by providing robust coordination tools, real-time updates, and an intuitive user interface. It leverages official Pokémon names/images from PokémonDB and integrates official team names (Valor, Mystic, Instinct) to create an immersive and authentic experience for players.
 
-## Key Features
-- **Onboarding**: New users set up their trainer profile with name, team (Valor/Mystic/Instinct), level, and friend code
-- **Join Feed**: Browse available raid lobbies with filtering by tier (1, 3, 5, Mega, Max, Shadow)
-- **Host Raids**: Create new raid lobbies with Pokémon boss selection and settings
-- **Lobby View**: Real-time lobby with player list, ready status, and friend code coordination
-- **Premium/Elite**: Subscription features including Auto Join, no wait time, and priority queue
-- **Dark/Light Theme**: Full theme support with team-colored accents (volcanic/lava theme)
+The project's vision is to become the leading platform for Pokémon GO raid coordination, offering seamless integration with mobile platforms and providing premium features for advanced users.
 
-## Architecture
+## User Preferences
+I want the agent to use clear and concise language. When making changes, prioritize maintainability and scalability. Before implementing significant architectural changes, please ask for confirmation. I prefer an iterative development approach, with regular updates on progress and proposed next steps.
 
-### Frontend (`client/src/`)
-- **React** with TypeScript
-- **Wouter** for routing
-- **TanStack Query** for data fetching
-- **Shadcn/ui** components with Tailwind CSS
-- **Theme/User contexts** for global state
-- **Capacitor** for native mobile deployment
+## System Architecture
 
-### Backend (`server/`)
-- **Express** server
-- **In-memory storage** for lobbies and users
-- RESTful API endpoints
+### UI/UX Decisions
+The application features a responsive design with full dark/light theme support, accented by team-specific colors (volcanic/lava theme). It uses Shadcn/ui components with Tailwind CSS for a modern and consistent look. Mobile deployment is prioritized with Capacitor for native iOS/Android builds, including PWA features, safe-area-inset support for notched devices, and optimized mobile viewport configurations. Boss type indicators (Shadow, Mega, Max) are visually distinct on lobby cards, and the UI includes pull-to-refresh functionality on feeds and scroll-to-top behavior for page navigation.
 
-### Shared (`shared/`)
-- **Zod schemas** for validation
-- Type definitions for User, Lobby, Player, Boss, Team
+### Technical Implementations
+The frontend is built with **React** and **TypeScript**, utilizing **Wouter** for routing and **TanStack Query** for data fetching. Global state management is handled via React Contexts (Theme/User). The backend is an **Express** server, initially using in-memory storage for lobbies and users, with a **PostgreSQL** database and **Drizzle ORM** for persistent user data (coins, raid history, preferences). The application uses **Zod schemas** for validation and shared type definitions across frontend and backend.
 
-## API Endpoints
-- `GET /api/lobbies` - List all active lobbies
-- `GET /api/lobbies/:id` - Get specific lobby
-- `POST /api/lobbies` - Create new lobby
-- `POST /api/lobbies/:id/join` - Join a lobby
-- `POST /api/lobbies/:id/leave` - Leave a lobby
-- `PATCH /api/lobbies/:id/ready` - Update ready status
-- `PATCH /api/lobbies/:id/sent-request` - Mark friend request as sent
+### Feature Specifications
+- **User Onboarding**: Profile setup including trainer name, team, level, and friend code.
+- **Raid Coordination**: Users can browse and filter raid lobbies by tier and Pokémon, host new raids with boss selection, and manage real-time lobby views with player lists, ready statuses, and friend code exchange.
+- **In-App Purchases**: Elite subscription offers features like Auto Join, no wait time, and priority queue, secured by server-side receipt verification (Apple App Store & Google Play Store).
+- **Mini-Games & Rewards**: Daily Challenge mini-game with a spinning wheel for coin rewards and streak tracking.
+- **Host Controls**: Hosts can adjust lobby capacity (2-10 players), notify players when a raid is starting, and manage raid settings.
+- **Internationalization**: Support for 10 languages (English, Spanish, Portuguese, French, German, Japanese, Korean, Chinese S/T, Arabic) with a language selector.
+- **Haptic & Sound Feedback**: Integrated haptics via Capacitor and Web Audio API for sound effects on key interactions.
+- **Security**: Implemented with Helmet.js for HTTP headers, CORS configuration, API rate limiting, input sanitization, and Content Security Policy.
+- **Admin Tools**: An admin dashboard allows viewing user feedback, managing user bans (by friend code), and reviewing reports.
+- **Server-Side Validation**: Raid boss selection is validated against an active server-controlled list with time windows for rotation. Elite Early Access is strictly enforced server-side with anti-spoofing measures.
 
-## Running the App
-The application runs with `npm run dev` which starts both the Express backend and Vite frontend on port 5000.
+## External Dependencies
 
-## Mobile Deployment (App Store / Play Store)
+- **PokémonDB**: For Pokémon names and images.
+- **Capacitor**: For native mobile deployment (iOS, Android) and PWA features.
+- **Apple App Store**: For iOS app distribution and in-app purchases.
+- **Google Play Store**: For Android app distribution and in-app purchases.
+- **PostgreSQL**: Relational database for user data persistence.
+- **Helmet.js**: For enhancing HTTP security headers.
+- **react-i18next**: For internationalization and localization.
+- **Zod**: For schema validation.
+- **Drizzle ORM**: For type-safe database queries with PostgreSQL.
 
-### PWA Features
-- **manifest.json**: App name, icons, theme colors, standalone display mode
-- **Mobile viewport**: Configured for notched devices with safe-area-inset support
-- **iOS standalone**: Full screen app experience on iOS devices
+## UI Features
 
-### Capacitor Configuration
-The app uses Capacitor to wrap the web app for native deployment:
+### Boss Type Indicators (lobby-card.tsx)
+- **Shadow**: Purple badge for Shadow raid bosses (uses `boss.isShadow` flag)
+- **Mega**: Orange badge for Mega Evolution bosses (uses `boss.tier === 4`)
+- **Max**: Pink badge for Dynamax/Gigantamax bosses (uses `boss.isDynamax` flag)
+- Badges are styled consistently with similar size (text-[9px]) to avoid visual clutter
 
-```bash
-# Build the web app first
-npm run build
+### Pull-to-Refresh (join-feed.tsx)
+- Pull-down gesture remains fully functional
+- Minimal icon-only refresh button (no visible text)
+- Button has reduced opacity (40%) by default, full opacity on hover
+- Accessible for keyboard navigation
 
-# Add native platforms
-npx cap add ios
-npx cap add android
-
-# Sync web assets to native projects
-npx cap sync
-
-# Open in Xcode (for iOS)
-npx cap open ios
-
-# Open in Android Studio (for Android)
-npx cap open android
-```
-
-### App Store Requirements
-1. **Apple Developer Program** ($99/year)
-2. **Bundle ID**: `com.goraiders.app`
-3. **App Icons**: 1024x1024 for App Store, various sizes in `client/public/icons/`
-4. **Screenshots**: 6.5" and 5.5" iPhone screenshots required
-5. **Privacy Policy**: Required before submission
-6. **Age Rating**: 4+ (no objectionable content)
-
-### Play Store Requirements
-1. **Google Play Console** ($25 one-time)
-2. **Package Name**: `com.goraiders.app`
-3. **App Icons**: 512x512 feature graphic
-4. **Screenshots**: Phone screenshots required
-5. **Privacy Policy**: Required URL
-6. **Content Rating**: Complete questionnaire
-
-## Internationalization
-The app supports 10 languages via react-i18next:
-- English, Spanish, Portuguese (Brazil), French, German
-- Japanese, Korean, Chinese (Simplified/Traditional), Arabic
-- Language selector in Settings view
-- All translation files in `client/src/i18n/locales/`
-
-## Haptic Feedback & Sound Effects
-- **Haptics** (`client/src/lib/haptics.ts`): Uses Capacitor Haptics API with navigator.vibrate() fallback for web
-- **Sounds** (`client/src/lib/sounds.ts`): Web Audio API for sound effects (no external files)
-- Toggleable via user notification preferences in Settings
-- Triggered on: join lobby, ready toggle, raid countdown (all ready), daily spin
-
-## Daily Challenge Mini-Game
-- Spinning wheel with weighted coin rewards (10-1000 coins)
-- Streak tracking for consecutive daily spins
-- User coins stored in user profile and displayed in header
-- Daily spin limit tracked via lastSpinDate
-
-## Quick Raid
-- One-tap button to instantly join first available lobby with space
-- Located in Join Feed alongside Daily Reward button
-- Haptic/sound feedback on activation
-
-## Host Raid Controls
-- **Start Raid button**: Hosts can notify all joiners that invites are sent
-- **Raid Started indicator**: Shows "RAID IN PROGRESS" status to all players
-- Raid history is automatically recorded when host starts the raid
-
-## Elite Early Access
-- New lobbies have a 10-second lock for non-Elite users
-- Real-time countdown timer shows remaining wait time
-- Elite users can join immediately (priority access)
-- Lock indicator clearly shows "Elite Early Access" branding
-
-## Security & Scalability
-
-### Security Measures
-- **Helmet.js**: Comprehensive HTTP security headers (HSTS, CSP, X-Frame-Options, etc.)
-- **CORS**: Configured for Replit domains with proper credentials handling
-- **Rate Limiting**: API-wide (1000 req/15min), strict (30 req/min), auth (10 req/15min)
-- **Input Sanitization**: All request bodies and query params are sanitized to prevent XSS
-- **Content Security Policy**: Restricts script/style/image sources
-- **Request Logging**: IP address and user agent tracking for audit trails
-
-### Database (PostgreSQL)
-- **Drizzle ORM** for type-safe database queries
-- **Connection Pooling**: Max 20 connections with 30s idle timeout
-- Tables: users, lobbies, sessions, audit_logs
-- User data persistence (coins, raid history, preferences)
-
-### Scalability Architecture
-- Stateless API design for horizontal scaling
-- In-memory lobby storage with database backup option
-- Ready for Redis pub/sub for real-time updates at scale
-
-## User Feedback & Reporting System
-- **Enhanced feedback modal** appears after leaving a completed raid with:
-  - Participation tracking (did you participate, correct boss, trainer count, win status)
-  - Host rating (1-5 stars)
-  - "Thank Host" coin tip system (0, 10, 25, 50, 100 coins)
-  - "Would you recommend" toggle with optional comments
-  - Scroll lock to prevent background scrolling when modal is open
-- **Player reporting system** with reason categories:
-  - `no_invite` - Never received invite
-  - `wrong_boss` - Wrong raid boss
-  - `left_early` - Host left early
-  - `harassment` - Harassment or abuse
-  - `cheating` - Cheating or exploits
-  - `other` - Other issue
-- **API Endpoints**:
-  - `POST /api/feedback` - Submit raid feedback
-  - `POST /api/reports` - Submit player report
-  - `GET /api/admin/feedback` - View all feedback (admin only)
-  - `GET /api/admin/reports` - View all reports (admin only)
-- Report status tracking: pending, reviewed, resolved, dismissed
-
-## Admin Dashboard
-- Token-based authentication using ADMIN_TOKEN secret
-- Access via Settings > Admin Dashboard
-- View all user feedback with ratings and comments
-- Ban users by friend code (permanently removes account)
-- Unban users to allow re-registration
-- Banned users cannot sign up again with same friend code
-
-## iOS/Android Export
-- Full Capacitor integration for native app builds
-- See `IOS_DEPLOYMENT_GUIDE.md` for App Store submission
-- Export files available in `export/` directory:
-  - `go-raiders-complete.tar.gz` - Full project with build
-  - `go-raiders-source-only.tar.gz` - Source code only
-
-## Server-Side Raid Boss Validation
-- Master list of 22 raid bosses defined in `ALL_BOSSES` (shared/schema.ts)
-- Server controls which bosses are currently active via `isActive` flag
-- Time windows (startTime/endTime) for automatic rotation expiry
-- **API Endpoints**:
-  - `GET /api/bosses/active` - Returns only currently available raid bosses
-  - `GET /api/bosses/all` - Returns all bosses (for admin/display purposes)
-- **Host View**: Fetches active bosses from server, shows loading state
-- **Lobby Creation Validation**: Server rejects lobbies with inactive bosses
-- Default active rotation: rayquaza, mewtwo, dialga, palkia, lugia, beldum, mega-charizard-x, machamp
-
-## In-App Purchases (Elite Subscription)
-
-### Overview
-Elite subscription provides priority queue access, instant raid matching, and exclusive features. The subscription system uses Apple App Store and Google Play Store in-app purchases with secure server-side receipt verification.
-
-### Security Architecture
-- **Premium status is ONLY set by the backend** after server-side receipt verification
-- Frontend CANNOT directly set `isPremium` - all purchases must go through the verification API
-- Receipts are validated with Apple/Google servers before granting access
-- All purchase attempts are logged for audit trails
-
-### Product IDs (App Store Connect / Google Play Console)
-| Plan | Apple Product ID | Google Product ID | Price |
-|------|------------------|-------------------|-------|
-| Monthly | `com.goraiders.elite.monthly` | `elite_monthly_subscription` | $4.99 |
-| Yearly | `com.goraiders.elite.yearly` | `elite_yearly_subscription` | $49.99 |
-
-### API Endpoints
-- `GET /api/subscription/products` - Get available Elite products
-- `POST /api/subscription/verify` - Verify purchase receipt (grants premium)
-- `GET /api/subscription/status/:userId` - Get user's subscription status
-- `POST /api/subscription/restore` - Restore previous purchases
-- `GET /api/premium/features` - Premium-only endpoint (protected by middleware)
-
-### Required Environment Variables (Production)
-- `APPLE_SHARED_SECRET` - From App Store Connect > In-App Purchases
-- `GOOGLE_PLAY_CREDENTIALS` - Service account JSON for Google Play Developer API
-
-### Development Mode
-When environment variables are not configured, the system operates in development mode:
-- Simulates receipt verification with confirmation dialogs
-- Grants premium access for testing purposes
-- Logs all verification attempts to console
-
-### Files
-- `server/services/subscription.ts` - Receipt verification service
-- `server/middleware/require-premium.ts` - Premium access middleware
-- `client/src/lib/subscription.ts` - Frontend purchase flow
-- `shared/schema.ts` - Subscription schema (subscriptionSchema)
-
-### Elite Features
-1. Skip the queue - instant raid matching
-2. Priority placement in popular raids
-3. No wait time for Elite-locked lobbies
-4. Exclusive Elite badge
-5. Advanced raid counters & tips
-
-## Host Capacity Control
-Raid hosts can adjust lobby capacity from 2-10 players to reserve slots for friends.
-- **Host-only permission**: Only the lobby host can modify capacity (enforced server-side)
-- **Capacity range**: 2 (minimum for raids) to 10 (max remote invites)
-- **Live validation**: Cannot reduce below current player count
-- **API**: `PATCH /api/lobbies/:id/capacity` with server-side host verification
-
-## Pokémon Filter
-Multi-select filter in the Join Feed allowing users to filter lobbies by specific Pokémon.
-- Works alongside tier filters (both must match)
-- Persists until user explicitly clears selection
-- Shows context-aware empty state when no matches found
-- Displays "LIVE" indicator for bosses with active lobbies
-
-## Elite Early Access Security
-Server-side enforcement of the 10-second Elite Early Access period.
-- **Server-side validation**: Premium status is verified from storage, NOT from client data
-- **Anti-spoofing**: Client-provided `isPremium` flag is ignored; server looks up trusted status
-- Basic users blocked during early access period with remaining time displayed
-- Premium users bypass the timer entirely
-
-## Security Notes
-**Current Limitations**: The app uses client-side user identity storage (common for mobile companion apps like Pokémon GO tools). While the server validates premium status from storage rather than trusting client input, full session-based authentication would provide additional security for production deployments.
-
-**Recommended for Production**: Implement proper session/JWT authentication to verify caller identity server-side before all mutations.
+### Scroll Reset Behavior (home.tsx)
+- All pages scroll to top when view changes
+- Uses ref on main content area with `scrollTo({ top: 0, behavior: 'auto' })`
+- Prevents pages from opening at previous scroll position
 
 ## Recent Changes
-- **SECURITY: Client-side premium bypass vulnerability fixed** - Removed `upgradeToPremium()` function that allowed direct client-side premium status changes. Replaced with `syncPremiumFromServer()` that ONLY accepts server-verified premium status after proper receipt verification. All subscription changes must go through the backend's subscription verification service.
-- **Host capacity control** with server-side permission enforcement and slider UI
-- **Pokémon filter** with multi-select and persistence in join feed
-- **Enhanced lock overlay** with prominent blur, pulsing lock icon, and large countdown timer
-- **Server-side Elite Early Access** enforcement with anti-spoofing protection
-- **Secure In-App Purchase system** with Apple/Google receipt verification
-- **Premium middleware** for protecting Elite-only API endpoints
-- **Subscription API routes** for purchase verification, status checking, and restore
-- Initial MVP implementation with full raid coordination features
-- Dark/Light theme support
-- Team-based styling (Valor/Mystic/Instinct colors)
-- Premium subscription UI mockup
-- PWA manifest and mobile viewport configuration
-- Capacitor integration for native iOS/Android builds
-- Safe-area padding for notched devices
-- Multi-language internationalization (10 languages)
-- Haptic feedback system with Capacitor integration
-- Sound effects for raid countdown and user actions
-- Quick Raid one-tap join feature
-- Host "Raid Starting" notification button
-- Raid history tracking in user profile settings
-- Pull-to-refresh on join feed (swipe down or tap)
-- 10-second Elite early access lock with countdown timer
-- 15-minute lobby lifespan with automatic cleanup
-- User feedback system with host/app ratings
-- Admin dashboard for feedback analysis and user bans
-- User ban system preventing re-registration
-- Push notifications for raids, player joins, and events (Capacitor integration)
-- Server-side raid boss validation with active rotation management
+- **UI: Boss type indicators** - Added Mega (tier 4) and Max (isDynamax) badges to lobby cards alongside existing Shadow badge
+- **UI: Hidden refresh text** - Replaced visible text with minimal icon-only refresh button
+- **UI: Scroll reset** - Pages now always start scrolled to the top when navigating
+- **SECURITY: Client-side premium bypass vulnerability fixed** - Replaced `upgradeToPremium()` with `syncPremiumFromServer()`

@@ -181,6 +181,20 @@ export function LobbyCard({ lobby, isLocked, onJoin, onShowDetails }: LobbyCardP
       </div>
 
       <div className="flex-1 min-w-0">
+        {/* BOSS TYPE INDICATORS
+         * Small visual badges indicating special boss types:
+         * - Shadow: Purple badge for Shadow raid bosses (uses isShadow flag)
+         * - Mega: Orange/red badge for Mega Evolution bosses (tier 4 in schema)
+         * - Max: Pink badge for Dynamax/Gigantamax bosses (uses isDynamax flag)
+         * 
+         * These badges are styled consistently with similar size and appearance
+         * to avoid visual clutter while providing clear categorization.
+         * 
+         * Detection logic:
+         * - Shadow: boss.isShadow === true
+         * - Mega: boss.tier === 4 (all Mega raids are tier 4)
+         * - Max: boss.isDynamax === true
+         */}
         <div className="flex items-center gap-2 mb-1">
           <span className="font-bold text-sm truncate">{boss.name}</span>
           {boss.isShadow && (
@@ -188,9 +202,14 @@ export function LobbyCard({ lobby, isLocked, onJoin, onShowDetails }: LobbyCardP
               Shadow
             </Badge>
           )}
+          {boss.tier === 4 && (
+            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-orange-600/20 text-orange-400 border-orange-500/30">
+              Mega
+            </Badge>
+          )}
           {boss.isDynamax && (
             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-pink-600/20 text-pink-400 border-pink-500/30">
-              MAX
+              Max
             </Badge>
           )}
         </div>

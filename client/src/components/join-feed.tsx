@@ -230,15 +230,26 @@ export function JoinFeed({
         </div>
       )}
       
+      {/* MINIMAL REFRESH CONTROL
+       * Pull-to-refresh functionality remains active via touch gestures.
+       * The visible text is removed to reduce UI clutter, but a small icon
+       * button remains visible for tap-to-refresh on non-touch devices.
+       * 
+       * Features:
+       * - Icon-only button for minimal visual footprint
+       * - Spins during refresh operation
+       * - Accessible for keyboard navigation
+       * - Pull gesture still works for touch users
+       */}
       {onRefresh && (
         <button
           onClick={handleManualRefresh}
           disabled={isRefreshing}
-          className="w-full py-2 text-xs text-muted-foreground flex items-center justify-center gap-2 hover:text-foreground transition-colors"
+          className="w-full py-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
+          aria-label="Refresh feed"
           data-testid="button-refresh-feed"
         >
-          <RefreshCw className={cn("w-3 h-3", isRefreshing && "animate-spin")} />
-          {isRefreshing ? "Refreshing..." : "Pull down or tap to refresh"}
+          <RefreshCw className={cn("w-4 h-4 text-muted-foreground", isRefreshing && "animate-spin")} />
         </button>
       )}
       <QueueBossBar

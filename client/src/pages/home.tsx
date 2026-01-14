@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Header } from "@/components/header";
@@ -40,6 +40,32 @@ export default function Home() {
   const [legalPage, setLegalPage] = useState<LegalPage>(null);
   const [showQueueStatus, setShowQueueStatus] = useState(false);
   const [queueBossId, setQueueBossId] = useState<string | null>(null);
+  
+  /**
+   * SCROLL RESET BEHAVIOR
+   * 
+   * Reference to the main content scrollable area.
+   * Used to scroll to top when navigating between views.
+   * This ensures users always start at the top of each page,
+   * preventing confusion from opening pages mid-scroll.
+   */
+  const mainContentRef = useRef<HTMLElement>(null);
+  
+  /**
+   * SCROLL TO TOP ON VIEW CHANGE
+   * 
+   * Whenever the view changes (join, host, shop, profile, lobby),
+   * automatically scroll the main content area to the top.
+   * This provides consistent navigation UX across all pages.
+   * 
+   * Uses 'auto' behavior for instant scroll without animation.
+   * Valid ScrollBehavior values: 'auto' | 'smooth'
+   */
+  useEffect(() => {
+    if (mainContentRef.current) {
+      mainContentRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [view]);
 
   const { data: lobbies = [], isLoading: lobbiesLoading, refetch } = useQuery<Lobby[]>({
     queryKey: ["/api/lobbies"],
@@ -349,7 +375,7 @@ export default function Home() {
     <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
       <Header onPremiumClick={() => setShowPremium(true)} />
       
-      <main className="flex-1 overflow-y-auto overscroll-contain pb-24">
+      <main ref={mainContentRef} className="flex-1 overflow-y-auto overscroll-contain pb-24">
         {view === "join" && (
           <JoinFeed
             lobbies={lobbies}
