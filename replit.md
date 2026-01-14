@@ -174,7 +174,57 @@ The app supports 10 languages via react-i18next:
 - **Lobby Creation Validation**: Server rejects lobbies with inactive bosses
 - Default active rotation: rayquaza, mewtwo, dialga, palkia, lugia, beldum, mega-charizard-x, machamp
 
+## In-App Purchases (Elite Subscription)
+
+### Overview
+Elite subscription provides priority queue access, instant raid matching, and exclusive features. The subscription system uses Apple App Store and Google Play Store in-app purchases with secure server-side receipt verification.
+
+### Security Architecture
+- **Premium status is ONLY set by the backend** after server-side receipt verification
+- Frontend CANNOT directly set `isPremium` - all purchases must go through the verification API
+- Receipts are validated with Apple/Google servers before granting access
+- All purchase attempts are logged for audit trails
+
+### Product IDs (App Store Connect / Google Play Console)
+| Plan | Apple Product ID | Google Product ID | Price |
+|------|------------------|-------------------|-------|
+| Monthly | `com.goraiders.elite.monthly` | `elite_monthly_subscription` | $4.99 |
+| Yearly | `com.goraiders.elite.yearly` | `elite_yearly_subscription` | $49.99 |
+
+### API Endpoints
+- `GET /api/subscription/products` - Get available Elite products
+- `POST /api/subscription/verify` - Verify purchase receipt (grants premium)
+- `GET /api/subscription/status/:userId` - Get user's subscription status
+- `POST /api/subscription/restore` - Restore previous purchases
+- `GET /api/premium/features` - Premium-only endpoint (protected by middleware)
+
+### Required Environment Variables (Production)
+- `APPLE_SHARED_SECRET` - From App Store Connect > In-App Purchases
+- `GOOGLE_PLAY_CREDENTIALS` - Service account JSON for Google Play Developer API
+
+### Development Mode
+When environment variables are not configured, the system operates in development mode:
+- Simulates receipt verification with confirmation dialogs
+- Grants premium access for testing purposes
+- Logs all verification attempts to console
+
+### Files
+- `server/services/subscription.ts` - Receipt verification service
+- `server/middleware/require-premium.ts` - Premium access middleware
+- `client/src/lib/subscription.ts` - Frontend purchase flow
+- `shared/schema.ts` - Subscription schema (subscriptionSchema)
+
+### Elite Features
+1. Skip the queue - instant raid matching
+2. Priority placement in popular raids
+3. No wait time for Elite-locked lobbies
+4. Exclusive Elite badge
+5. Advanced raid counters & tips
+
 ## Recent Changes
+- **Secure In-App Purchase system** with Apple/Google receipt verification
+- **Premium middleware** for protecting Elite-only API endpoints
+- **Subscription API routes** for purchase verification, status checking, and restore
 - Initial MVP implementation with full raid coordination features
 - Dark/Light theme support
 - Team-based styling (Valor/Mystic/Instinct colors)

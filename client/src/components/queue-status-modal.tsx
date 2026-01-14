@@ -9,6 +9,7 @@ import type { QueueStatus } from "@shared/schema";
 import { triggerNotification, triggerImpact } from "@/lib/haptics";
 import { playRewardSound } from "@/lib/sounds";
 import { useUser } from "@/lib/user-context";
+import { purchaseSubscription, fetchProducts, type SubscriptionProduct } from "@/lib/subscription";
 
 interface QueueStatusModalProps {
   isOpen: boolean;
@@ -28,11 +29,49 @@ export function QueueStatusModal({
   const { user } = useUser();
   const queryClient = useQueryClient();
   const [hasNotifiedMatch, setHasNotifiedMatch] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
   const onMatchedRef = useRef(onMatched);
   
   useEffect(() => {
     onMatchedRef.current = onMatched;
   }, [onMatched]);
+
+  // Handle Elite subscription purchase
+  const handleUpgrade = async () => {
+    if (!user?.id) return;
+    
+    setIsPurchasing(true);
+    setPurchaseError(null);
+    
+    try {
+      // Fetch available products
+      const products = await fetchProducts();
+      const monthlyProduct = products.find(p => p.id === 'elite_monthly');
+      
+      if (!monthlyProduct) {
+        setPurchaseError('Unable to load subscription options');
+        return;
+      }
+      
+      // Initiate purchase
+      const result = await purchaseSubscription(user.id, monthlyProduct);
+      
+      if (result.success && result.isPremium) {
+        triggerNotification('success');
+        playRewardSound();
+        // Invalidate all user and queue queries to refresh premium status
+        queryClient.invalidateQueries({ queryKey: ['/api/queue/status'] });
+        queryClient.invalidateQueries({ queryKey: ['/api/subscription/status'] });
+      } else if (result.error) {
+        setPurchaseError(result.error);
+      }
+    } catch (error) {
+      setPurchaseError('Purchase failed. Please try again.');
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
 
   const boss = BOSSES.find(b => b.id === bossId);
 
@@ -194,17 +233,28 @@ export function QueueStatusModal({
               {/* Elite upgrade button for non-premium users */}
               {!user?.isPremium && (status?.position || 1) > 1 && (
                 <Button
+                  onClick={handleUpgrade}
+                  disabled={isPurchasing}
                   className="w-full py-5 text-base font-black rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 text-black border-2 border-amber-300 shadow-lg shadow-amber-500/30"
                   data-testid="button-upgrade-elite"
                 >
-                  <Crown className="w-5 h-5 mr-2" />
-                  SKIP THE LINE
-                  <Zap className="w-4 h-4 ml-2" />
+                  {isPurchasing ? (
+                    <>
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Crown className="w-5 h-5 mr-2" />
+                      SKIP THE LINE - $4.99/mo
+                      <Zap className="w-4 h-4 ml-2" />
+                    </>
+                  )}
                 </Button>
               )}
               {!user?.isPremium && (status?.position || 1) > 1 && (
                 <p className="text-center text-xs text-amber-500/80">
-                  Elite members get priority queue access
+                  {purchaseError || 'Elite members get priority queue access'}
                 </p>
               )}
 

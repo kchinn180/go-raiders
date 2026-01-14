@@ -252,7 +252,6 @@ export type User = z.infer<typeof userSchema>;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type Lobby = z.infer<typeof lobbySchema>;
 export type InsertLobby = z.infer<typeof insertLobbySchema>;
-export type Subscription = z.infer<typeof subscriptionSchema>;
 export type NotificationPrefs = z.infer<typeof notificationPrefsSchema>;
 export type DailyChallenge = z.infer<typeof dailyChallengeSchema>;
 export type RaidHistoryEntry = z.infer<typeof raidHistoryEntrySchema>;

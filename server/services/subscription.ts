@@ -215,7 +215,7 @@ export async function verifyPurchaseReceipt(
   }
 
   // Validate product ID is a known Elite product
-  const validProducts = [
+  const validProducts: string[] = [
     ELITE_PRODUCTS.MONTHLY.apple,
     ELITE_PRODUCTS.MONTHLY.google,
     ELITE_PRODUCTS.YEARLY.apple,
