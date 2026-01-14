@@ -1,7 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, BOSSES } from "@shared/schema";
+import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES } from "@shared/schema";
 import { z } from "zod";
 import { sendPushNotification, type NotificationPayload } from "./push-service";
 
@@ -18,6 +18,26 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // Get currently active raid bosses (only these can be hosted)
+  app.get("/api/bosses/active", async (req, res) => {
+    try {
+      const activeBosses = await storage.getActiveRaidBosses();
+      res.json(activeBosses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch active bosses" });
+    }
+  });
+
+  // Get all raid bosses (for admin/display purposes)
+  app.get("/api/bosses/all", async (req, res) => {
+    try {
+      const allBosses = await storage.getAllRaidBosses();
+      res.json(allBosses);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch bosses" });
+    }
+  });
 
   app.get("/api/lobbies", async (req, res) => {
     try {
@@ -43,6 +63,16 @@ export async function registerRoutes(
   app.post("/api/lobbies", async (req, res) => {
     try {
       const validated = insertLobbySchema.parse(req.body);
+      
+      // Server-side validation: Check if the boss is currently active
+      const isActive = await storage.isRaidBossActive(validated.bossId);
+      if (!isActive) {
+        return res.status(400).json({ 
+          error: "Invalid raid boss", 
+          message: "This Pokémon is not currently available for raids. Please select a boss from the active raid rotation." 
+        });
+      }
+      
       const lobby = await storage.createLobby(validated);
       res.status(201).json(lobby);
     } catch (error) {
@@ -363,7 +393,7 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Only the host can send raid starting notifications" });
       }
       
-      const boss = BOSSES.find(b => b.id === lobby.bossId);
+      const boss = ALL_BOSSES.find(b => b.id === lobby.bossId);
       const bossName = boss?.name || 'Unknown';
       
       const playerIds = lobby.players
