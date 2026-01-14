@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { X, Users, Clock, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { X, Users, Clock, Loader2, CheckCircle, XCircle, Crown, Zap } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/safe-image";
@@ -8,6 +8,7 @@ import { BOSSES } from "@shared/schema";
 import type { QueueStatus } from "@shared/schema";
 import { triggerNotification, triggerImpact } from "@/lib/haptics";
 import { playRewardSound } from "@/lib/sounds";
+import { useUser } from "@/lib/user-context";
 
 interface QueueStatusModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ export function QueueStatusModal({
   bossId,
   onMatched 
 }: QueueStatusModalProps) {
+  const { user } = useUser();
   const queryClient = useQueryClient();
   const [hasNotifiedMatch, setHasNotifiedMatch] = useState(false);
   const onMatchedRef = useRef(onMatched);
@@ -188,6 +190,23 @@ export function QueueStatusModal({
                   </div>
                 </div>
               </div>
+
+              {/* Elite upgrade button for non-premium users */}
+              {!user?.isPremium && (status?.position || 1) > 1 && (
+                <Button
+                  className="w-full py-5 text-base font-black rounded-xl bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-400 text-black border-2 border-amber-300 shadow-lg shadow-amber-500/30"
+                  data-testid="button-upgrade-elite"
+                >
+                  <Crown className="w-5 h-5 mr-2" />
+                  SKIP THE LINE
+                  <Zap className="w-4 h-4 ml-2" />
+                </Button>
+              )}
+              {!user?.isPremium && (status?.position || 1) > 1 && (
+                <p className="text-center text-xs text-amber-500/80">
+                  Elite members get priority queue access
+                </p>
+              )}
 
               <Button
                 onClick={() => leaveMutation.mutate()}
