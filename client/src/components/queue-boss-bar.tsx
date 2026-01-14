@@ -93,6 +93,10 @@ export function QueueBossBar({
     return queue?.position;
   };
 
+  // Check if user is already in ANY queue
+  const isInAnyQueue = userQueues?.some(q => q.status === 'waiting');
+  const currentQueueBossId = userQueues?.find(q => q.status === 'waiting')?.bossId;
+
   if (loadingBosses) {
     return (
       <div className="flex items-center justify-center h-28 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 rounded-2xl">
@@ -129,16 +133,23 @@ export function QueueBossBar({
             <button
               key={boss.id}
               onClick={() => {
-                if (!inQueue && !isJoining) {
+                if (inQueue) {
+                  // Already in queue for this boss - open the waiting modal
+                  onQueueJoined(boss.id);
+                } else if (!isInAnyQueue && !isJoining) {
+                  // Not in any queue - join this one
                   joinQueueMutation.mutate(boss.id);
                 }
+                // If in queue for another boss, do nothing (disabled state)
               }}
-              disabled={isJoining}
+              disabled={isJoining || (isInAnyQueue && !inQueue)}
               className={cn(
                 "flex-shrink-0 flex flex-col items-center gap-1.5 p-2 rounded-xl transition-all min-w-[80px]",
                 inQueue 
                   ? "bg-green-500/30 border-2 border-green-500 shadow-lg shadow-green-500/20" 
-                  : "bg-white/10 border-2 border-transparent hover:bg-white/20 active:scale-95",
+                  : isInAnyQueue
+                    ? "bg-white/5 border-2 border-transparent opacity-40 cursor-not-allowed"
+                    : "bg-white/10 border-2 border-transparent hover:bg-white/20 active:scale-95",
                 isJoining && "opacity-60"
               )}
               data-testid={`queue-boss-${boss.id}`}
@@ -190,7 +201,10 @@ export function QueueBossBar({
       </div>
       
       <p className="text-[10px] text-white/50 text-center px-2">
-        Tap a Pokémon to join the queue. You'll be matched to a raid automatically when available.
+        {isInAnyQueue 
+          ? "Tap your queued Pokémon to view status. Leave queue to join a different raid."
+          : "Tap a Pokémon to join the queue. You can only be in one queue at a time."
+        }
       </p>
     </div>
   );
