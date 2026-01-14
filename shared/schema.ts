@@ -169,7 +169,7 @@ export const subscriptionSchema = z.object({
   startDate: z.number().nullable(),
   renewalDate: z.number().nullable(),
   canceledAt: z.number().nullable(),
-  plan: z.enum(['elite_monthly', 'elite_yearly', 'none']).default('none'),
+  plan: z.enum(['elite_monthly', 'elite_yearly', 'restored', 'none']).default('none'),
   price: z.number().default(0),
   // Store-specific fields for receipt verification
   storeType: z.enum(['apple', 'google', 'none']).default('none'),

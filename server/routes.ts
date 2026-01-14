@@ -1072,5 +1072,289 @@ export async function registerRoutes(
     });
   });
 
+  /**
+   * ============================================================================
+   * APPLE APP STORE SERVER NOTIFICATIONS (Webhook)
+   * ============================================================================
+   * 
+   * This endpoint receives server-to-server notifications from Apple when
+   * subscription status changes. Apple sends these events for:
+   * - INITIAL_BUY: New subscription purchase
+   * - DID_RENEW: Subscription renewed successfully
+   * - DID_FAIL_TO_RENEW: Renewal failed (billing issue)
+   * - DID_CHANGE_RENEWAL_STATUS: User turned auto-renew on/off
+   * - CANCEL: User canceled subscription
+   * - REFUND: Apple issued a refund
+   * - REVOKE: Family Sharing revoked
+   * 
+   * SETUP REQUIRED:
+   * 1. In App Store Connect > App > App Store Server Notifications
+   * 2. Set Production URL: https://your-domain.com/api/webhooks/apple
+   * 3. Set Sandbox URL for testing
+   * 4. Store the signing key to verify notifications
+   * 
+   * PLATFORM DIFFERENCE FROM GOOGLE:
+   * - Apple uses JWS (JSON Web Signature) for signed notifications
+   * - Must verify signature using Apple's public key
+   * - Notifications are sent for family sharing events too
+   */
+  app.post("/api/webhooks/apple", async (req, res) => {
+    try {
+      const { signedPayload } = req.body;
+      
+      if (!signedPayload) {
+        console.warn("[WEBHOOK:APPLE] Missing signedPayload");
+        return res.status(400).json({ error: "Missing payload" });
+      }
+
+      // In production, verify the JWS signature with Apple's public key
+      // For now, log and acknowledge
+      console.log("[WEBHOOK:APPLE] Received notification");
+
+      // Decode the JWS payload (base64 parts separated by dots)
+      const parts = signedPayload.split('.');
+      if (parts.length !== 3) {
+        console.warn("[WEBHOOK:APPLE] Invalid JWS format");
+        return res.status(400).json({ error: "Invalid payload format" });
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+      } catch {
+        console.warn("[WEBHOOK:APPLE] Failed to decode payload");
+        return res.status(400).json({ error: "Invalid payload encoding" });
+      }
+
+      const notificationType = payload.notificationType;
+      const data = payload.data;
+      
+      console.log(`[WEBHOOK:APPLE] Notification type: ${notificationType}`);
+
+      // Extract transaction info
+      const signedTransactionInfo = data?.signedTransactionInfo;
+      if (signedTransactionInfo) {
+        const txnParts = signedTransactionInfo.split('.');
+        if (txnParts.length === 3) {
+          const txnInfo = JSON.parse(Buffer.from(txnParts[1], 'base64').toString());
+          const originalTransactionId = txnInfo.originalTransactionId;
+          
+          // Find user by original transaction ID
+          const users = await storage.getAllUsers();
+          const user = users.find(u => {
+            const sub = u.subscription as Subscription | null;
+            return sub?.originalTransactionId === originalTransactionId;
+          });
+
+          if (user) {
+            // Handle different notification types
+            switch (notificationType) {
+              case 'DID_RENEW':
+                console.log(`[WEBHOOK:APPLE] Renewal for user: ${user.id}`);
+                await storage.updateUserSubscription(user.id, {
+                  isPremium: true,
+                  subscription: {
+                    ...(user.subscription as Subscription),
+                    status: 'active',
+                    renewalDate: parseInt(txnInfo.expiresDate),
+                    lastVerifiedAt: Date.now(),
+                    verificationStatus: 'verified'
+                  }
+                });
+                break;
+
+              case 'CANCEL':
+              case 'REFUND':
+              case 'REVOKE':
+                console.log(`[WEBHOOK:APPLE] Cancellation for user: ${user.id}`);
+                await storage.updateUserSubscription(user.id, {
+                  isPremium: false,
+                  subscription: {
+                    ...(user.subscription as Subscription),
+                    status: 'canceled',
+                    canceledAt: Date.now(),
+                    verificationStatus: 'verified'
+                  }
+                });
+                break;
+
+              case 'EXPIRED':
+              case 'DID_FAIL_TO_RENEW':
+                console.log(`[WEBHOOK:APPLE] Expiration for user: ${user.id}`);
+                await storage.updateUserSubscription(user.id, {
+                  isPremium: false,
+                  subscription: {
+                    ...(user.subscription as Subscription),
+                    status: 'expired',
+                    verificationStatus: 'verified'
+                  }
+                });
+                break;
+
+              default:
+                console.log(`[WEBHOOK:APPLE] Unhandled type: ${notificationType}`);
+            }
+          } else {
+            console.log(`[WEBHOOK:APPLE] No user found for transaction: ${originalTransactionId}`);
+          }
+        }
+      }
+
+      // Always return 200 to acknowledge receipt
+      res.status(200).json({ received: true });
+
+    } catch (error) {
+      console.error("[WEBHOOK:APPLE] Error processing notification:", error);
+      // Still return 200 to prevent Apple from retrying indefinitely
+      res.status(200).json({ received: true, error: "Processing error" });
+    }
+  });
+
+  /**
+   * ============================================================================
+   * GOOGLE PLAY REAL-TIME DEVELOPER NOTIFICATIONS (Webhook)
+   * ============================================================================
+   * 
+   * This endpoint receives Pub/Sub notifications from Google Play when
+   * subscription status changes. Google sends these events for:
+   * - SUBSCRIPTION_RECOVERED: Recovered from account hold
+   * - SUBSCRIPTION_RENEWED: Subscription renewed
+   * - SUBSCRIPTION_CANCELED: User canceled subscription
+   * - SUBSCRIPTION_PURCHASED: New subscription
+   * - SUBSCRIPTION_ON_HOLD: Account on hold (payment issue)
+   * - SUBSCRIPTION_IN_GRACE_PERIOD: Grace period before cancellation
+   * - SUBSCRIPTION_RESTARTED: User resubscribed
+   * - SUBSCRIPTION_PRICE_CHANGE_CONFIRMED: User accepted price change
+   * - SUBSCRIPTION_DEFERRED: Subscription deferred
+   * - SUBSCRIPTION_PAUSED: User paused subscription
+   * - SUBSCRIPTION_PAUSE_SCHEDULE_CHANGED: Pause schedule changed
+   * - SUBSCRIPTION_REVOKED: Subscription revoked
+   * - SUBSCRIPTION_EXPIRED: Subscription expired
+   * 
+   * SETUP REQUIRED:
+   * 1. In Google Play Console > Monetization > Monetization setup
+   * 2. Enable Real-time developer notifications
+   * 3. Create a Cloud Pub/Sub topic
+   * 4. Set push endpoint: https://your-domain.com/api/webhooks/google
+   * 5. Verify the subscription via Google Play Developer API
+   * 
+   * PLATFORM DIFFERENCE FROM APPLE:
+   * - Google uses Pub/Sub with base64-encoded JSON
+   * - Must verify with Google Play Developer API for full details
+   * - Has more granular status types (grace period, on hold, paused)
+   */
+  app.post("/api/webhooks/google", async (req, res) => {
+    try {
+      const { message } = req.body;
+      
+      if (!message?.data) {
+        console.warn("[WEBHOOK:GOOGLE] Missing message data");
+        return res.status(400).json({ error: "Missing message data" });
+      }
+
+      // Decode the Pub/Sub message
+      let data;
+      try {
+        data = JSON.parse(Buffer.from(message.data, 'base64').toString());
+      } catch {
+        console.warn("[WEBHOOK:GOOGLE] Failed to decode message");
+        return res.status(400).json({ error: "Invalid message encoding" });
+      }
+
+      console.log("[WEBHOOK:GOOGLE] Received notification:", data);
+
+      const subscriptionNotification = data.subscriptionNotification;
+      if (!subscriptionNotification) {
+        console.log("[WEBHOOK:GOOGLE] Not a subscription notification");
+        return res.status(200).json({ received: true });
+      }
+
+      const { purchaseToken, subscriptionId, notificationType } = subscriptionNotification;
+      
+      console.log(`[WEBHOOK:GOOGLE] Type: ${notificationType}, Subscription: ${subscriptionId}`);
+
+      // Find user by purchase token (stored as originalTransactionId for Google)
+      const users = await storage.getAllUsers();
+      const user = users.find(u => {
+        const sub = u.subscription as Subscription | null;
+        return sub?.originalTransactionId === purchaseToken;
+      });
+
+      if (user) {
+        // Handle different notification types
+        // See: https://developer.android.com/google/play/billing/rtdn-reference
+        switch (notificationType) {
+          case 2: // SUBSCRIPTION_RENEWED
+          case 1: // SUBSCRIPTION_RECOVERED
+          case 7: // SUBSCRIPTION_RESTARTED
+            console.log(`[WEBHOOK:GOOGLE] Renewal for user: ${user.id}`);
+            await storage.updateUserSubscription(user.id, {
+              isPremium: true,
+              subscription: {
+                ...(user.subscription as Subscription),
+                status: 'active',
+                lastVerifiedAt: Date.now(),
+                verificationStatus: 'verified'
+              }
+            });
+            break;
+
+          case 3: // SUBSCRIPTION_CANCELED
+          case 12: // SUBSCRIPTION_REVOKED
+            console.log(`[WEBHOOK:GOOGLE] Cancellation for user: ${user.id}`);
+            await storage.updateUserSubscription(user.id, {
+              isPremium: false,
+              subscription: {
+                ...(user.subscription as Subscription),
+                status: 'canceled',
+                canceledAt: Date.now(),
+                verificationStatus: 'verified'
+              }
+            });
+            break;
+
+          case 13: // SUBSCRIPTION_EXPIRED
+            console.log(`[WEBHOOK:GOOGLE] Expiration for user: ${user.id}`);
+            await storage.updateUserSubscription(user.id, {
+              isPremium: false,
+              subscription: {
+                ...(user.subscription as Subscription),
+                status: 'expired',
+                verificationStatus: 'verified'
+              }
+            });
+            break;
+
+          case 5: // SUBSCRIPTION_ON_HOLD
+          case 6: // SUBSCRIPTION_IN_GRACE_PERIOD
+          case 10: // SUBSCRIPTION_PAUSED
+            console.log(`[WEBHOOK:GOOGLE] Hold/Grace/Paused for user: ${user.id}`);
+            // Keep premium during grace period but mark as pending
+            await storage.updateUserSubscription(user.id, {
+              isPremium: true,
+              subscription: {
+                ...(user.subscription as Subscription),
+                status: 'pending',
+                verificationStatus: 'verified'
+              }
+            });
+            break;
+
+          default:
+            console.log(`[WEBHOOK:GOOGLE] Unhandled type: ${notificationType}`);
+        }
+      } else {
+        console.log(`[WEBHOOK:GOOGLE] No user found for token: ${purchaseToken?.substring(0, 20)}...`);
+      }
+
+      // Acknowledge the Pub/Sub message
+      res.status(200).json({ received: true });
+
+    } catch (error) {
+      console.error("[WEBHOOK:GOOGLE] Error processing notification:", error);
+      res.status(200).json({ received: true, error: "Processing error" });
+    }
+  });
+
   return httpServer;
 }

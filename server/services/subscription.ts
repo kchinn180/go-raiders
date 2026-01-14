@@ -15,17 +15,31 @@
 
 import type { Subscription } from "@shared/schema";
 
-// Product IDs for Elite subscription (must match App Store Connect / Google Play Console)
+/**
+ * Elite Subscription Products
+ * 
+ * PRICING STRUCTURE:
+ * - Monthly: $6.99/month
+ * - Annual: $69.90/year (equivalent to 10 months - 2 months FREE)
+ * 
+ * Product IDs MUST match exactly in:
+ * - Apple App Store Connect (In-App Purchases)
+ * - Google Play Console (Subscriptions)
+ */
 export const ELITE_PRODUCTS = {
   MONTHLY: {
     apple: 'com.goraiders.elite.monthly',
     google: 'elite_monthly_subscription',
-    price: 4.99,
+    price: 6.99,
+    period: 'month',
   },
   YEARLY: {
     apple: 'com.goraiders.elite.yearly', 
     google: 'elite_yearly_subscription',
-    price: 49.99,
+    price: 69.90,
+    period: 'year',
+    savings: 13.98, // 2 months free ($6.99 * 2)
+    monthlyEquivalent: 5.83, // $69.90 / 12
   }
 } as const;
 
@@ -74,6 +88,7 @@ async function verifyAppleReceipt(
         verificationStatus: 'verified',
         lastVerifiedAt: Date.now(),
         price: productId.includes('yearly') ? ELITE_PRODUCTS.YEARLY.price : ELITE_PRODUCTS.MONTHLY.price,
+        originalTransactionId: `dev_txn_${Date.now()}`,
       }
     };
   }
@@ -177,6 +192,7 @@ async function verifyGoogleReceipt(
         verificationStatus: 'verified',
         lastVerifiedAt: Date.now(),
         price: productId.includes('yearly') ? ELITE_PRODUCTS.YEARLY.price : ELITE_PRODUCTS.MONTHLY.price,
+        originalTransactionId: `dev_txn_${Date.now()}`,
       }
     };
   }
