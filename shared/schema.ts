@@ -294,6 +294,11 @@ export const feedbackTable = pgTable("feedback", {
   appRating: integer("app_rating"),
   wouldRecommend: boolean("would_recommend"),
   comments: text("comments"),
+  didParticipate: boolean("did_participate"),
+  bossAsSpecified: text("boss_as_specified"),
+  trainerCount: text("trainer_count"),
+  didWin: text("did_win"),
+  thankHostAmount: integer("thank_host_amount"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -308,6 +313,11 @@ export const feedbackSchema = z.object({
   appRating: z.number().int().min(1).max(5).optional(),
   wouldRecommend: z.boolean().optional(),
   comments: z.string().trim().max(1000).optional(),
+  didParticipate: z.boolean().optional(),
+  bossAsSpecified: z.enum(['yes', 'no', 'unknown']).optional(),
+  trainerCount: z.enum(['unknown', '3orless', '4', '5', '6', '7ormore']).optional(),
+  didWin: z.enum(['yes', 'no', 'unknown']).optional(),
+  thankHostAmount: z.number().int().min(0).max(20).optional(),
   createdAt: z.number().optional(),
 });
 
@@ -316,6 +326,38 @@ export const insertFeedbackSchema = feedbackSchema.omit({ id: true, createdAt: t
 export type Feedback = z.infer<typeof feedbackSchema>;
 export type InsertFeedback = z.infer<typeof insertFeedbackSchema>;
 export type DbFeedback = typeof feedbackTable.$inferSelect;
+
+export const reportsTable = pgTable("reports", {
+  id: serial("id").primaryKey(),
+  lobbyId: text("lobby_id").notNull(),
+  reporterId: text("reporter_id").notNull(),
+  reporterName: text("reporter_name").notNull(),
+  reportedUserId: text("reported_user_id").notNull(),
+  reportedUserName: text("reported_user_name").notNull(),
+  reason: text("reason").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default('pending'),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const reportSchema = z.object({
+  id: z.number().optional(),
+  lobbyId: z.string().min(1, "Lobby ID required").trim(),
+  reporterId: z.string().min(1, "Reporter ID required").trim(),
+  reporterName: z.string().min(1, "Reporter name required").trim(),
+  reportedUserId: z.string().min(1, "Reported user ID required").trim(),
+  reportedUserName: z.string().min(1, "Reported user name required").trim(),
+  reason: z.enum(['no_invite', 'wrong_boss', 'left_early', 'harassment', 'cheating', 'other']),
+  description: z.string().trim().max(500).optional(),
+  status: z.enum(['pending', 'reviewed', 'resolved', 'dismissed']).default('pending'),
+  createdAt: z.number().optional(),
+});
+
+export const insertReportSchema = reportSchema.omit({ id: true, createdAt: true, status: true });
+
+export type Report = z.infer<typeof reportSchema>;
+export type InsertReport = z.infer<typeof insertReportSchema>;
+export type DbReport = typeof reportsTable.$inferSelect;
 
 export const bannedUsersTable = pgTable("banned_users", {
   id: serial("id").primaryKey(),
