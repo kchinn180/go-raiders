@@ -139,49 +139,42 @@ export function HostView({ onHost }: HostViewProps) {
           Active Raid Bosses ({activeBosses.length})
         </label>
         {/* 3-column scrollable grid of active raid bosses */}
-        <div className="grid grid-cols-3 gap-3 max-h-[320px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-3 gap-2 max-h-[320px] overflow-y-auto overflow-x-visible p-1">
           {activeBosses.map((boss) => (
-            <div
+            <button
               key={boss.id}
+              onClick={() => setSelectedBoss(boss.id)}
               className={cn(
-                "p-3 rounded-xl border-2 flex flex-col items-center transition-all duration-200 relative",
+                "p-2 rounded-xl border-2 flex flex-col items-center transition-all duration-200 relative",
                 selectedBoss === boss.id
-                  ? `${selectedTeamData.border} bg-card shadow-lg scale-105`
+                  ? `${selectedTeamData.border} bg-card shadow-lg ring-2 ring-primary/30`
                   : "border-card-border bg-card opacity-70 hover:opacity-100"
               )}
+              data-testid={`boss-${boss.id}`}
             >
-              {/* Main clickable area for selection */}
-              <button
-                onClick={() => setSelectedBoss(boss.id)}
-                className="flex flex-col items-center w-full"
-                data-testid={`boss-${boss.id}`}
-              >
-                <SafeImage
-                  src={boss.image}
-                  alt={boss.name}
-                  className="w-12 h-12 mb-2"
-                  fallbackChar={boss.name[0]}
-                />
-                <span className="text-[10px] font-bold truncate w-full text-center">
-                  {boss.name}
-                </span>
-                <span className="text-[10px] font-bold text-primary">Tier {boss.tier}</span>
-              </button>
+              <SafeImage
+                src={boss.image}
+                alt={boss.name}
+                className="w-10 h-10 mb-1"
+                fallbackChar={boss.name[0]}
+              />
+              <span className="text-[9px] font-bold truncate w-full text-center leading-tight">
+                {boss.name.length > 12 ? boss.name.slice(0, 12) + '...' : boss.name}
+              </span>
+              <span className="text-[9px] font-bold text-primary">T{boss.tier}</span>
               
               {/* Details button - opens Pokemon details modal */}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="absolute top-1 right-1 h-6 w-6 p-0"
+              <div
+                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-muted/80 flex items-center justify-center"
                 onClick={(e) => {
                   e.stopPropagation();
                   setDetailsBossId(boss.id);
                 }}
                 data-testid={`button-details-${boss.id}`}
               >
-                <Info className="w-3 h-3" />
-              </Button>
-            </div>
+                <Info className="w-2.5 h-2.5" />
+              </div>
+            </button>
           ))}
         </div>
       </div>
