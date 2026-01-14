@@ -46,8 +46,48 @@ import { triggerImpact, triggerNotification } from "@/lib/haptics";
 import { playRaidCountdown, playReadySound } from "@/lib/sounds";
 import { useLobbyWebSocket } from "@/lib/use-lobby-websocket";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { BOSSES, TEAMS } from "@shared/schema";
-import type { Lobby, Player } from "@shared/schema";
+import type { Lobby, Player, PokemonType } from "@shared/schema";
+
+const TYPE_COLORS: Record<PokemonType, { bg: string; text: string; border: string }> = {
+  normal: { bg: 'bg-gray-400/20', text: 'text-gray-300', border: 'border-gray-400' },
+  fire: { bg: 'bg-orange-500/20', text: 'text-orange-400', border: 'border-orange-500' },
+  water: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500' },
+  electric: { bg: 'bg-yellow-400/20', text: 'text-yellow-300', border: 'border-yellow-400' },
+  grass: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500' },
+  ice: { bg: 'bg-cyan-400/20', text: 'text-cyan-300', border: 'border-cyan-400' },
+  fighting: { bg: 'bg-red-600/20', text: 'text-red-400', border: 'border-red-600' },
+  poison: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500' },
+  ground: { bg: 'bg-amber-600/20', text: 'text-amber-400', border: 'border-amber-600' },
+  flying: { bg: 'bg-indigo-400/20', text: 'text-indigo-300', border: 'border-indigo-400' },
+  psychic: { bg: 'bg-pink-500/20', text: 'text-pink-400', border: 'border-pink-500' },
+  bug: { bg: 'bg-lime-500/20', text: 'text-lime-400', border: 'border-lime-500' },
+  rock: { bg: 'bg-stone-500/20', text: 'text-stone-400', border: 'border-stone-500' },
+  ghost: { bg: 'bg-violet-600/20', text: 'text-violet-400', border: 'border-violet-600' },
+  dragon: { bg: 'bg-indigo-600/20', text: 'text-indigo-400', border: 'border-indigo-600' },
+  dark: { bg: 'bg-neutral-700/30', text: 'text-neutral-300', border: 'border-neutral-600' },
+  steel: { bg: 'bg-slate-400/20', text: 'text-slate-300', border: 'border-slate-400' },
+  fairy: { bg: 'bg-pink-400/20', text: 'text-pink-300', border: 'border-pink-400' }
+};
+
+function TypeBadge({ type }: { type: PokemonType }) {
+  const colors = TYPE_COLORS[type];
+  return (
+    <Badge 
+      className={cn(
+        colors.bg, 
+        colors.text, 
+        "border",
+        colors.border,
+        "text-[10px] px-1.5 py-0",
+        "font-semibold uppercase"
+      )}
+    >
+      {type}
+    </Badge>
+  );
+}
 
 interface LobbyViewProps {
   lobby: Lobby;
@@ -200,52 +240,50 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
     <div className="pb-28">
       <div
         className={cn(
-          "relative h-48 flex items-end p-4 bg-gradient-to-b",
+          "relative flex items-end p-4 bg-gradient-to-b",
           team.gradient
         )}
       >
         <div className="absolute inset-0 bg-black/40" />
 
-        <div className="absolute top-4 right-4 z-10 flex gap-2">
-          <div className="flex items-center gap-1 bg-black/50 backdrop-blur px-3 py-1 rounded-full">
-            <Timer className="w-4 h-4 text-white" />
-            <span className="text-white font-bold text-sm">{lobby.timeLeft}m</span>
+        {lobby.weather && (
+          <div className="absolute top-4 right-4 z-10 bg-yellow-500/80 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1">
+            <CloudLightning className="w-4 h-4 text-white" />
+            <span className="text-white font-bold text-xs">BOOSTED</span>
           </div>
-          {lobby.weather && (
-            <div className="bg-yellow-500/80 backdrop-blur px-3 py-1 rounded-full flex items-center gap-1">
-              <CloudLightning className="w-4 h-4 text-white" />
-              <span className="text-white font-bold text-xs">BOOSTED</span>
-            </div>
-          )}
-        </div>
+        )}
 
-        <div className="relative z-10 flex items-end gap-4">
+        <div className="relative z-10 flex items-end gap-4 pt-4 pb-2">
           <SafeImage
             src={boss.image}
             alt={boss.name}
-            className="w-24 h-24 bg-white/10 rounded-2xl backdrop-blur"
+            className="w-20 h-20 bg-white/10 rounded-2xl backdrop-blur"
             fallbackChar={boss.name[0]}
           />
-          <div className="text-white mb-2">
-            <h2 className="text-2xl font-black">{boss.name}</h2>
+          <div className="text-white">
+            <h2 className="text-xl font-black">{boss.name}</h2>
             <p className="text-white/80 text-sm">
-              Tier {boss.tier} • CP {boss.cp.toLocaleString()} • {'types' in boss && boss.types ? boss.types.join('/') : ''}
+              Tier {boss.tier} • CP {boss.cp.toLocaleString()}
             </p>
+            {'types' in boss && boss.types && (
+              <div className="flex gap-1 mt-1">
+                {boss.types.map((type: string) => (
+                  <TypeBadge key={type} type={type.toLowerCase() as PokemonType} />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="p-4 space-y-4">
-        <div className="flex items-center justify-end bg-card p-4 rounded-2xl border border-card-border">
-          <div className={cn(
-            "px-3 py-1 rounded-full font-bold text-sm",
-            allReady ? "bg-green-600/20 text-green-400" : "bg-yellow-600/20 text-yellow-400"
-          )}>
-            {readyCount}/{lobby.players.length} Ready
-          </div>
+      <div className="flex items-center justify-between px-4 py-2 bg-card/80 border-b border-card-border">
+        <div className="flex items-center gap-1 text-muted-foreground">
+          <Timer className="w-4 h-4" />
+          <span className="font-medium text-sm">{lobby.timeLeft}m left</span>
         </div>
-        
+      </div>
 
+      <div className="p-4 space-y-4">
         {hostPlayer && !isHost && (
           <div className={cn("p-4 rounded-2xl border-2", team.border, team.tint)}>
             <div className="flex items-center justify-between mb-3">
@@ -278,9 +316,17 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
         )}
 
         <div className="space-y-2">
-          <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide">
-            Raiders ({lobby.players.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide">
+              Raiders
+            </h3>
+            <div className={cn(
+              "px-2 py-0.5 rounded-full font-bold text-xs",
+              allReady ? "bg-green-600/20 text-green-400" : "bg-yellow-600/20 text-yellow-400"
+            )}>
+              {readyCount}/{lobby.players.length} Ready
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-2">
             {lobby.players.map((player) => {
               const playerTeam = TEAMS.find((t) => t.id === player.team) || TEAMS[3];
