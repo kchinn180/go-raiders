@@ -192,6 +192,9 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
   const toggleReady = () => {
     if (!myPlayer) return;
     
+    // Regular players cannot unready - only hosts can toggle
+    if (myPlayer.isReady && !isHost) return;
+    
     if (hapticEnabled) triggerImpact('medium');
     if (soundEnabled) playReadySound();
     
@@ -439,32 +442,57 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
         )}
 
         {lobby.raidStarted && (
-          <div className="bg-green-600/20 border-2 border-green-500 rounded-2xl p-4 text-center">
-            <div className="flex items-center justify-center gap-2 text-green-400 font-bold">
-              <Rocket className="w-5 h-5" />
-              <span>RAID IN PROGRESS!</span>
+          <div className="space-y-3">
+            <div className="bg-green-600/20 border-2 border-green-500 rounded-2xl p-4 text-center">
+              <div className="flex items-center justify-center gap-2 text-green-400 font-bold">
+                <Rocket className="w-5 h-5" />
+                <span>RAID IN PROGRESS!</span>
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">
+                Invites sent - Accept and join the raid!
+              </p>
             </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Invites sent - Accept and join the raid!
-            </p>
+            {isHost && (
+              <Button
+                onClick={() => {
+                  if (hapticEnabled) triggerImpact('medium');
+                  toast({ title: "Backup invites sent!", description: "Resending invites to all players" });
+                }}
+                variant="outline"
+                className="w-full py-4 font-bold rounded-xl border-2 border-yellow-500/50 text-yellow-500"
+                data-testid="button-resend-invites"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                RESEND INVITES
+              </Button>
+            )}
           </div>
         )}
 
         <Button
           onClick={toggleReady}
+          disabled={myPlayer?.isReady && !isHost}
           className={cn(
             "w-full py-6 text-lg font-black rounded-2xl transition-all",
             myPlayer?.isReady
               ? "bg-green-600 hover:bg-green-700"
-              : team.bg
+              : team.bg,
+            myPlayer?.isReady && !isHost && "opacity-90 cursor-not-allowed"
           )}
           data-testid="button-toggle-ready"
         >
           {myPlayer?.isReady ? (
-            <>
-              <Check className="w-5 h-5 mr-2" />
-              READY!
-            </>
+            isHost ? (
+              <>
+                <Check className="w-5 h-5 mr-2" />
+                READY (TAP TO UNREADY)
+              </>
+            ) : (
+              <>
+                <Check className="w-5 h-5 mr-2" />
+                READY - LOCKED IN!
+              </>
+            )
           ) : (
             "TAP WHEN READY"
           )}
