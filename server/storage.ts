@@ -5,11 +5,11 @@ import { ALL_BOSSES, TEAMS } from "@shared/schema";
 
 /**
  * Raid Capacity Constants
- * Pokémon GO raid rules: minimum 2 players, maximum 10 (6 local + 10 remote invites, but lobbies cap at 10)
+ * Host can invite up to 5 remote players, so max is 6 (host + 5 invites)
  */
 export const RAID_CAPACITY = {
   MIN: 2,  // Minimum players for a raid lobby
-  MAX: 10, // Maximum players allowed in remote raid lobbies
+  MAX: 6,  // Maximum players allowed (host + 5 remote invites)
   DEFAULT: 6, // Default capacity when hosting
 } as const;
 

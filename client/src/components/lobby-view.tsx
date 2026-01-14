@@ -65,9 +65,10 @@ const teamIcons = {
 };
 
 // Raid capacity constraints (must match server-side RAID_CAPACITY constants)
+// Host can invite up to 5 remote players, so max is 6 (host + 5 invites)
 const RAID_CAPACITY = {
   MIN: 2,
-  MAX: 10,
+  MAX: 6,
   DEFAULT: 6,
 } as const;
 
@@ -82,6 +83,11 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
   // Track pending capacity for optimistic UI updates
   const [pendingCapacity, setPendingCapacity] = useState<number | null>(null);
   const [isUpdatingCapacity, setIsUpdatingCapacity] = useState(false);
+  
+  // Scroll to top when entering lobby so friend codes are visible
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
 
   const boss = BOSSES.find((b) => b.id === lobby.bossId);
   const team = TEAMS.find((t) => t.id === lobby.team) || TEAMS[3];
