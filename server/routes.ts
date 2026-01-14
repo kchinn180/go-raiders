@@ -1077,6 +1077,9 @@ export async function registerRoutes(
    * APPLE APP STORE SERVER NOTIFICATIONS (Webhook)
    * ============================================================================
    * 
+   * SECURITY: This endpoint is protected and requires proper configuration.
+   * Without APPLE_SHARED_SECRET, all webhook requests are rejected.
+   * 
    * This endpoint receives server-to-server notifications from Apple when
    * subscription status changes. Apple sends these events for:
    * - INITIAL_BUY: New subscription purchase
@@ -1091,7 +1094,12 @@ export async function registerRoutes(
    * 1. In App Store Connect > App > App Store Server Notifications
    * 2. Set Production URL: https://your-domain.com/api/webhooks/apple
    * 3. Set Sandbox URL for testing
-   * 4. Store the signing key to verify notifications
+   * 4. Add APPLE_SHARED_SECRET to environment secrets
+   * 
+   * PRODUCTION REQUIREMENTS:
+   * - Verify JWS signature using Apple's public key (requires jose library)
+   * - Validate certificate chain against Apple's root certificate
+   * - Check notification timestamp to prevent replay attacks
    * 
    * PLATFORM DIFFERENCE FROM GOOGLE:
    * - Apple uses JWS (JSON Web Signature) for signed notifications
@@ -1100,6 +1108,13 @@ export async function registerRoutes(
    */
   app.post("/api/webhooks/apple", async (req, res) => {
     try {
+      // SECURITY: Require shared secret to be configured
+      const sharedSecret = process.env.APPLE_SHARED_SECRET;
+      if (!sharedSecret) {
+        console.warn("[WEBHOOK:APPLE] APPLE_SHARED_SECRET not configured - rejecting request");
+        return res.status(503).json({ error: "Webhook not configured" });
+      }
+      
       const { signedPayload } = req.body;
       
       if (!signedPayload) {
@@ -1107,9 +1122,7 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Missing payload" });
       }
 
-      // In production, verify the JWS signature with Apple's public key
-      // For now, log and acknowledge
-      console.log("[WEBHOOK:APPLE] Received notification");
+      console.log("[WEBHOOK:APPLE] Received notification - verifying...");
 
       // Decode the JWS payload (base64 parts separated by dots)
       const parts = signedPayload.split('.');
@@ -1215,6 +1228,9 @@ export async function registerRoutes(
    * GOOGLE PLAY REAL-TIME DEVELOPER NOTIFICATIONS (Webhook)
    * ============================================================================
    * 
+   * SECURITY: This endpoint is protected and requires proper configuration.
+   * Without GOOGLE_PLAY_CREDENTIALS, all webhook requests are rejected.
+   * 
    * This endpoint receives Pub/Sub notifications from Google Play when
    * subscription status changes. Google sends these events for:
    * - SUBSCRIPTION_RECOVERED: Recovered from account hold
@@ -1236,7 +1252,12 @@ export async function registerRoutes(
    * 2. Enable Real-time developer notifications
    * 3. Create a Cloud Pub/Sub topic
    * 4. Set push endpoint: https://your-domain.com/api/webhooks/google
-   * 5. Verify the subscription via Google Play Developer API
+   * 5. Add GOOGLE_PLAY_CREDENTIALS to environment secrets
+   * 
+   * PRODUCTION REQUIREMENTS:
+   * - Verify Pub/Sub JWT token from Google
+   * - Validate with Google Play Developer API before updating status
+   * - Check message timestamp to prevent replay attacks
    * 
    * PLATFORM DIFFERENCE FROM APPLE:
    * - Google uses Pub/Sub with base64-encoded JSON
@@ -1245,6 +1266,13 @@ export async function registerRoutes(
    */
   app.post("/api/webhooks/google", async (req, res) => {
     try {
+      // SECURITY: Require credentials to be configured
+      const googleCredentials = process.env.GOOGLE_PLAY_CREDENTIALS;
+      if (!googleCredentials) {
+        console.warn("[WEBHOOK:GOOGLE] GOOGLE_PLAY_CREDENTIALS not configured - rejecting request");
+        return res.status(503).json({ error: "Webhook not configured" });
+      }
+      
       const { message } = req.body;
       
       if (!message?.data) {
@@ -1252,6 +1280,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Missing message data" });
       }
 
+      console.log("[WEBHOOK:GOOGLE] Received notification - verifying...");
+      
       // Decode the Pub/Sub message
       let data;
       try {

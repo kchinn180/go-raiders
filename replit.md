@@ -59,7 +59,10 @@ The frontend is built with **React** and **TypeScript**, utilizing **Wouter** fo
 - Prevents pages from opening at previous scroll position
 
 ## Recent Changes
-- **Production mode** - Test lobbies only appear in development mode; production shows only real host-created raids
+- **No mock lobbies** - Removed all test/mock lobbies; queue is empty until hosts create real raids (both dev and production)
+- **In-App Purchases** - Elite subscriptions via Apple App Store and Google Play Store only ($6.99/month, $69.90/year)
+- **Webhook endpoints** - Added /api/webhooks/apple and /api/webhooks/google for subscription lifecycle events
+- **Restore purchases** - Added restore purchases functionality per App Store guidelines
 - **Go to Game button** - Added button in lobby view to open Pokémon GO app directly via deep link
 - **Real-time WebSocket** - Instant lobby updates when players ready up, invites sent, players join/leave
 - **Push notifications** - All players receive push notification when host sends invites

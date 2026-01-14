@@ -172,14 +172,8 @@ export class MemStorage implements IStorage {
       });
     });
     
-    // Only generate mock lobbies in development mode
-    // In production, lobbies are only created when hosts create raids
-    if (process.env.NODE_ENV !== 'production') {
-      const initialLobbies = generateMockLobbies();
-      initialLobbies.forEach(lobby => {
-        this.lobbies.set(lobby.id, lobby);
-      });
-    }
+    // No mock lobbies - queue is empty until hosts create real raids
+    // This applies to both development and production environments
   }
 
   async getActiveRaidBosses(): Promise<RaidBoss[]> {
