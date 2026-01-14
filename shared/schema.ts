@@ -76,38 +76,38 @@ export type TeamId = 'valor' | 'mystic' | 'instinct' | 'neutral';
 // Updated to January 2026 Pokemon GO raid rotation
 export const ALL_BOSSES = [
   // 5-Star Legendary Raids (Current: January 2026)
-  { id: 'genesect-burn', name: 'Genesect (Burn Drive)', tier: 5, cp: 47836, image: 'https://img.pokemondb.net/sprites/home/normal/genesect-burn.png', isShadow: false, isDynamax: false },
-  { id: 'genesect-chill', name: 'Genesect (Chill Drive)', tier: 5, cp: 47836, image: 'https://img.pokemondb.net/sprites/home/normal/genesect-douse.png', isShadow: false, isDynamax: false },
-  { id: 'thundurus-incarnate', name: 'Thundurus (Incarnate)', tier: 5, cp: 46044, image: 'https://img.pokemondb.net/sprites/home/normal/thundurus-incarnate.png', isShadow: false, isDynamax: false },
-  { id: 'tornadus-incarnate', name: 'Tornadus (Incarnate)', tier: 5, cp: 46044, image: 'https://img.pokemondb.net/sprites/home/normal/tornadus-incarnate.png', isShadow: false, isDynamax: false },
+  { id: 'genesect-burn', name: 'Genesect (Burn Drive)', tier: 5, cp: 47836, image: 'https://img.pokemondb.net/sprites/home/normal/genesect-burn.png', isShadow: false, isDynamax: false, types: ['Bug', 'Steel'] as const },
+  { id: 'genesect-chill', name: 'Genesect (Chill Drive)', tier: 5, cp: 47836, image: 'https://img.pokemondb.net/sprites/home/normal/genesect-douse.png', isShadow: false, isDynamax: false, types: ['Bug', 'Steel'] as const },
+  { id: 'thundurus-incarnate', name: 'Thundurus (Incarnate)', tier: 5, cp: 46044, image: 'https://img.pokemondb.net/sprites/home/normal/thundurus-incarnate.png', isShadow: false, isDynamax: false, types: ['Electric', 'Flying'] as const },
+  { id: 'tornadus-incarnate', name: 'Tornadus (Incarnate)', tier: 5, cp: 46044, image: 'https://img.pokemondb.net/sprites/home/normal/tornadus-incarnate.png', isShadow: false, isDynamax: false, types: ['Flying'] as const },
   // Shadow Raids (5-Star)
-  { id: 'shadow-cresselia', name: 'Shadow Cresselia', tier: 5, cp: 33794, image: 'https://img.pokemondb.net/sprites/home/normal/cresselia.png', isShadow: true, isDynamax: false },
+  { id: 'shadow-cresselia', name: 'Shadow Cresselia', tier: 5, cp: 33794, image: 'https://img.pokemondb.net/sprites/home/normal/cresselia.png', isShadow: true, isDynamax: false, types: ['Psychic'] as const },
   // Shadow Raids (3-Star)
-  { id: 'shadow-scyther', name: 'Shadow Scyther', tier: 3, cp: 17358, image: 'https://img.pokemondb.net/sprites/home/normal/scyther.png', isShadow: true, isDynamax: false },
-  { id: 'shadow-aerodactyl', name: 'Shadow Aerodactyl', tier: 3, cp: 18678, image: 'https://img.pokemondb.net/sprites/home/normal/aerodactyl.png', isShadow: true, isDynamax: false },
-  { id: 'shadow-sableye', name: 'Shadow Sableye', tier: 3, cp: 8266, image: 'https://img.pokemondb.net/sprites/home/normal/sableye.png', isShadow: true, isDynamax: false },
+  { id: 'shadow-scyther', name: 'Shadow Scyther', tier: 3, cp: 17358, image: 'https://img.pokemondb.net/sprites/home/normal/scyther.png', isShadow: true, isDynamax: false, types: ['Bug', 'Flying'] as const },
+  { id: 'shadow-aerodactyl', name: 'Shadow Aerodactyl', tier: 3, cp: 18678, image: 'https://img.pokemondb.net/sprites/home/normal/aerodactyl.png', isShadow: true, isDynamax: false, types: ['Rock', 'Flying'] as const },
+  { id: 'shadow-sableye', name: 'Shadow Sableye', tier: 3, cp: 8266, image: 'https://img.pokemondb.net/sprites/home/normal/sableye.png', isShadow: true, isDynamax: false, types: ['Dark', 'Ghost'] as const },
   // Shadow Raids (1-Star)
-  { id: 'shadow-drowzee', name: 'Shadow Drowzee', tier: 1, cp: 4122, image: 'https://img.pokemondb.net/sprites/home/normal/drowzee.png', isShadow: true, isDynamax: false },
-  { id: 'shadow-ralts', name: 'Shadow Ralts', tier: 1, cp: 2859, image: 'https://img.pokemondb.net/sprites/home/normal/ralts.png', isShadow: true, isDynamax: false },
-  { id: 'shadow-bagon', name: 'Shadow Bagon', tier: 1, cp: 4484, image: 'https://img.pokemondb.net/sprites/home/normal/bagon.png', isShadow: true, isDynamax: false },
-  { id: 'shadow-snover', name: 'Shadow Snover', tier: 1, cp: 3896, image: 'https://img.pokemondb.net/sprites/home/normal/snover.png', isShadow: true, isDynamax: false },
+  { id: 'shadow-drowzee', name: 'Shadow Drowzee', tier: 1, cp: 4122, image: 'https://img.pokemondb.net/sprites/home/normal/drowzee.png', isShadow: true, isDynamax: false, types: ['Psychic'] as const },
+  { id: 'shadow-ralts', name: 'Shadow Ralts', tier: 1, cp: 2859, image: 'https://img.pokemondb.net/sprites/home/normal/ralts.png', isShadow: true, isDynamax: false, types: ['Psychic', 'Fairy'] as const },
+  { id: 'shadow-bagon', name: 'Shadow Bagon', tier: 1, cp: 4484, image: 'https://img.pokemondb.net/sprites/home/normal/bagon.png', isShadow: true, isDynamax: false, types: ['Dragon'] as const },
+  { id: 'shadow-snover', name: 'Shadow Snover', tier: 1, cp: 3896, image: 'https://img.pokemondb.net/sprites/home/normal/snover.png', isShadow: true, isDynamax: false, types: ['Grass', 'Ice'] as const },
   // Mega Raids
-  { id: 'mega-blaziken', name: 'Mega Blaziken', tier: 4, cp: 52318, image: 'https://img.pokemondb.net/sprites/home/normal/blaziken-mega.png', isShadow: false, isDynamax: false },
-  { id: 'mega-sceptile', name: 'Mega Sceptile', tier: 4, cp: 45349, image: 'https://img.pokemondb.net/sprites/home/normal/sceptile-mega.png', isShadow: false, isDynamax: false },
-  { id: 'mega-ampharos', name: 'Mega Ampharos', tier: 4, cp: 50693, image: 'https://img.pokemondb.net/sprites/home/normal/ampharos-mega.png', isShadow: false, isDynamax: false },
+  { id: 'mega-blaziken', name: 'Mega Blaziken', tier: 4, cp: 52318, image: 'https://img.pokemondb.net/sprites/home/normal/blaziken-mega.png', isShadow: false, isDynamax: false, types: ['Fire', 'Fighting'] as const },
+  { id: 'mega-sceptile', name: 'Mega Sceptile', tier: 4, cp: 45349, image: 'https://img.pokemondb.net/sprites/home/normal/sceptile-mega.png', isShadow: false, isDynamax: false, types: ['Grass', 'Dragon'] as const },
+  { id: 'mega-ampharos', name: 'Mega Ampharos', tier: 4, cp: 50693, image: 'https://img.pokemondb.net/sprites/home/normal/ampharos-mega.png', isShadow: false, isDynamax: false, types: ['Electric', 'Dragon'] as const },
   // Tier 3 Raids
-  { id: 'onix', name: 'Onix', tier: 3, cp: 7988, image: 'https://img.pokemondb.net/sprites/home/normal/onix.png', isShadow: false, isDynamax: false },
-  { id: 'magmar', name: 'Magmar', tier: 3, cp: 14670, image: 'https://img.pokemondb.net/sprites/home/normal/magmar.png', isShadow: false, isDynamax: false },
-  { id: 'diggersby', name: 'Diggersby', tier: 3, cp: 11051, image: 'https://img.pokemondb.net/sprites/home/normal/diggersby.png', isShadow: false, isDynamax: false },
+  { id: 'onix', name: 'Onix', tier: 3, cp: 7988, image: 'https://img.pokemondb.net/sprites/home/normal/onix.png', isShadow: false, isDynamax: false, types: ['Rock', 'Ground'] as const },
+  { id: 'magmar', name: 'Magmar', tier: 3, cp: 14670, image: 'https://img.pokemondb.net/sprites/home/normal/magmar.png', isShadow: false, isDynamax: false, types: ['Fire'] as const },
+  { id: 'diggersby', name: 'Diggersby', tier: 3, cp: 11051, image: 'https://img.pokemondb.net/sprites/home/normal/diggersby.png', isShadow: false, isDynamax: false, types: ['Normal', 'Ground'] as const },
   // Tier 1 Raids
-  { id: 'ponyta', name: 'Ponyta', tier: 1, cp: 5116, image: 'https://img.pokemondb.net/sprites/home/normal/ponyta.png', isShadow: false, isDynamax: false },
-  { id: 'krabby', name: 'Krabby', tier: 1, cp: 4638, image: 'https://img.pokemondb.net/sprites/home/normal/krabby.png', isShadow: false, isDynamax: false },
-  { id: 'sandygast', name: 'Sandygast', tier: 1, cp: 4795, image: 'https://img.pokemondb.net/sprites/home/normal/sandygast.png', isShadow: false, isDynamax: false },
-  { id: 'scorbunny', name: 'Scorbunny', tier: 1, cp: 3988, image: 'https://img.pokemondb.net/sprites/home/normal/scorbunny.png', isShadow: false, isDynamax: false },
+  { id: 'ponyta', name: 'Ponyta', tier: 1, cp: 5116, image: 'https://img.pokemondb.net/sprites/home/normal/ponyta.png', isShadow: false, isDynamax: false, types: ['Fire'] as const },
+  { id: 'krabby', name: 'Krabby', tier: 1, cp: 4638, image: 'https://img.pokemondb.net/sprites/home/normal/krabby.png', isShadow: false, isDynamax: false, types: ['Water'] as const },
+  { id: 'sandygast', name: 'Sandygast', tier: 1, cp: 4795, image: 'https://img.pokemondb.net/sprites/home/normal/sandygast.png', isShadow: false, isDynamax: false, types: ['Ghost', 'Ground'] as const },
+  { id: 'scorbunny', name: 'Scorbunny', tier: 1, cp: 3988, image: 'https://img.pokemondb.net/sprites/home/normal/scorbunny.png', isShadow: false, isDynamax: false, types: ['Fire'] as const },
   // Max Battles (Dynamax)
-  { id: 'drampa-max', name: 'Drampa (Max)', tier: 1, cp: 6500, image: 'https://img.pokemondb.net/sprites/home/normal/drampa.png', isShadow: false, isDynamax: true },
-  { id: 'roggenrola-max', name: 'Roggenrola (Max)', tier: 1, cp: 4200, image: 'https://img.pokemondb.net/sprites/home/normal/roggenrola.png', isShadow: false, isDynamax: true },
-  { id: 'beldum-max', name: 'Beldum (Max)', tier: 1, cp: 4100, image: 'https://img.pokemondb.net/sprites/home/normal/beldum.png', isShadow: false, isDynamax: true },
+  { id: 'drampa-max', name: 'Drampa (Max)', tier: 1, cp: 6500, image: 'https://img.pokemondb.net/sprites/home/normal/drampa.png', isShadow: false, isDynamax: true, types: ['Normal', 'Dragon'] as const },
+  { id: 'roggenrola-max', name: 'Roggenrola (Max)', tier: 1, cp: 4200, image: 'https://img.pokemondb.net/sprites/home/normal/roggenrola.png', isShadow: false, isDynamax: true, types: ['Rock'] as const },
+  { id: 'beldum-max', name: 'Beldum (Max)', tier: 1, cp: 4100, image: 'https://img.pokemondb.net/sprites/home/normal/beldum.png', isShadow: false, isDynamax: true, types: ['Steel', 'Psychic'] as const },
 ] as const;
 
 // RaidBoss with active status (server-controlled)

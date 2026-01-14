@@ -376,6 +376,7 @@ export class MemStorage implements IStorage {
   async joinLobby(lobbyId: string, player: Player): Promise<Lobby | undefined> {
     const lobby = this.lobbies.get(lobbyId);
     if (!lobby) return undefined;
+    if (lobby.raidStarted) return undefined;
     if (lobby.players.length >= lobby.maxPlayers) return undefined;
     if (lobby.players.some(p => p.id === player.id)) return lobby;
 
