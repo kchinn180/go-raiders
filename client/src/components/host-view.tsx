@@ -1,5 +1,13 @@
+/**
+ * Host View Component
+ * 
+ * Allows users to create new raid lobbies by selecting from active raid bosses.
+ * Features a 3-column scrollable grid of available bosses with "Details" buttons
+ * to view comprehensive Pokémon information including stats, moves, and counters.
+ */
+
 import { useState, useEffect } from "react";
-import { CloudLightning, Plus, Sparkles, Lock, Flame, Shield, Zap, Users, Loader2 } from "lucide-react";
+import { CloudLightning, Plus, Sparkles, Lock, Flame, Shield, Zap, Users, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -9,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { TEAMS } from "@shared/schema";
 import type { Lobby, Player, TeamId, RaidBoss } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
+import { PokemonDetailsModal } from "./pokemon-details-modal";
 
 interface HostViewProps {
   onHost: (lobby: Lobby) => void;
@@ -27,6 +36,9 @@ export function HostView({ onHost }: HostViewProps) {
   const [selectedGymTeam, setSelectedGymTeam] = useState<TeamId>("valor");
   const [minLevel, setMinLevel] = useState(1);
   const [weather, setWeather] = useState(false);
+  
+  // State for Pokemon details modal
+  const [detailsBossId, setDetailsBossId] = useState<string | null>(null);
 
   // Fetch active bosses from server
   const { data: activeBosses = [], isLoading, isError, refetch } = useQuery<RaidBoss[]>({
@@ -126,34 +138,55 @@ export function HostView({ onHost }: HostViewProps) {
         <label className="text-xs font-bold text-muted-foreground uppercase block">
           Active Raid Bosses ({activeBosses.length})
         </label>
+        {/* 3-column scrollable grid of active raid bosses */}
         <div className="grid grid-cols-3 gap-3 max-h-[320px] overflow-y-auto pr-1">
           {activeBosses.map((boss) => (
-            <button
+            <div
               key={boss.id}
-              onClick={() => setSelectedBoss(boss.id)}
               className={cn(
-                "p-3 rounded-xl border-2 flex flex-col items-center transition-all duration-200",
+                "p-3 rounded-xl border-2 flex flex-col items-center transition-all duration-200 relative",
                 selectedBoss === boss.id
                   ? `${selectedTeamData.border} bg-card shadow-lg scale-105`
                   : "border-card-border bg-card opacity-70 hover:opacity-100"
               )}
-              data-testid={`boss-${boss.id}`}
             >
-              <SafeImage
-                src={boss.image}
-                alt={boss.name}
-                className="w-12 h-12 mb-2"
-                fallbackChar={boss.name[0]}
-              />
-              <span className="text-[10px] font-bold truncate w-full text-center">
-                {boss.name}
-              </span>
-              <span className="text-[10px] font-bold text-primary">{boss.tier}</span>
-            </button>
+              {/* Main clickable area for selection */}
+              <button
+                onClick={() => setSelectedBoss(boss.id)}
+                className="flex flex-col items-center w-full"
+                data-testid={`boss-${boss.id}`}
+              >
+                <SafeImage
+                  src={boss.image}
+                  alt={boss.name}
+                  className="w-12 h-12 mb-2"
+                  fallbackChar={boss.name[0]}
+                />
+                <span className="text-[10px] font-bold truncate w-full text-center">
+                  {boss.name}
+                </span>
+                <span className="text-[10px] font-bold text-primary">Tier {boss.tier}</span>
+              </button>
+              
+              {/* Details button - opens Pokemon details modal */}
+              <Button
+                size="sm"
+                variant="ghost"
+                className="absolute top-1 right-1 h-6 w-6 p-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setDetailsBossId(boss.id);
+                }}
+                data-testid={`button-details-${boss.id}`}
+              >
+                <Info className="w-3 h-3" />
+              </Button>
+            </div>
           ))}
         </div>
       </div>
 
+      {/* Selected boss preview with Details button */}
       {selectedBossData && (
         <div className={cn("p-4 rounded-2xl border-2", selectedTeamData.border, selectedTeamData.tint)}>
           <div className="flex items-center gap-4">
@@ -163,12 +196,12 @@ export function HostView({ onHost }: HostViewProps) {
               className="w-20 h-20 rounded-xl bg-card"
               fallbackChar={selectedBossData.name[0]}
             />
-            <div>
+            <div className="flex-1">
               <h3 className="font-black text-xl">{selectedBossData.name}</h3>
               <p className="text-muted-foreground text-sm">
                 Tier {selectedBossData.tier} • CP {selectedBossData.cp.toLocaleString()}
               </p>
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 flex-wrap">
                 {selectedBossData.isShadow && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-600/20 text-purple-400">
                     Shadow
@@ -181,6 +214,16 @@ export function HostView({ onHost }: HostViewProps) {
                 )}
               </div>
             </div>
+            {/* Details button for selected boss */}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setDetailsBossId(selectedBossData.id)}
+              data-testid="button-selected-boss-details"
+            >
+              <Info className="w-4 h-4 mr-1" />
+              Details
+            </Button>
           </div>
         </div>
       )}
@@ -275,6 +318,13 @@ export function HostView({ onHost }: HostViewProps) {
         <Plus className="w-5 h-5 mr-2" />
         CREATE LOBBY
       </Button>
+
+      {/* Pokemon Details Modal - shows comprehensive boss information */}
+      <PokemonDetailsModal
+        pokemonId={detailsBossId || ""}
+        isOpen={!!detailsBossId}
+        onClose={() => setDetailsBossId(null)}
+      />
     </div>
   );
 }
