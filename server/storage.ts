@@ -1,9 +1,14 @@
 import { randomUUID } from "crypto";
-import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken } from "@shared/schema";
+import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss } from "@shared/schema";
 import type { Player as PlayerType } from "@shared/schema";
-import { BOSSES, TEAMS } from "@shared/schema";
+import { ALL_BOSSES, TEAMS } from "@shared/schema";
 
 export interface IStorage {
+  // Raid boss management
+  getActiveRaidBosses(): Promise<RaidBoss[]>;
+  getAllRaidBosses(): Promise<RaidBoss[]>;
+  isRaidBossActive(bossId: string): Promise<boolean>;
+  setRaidBossActive(bossId: string, isActive: boolean, startTime?: number, endTime?: number): Promise<RaidBoss | undefined>;
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
@@ -37,10 +42,17 @@ export interface IStorage {
   getPushTokensForUsers(userIds: string[]): Promise<PushToken[]>;
 }
 
+// Default active bosses (simulating current raid rotation)
+const DEFAULT_ACTIVE_BOSS_IDS = [
+  'rayquaza', 'mewtwo', 'dialga', 'palkia', 'lugia', 
+  'beldum', 'mega-charizard-x', 'machamp'
+];
+
 function generateMockLobbies(): Lobby[] {
+  const activeBosses = ALL_BOSSES.filter(b => DEFAULT_ACTIVE_BOSS_IDS.includes(b.id));
   return Array.from({ length: 8 }).map((_, i) => ({
     id: `lobby-${Date.now()}-${i}`,
-    bossId: BOSSES[i % BOSSES.length].id,
+    bossId: activeBosses[i % activeBosses.length].id,
     hostId: `host-${i}`,
     hostName: `Trainer_${Math.floor(Math.random() * 9999)}`,
     hostRating: (3.5 + Math.random() * 1.5).toFixed(1),
@@ -75,6 +87,7 @@ export class MemStorage implements IStorage {
   private bannedIdCounter: number;
   private pushTokens: Map<string, PushToken>;
   private pushTokenIdCounter: number;
+  private raidBosses: Map<string, RaidBoss>;
 
   constructor() {
     this.users = new Map();
@@ -85,11 +98,71 @@ export class MemStorage implements IStorage {
     this.bannedIdCounter = 1;
     this.pushTokens = new Map();
     this.pushTokenIdCounter = 1;
+    this.raidBosses = new Map();
+    
+    // Initialize raid bosses from master list with active status
+    ALL_BOSSES.forEach(boss => {
+      const isActive = DEFAULT_ACTIVE_BOSS_IDS.includes(boss.id);
+      this.raidBosses.set(boss.id, {
+        ...boss,
+        isActive,
+        startTime: isActive ? Date.now() : undefined,
+        endTime: isActive ? Date.now() + (7 * 24 * 60 * 60 * 1000) : undefined, // 1 week from now
+      });
+    });
     
     const initialLobbies = generateMockLobbies();
     initialLobbies.forEach(lobby => {
       this.lobbies.set(lobby.id, lobby);
     });
+  }
+
+  async getActiveRaidBosses(): Promise<RaidBoss[]> {
+    const now = Date.now();
+    return Array.from(this.raidBosses.values())
+      .filter(boss => {
+        if (!boss.isActive) return false;
+        // Check time windows if set
+        if (boss.endTime && now > boss.endTime) {
+          // Auto-expire bosses past their end time
+          boss.isActive = false;
+          this.raidBosses.set(boss.id, boss);
+          return false;
+        }
+        if (boss.startTime && now < boss.startTime) return false;
+        return true;
+      })
+      .sort((a, b) => b.tier - a.tier);
+  }
+
+  async getAllRaidBosses(): Promise<RaidBoss[]> {
+    return Array.from(this.raidBosses.values())
+      .sort((a, b) => b.tier - a.tier);
+  }
+
+  async isRaidBossActive(bossId: string): Promise<boolean> {
+    const boss = this.raidBosses.get(bossId);
+    if (!boss || !boss.isActive) return false;
+    
+    const now = Date.now();
+    if (boss.endTime && now > boss.endTime) return false;
+    if (boss.startTime && now < boss.startTime) return false;
+    
+    return true;
+  }
+
+  async setRaidBossActive(bossId: string, isActive: boolean, startTime?: number, endTime?: number): Promise<RaidBoss | undefined> {
+    const boss = this.raidBosses.get(bossId);
+    if (!boss) return undefined;
+    
+    const updated: RaidBoss = {
+      ...boss,
+      isActive,
+      startTime: startTime ?? (isActive ? Date.now() : undefined),
+      endTime: endTime,
+    };
+    this.raidBosses.set(bossId, updated);
+    return updated;
   }
 
   async getUser(id: string): Promise<User | undefined> {

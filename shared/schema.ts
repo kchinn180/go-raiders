@@ -72,8 +72,8 @@ export const TEAMS = [
 
 export type TeamId = 'valor' | 'mystic' | 'instinct' | 'neutral';
 
-// Boss definitions - Current raid Pokémon
-export const BOSSES = [
+// All available raid bosses (master list - server controls which are active)
+export const ALL_BOSSES = [
   { id: 'rayquaza', name: 'Rayquaza', tier: 5, cp: 49808, image: 'https://img.pokemondb.net/sprites/home/normal/rayquaza.png', isShadow: false, isDynamax: false },
   { id: 'mewtwo', name: 'Mewtwo', tier: 5, cp: 54148, image: 'https://img.pokemondb.net/sprites/home/normal/mewtwo.png', isShadow: false, isDynamax: false },
   { id: 'groudon', name: 'Primal Groudon', tier: 6, cp: 92860, image: 'https://img.pokemondb.net/sprites/home/normal/groudon-primal.png', isShadow: false, isDynamax: false },
@@ -83,10 +83,53 @@ export const BOSSES = [
   { id: 'dialga', name: 'Dialga', tier: 5, cp: 53394, image: 'https://img.pokemondb.net/sprites/home/normal/dialga.png', isShadow: false, isDynamax: false },
   { id: 'palkia', name: 'Palkia', tier: 5, cp: 54793, image: 'https://img.pokemondb.net/sprites/home/normal/palkia.png', isShadow: false, isDynamax: false },
   { id: 'giratina', name: 'Giratina', tier: 5, cp: 41776, image: 'https://img.pokemondb.net/sprites/home/normal/giratina-altered.png', isShadow: false, isDynamax: false },
-  { id: 'darkrai', name: 'Darkrai', tier: 5, cp: 53623, image: 'https://img.pokemondb.net/sprites/home/normal/darkrai.png', isShadow: false, isDynamax: false }
+  { id: 'darkrai', name: 'Darkrai', tier: 5, cp: 53623, image: 'https://img.pokemondb.net/sprites/home/normal/darkrai.png', isShadow: false, isDynamax: false },
+  { id: 'ho-oh', name: 'Ho-Oh', tier: 5, cp: 50064, image: 'https://img.pokemondb.net/sprites/home/normal/ho-oh.png', isShadow: false, isDynamax: false },
+  { id: 'suicune', name: 'Suicune', tier: 5, cp: 37761, image: 'https://img.pokemondb.net/sprites/home/normal/suicune.png', isShadow: false, isDynamax: false },
+  { id: 'raikou', name: 'Raikou', tier: 5, cp: 45435, image: 'https://img.pokemondb.net/sprites/home/normal/raikou.png', isShadow: false, isDynamax: false },
+  { id: 'entei', name: 'Entei', tier: 5, cp: 46073, image: 'https://img.pokemondb.net/sprites/home/normal/entei.png', isShadow: false, isDynamax: false },
+  { id: 'mega-charizard-x', name: 'Mega Charizard X', tier: 4, cp: 48895, image: 'https://img.pokemondb.net/sprites/home/normal/charizard-mega-x.png', isShadow: false, isDynamax: false },
+  { id: 'mega-blastoise', name: 'Mega Blastoise', tier: 4, cp: 44074, image: 'https://img.pokemondb.net/sprites/home/normal/blastoise-mega.png', isShadow: false, isDynamax: false },
+  { id: 'mega-venusaur', name: 'Mega Venusaur', tier: 4, cp: 42178, image: 'https://img.pokemondb.net/sprites/home/normal/venusaur-mega.png', isShadow: false, isDynamax: false },
+  { id: 'machamp', name: 'Machamp', tier: 3, cp: 19707, image: 'https://img.pokemondb.net/sprites/home/normal/machamp.png', isShadow: false, isDynamax: false },
+  { id: 'tyranitar', name: 'Tyranitar', tier: 4, cp: 37599, image: 'https://img.pokemondb.net/sprites/home/normal/tyranitar.png', isShadow: false, isDynamax: false },
+  { id: 'shinx', name: 'Shinx', tier: 1, cp: 2753, image: 'https://img.pokemondb.net/sprites/home/normal/shinx.png', isShadow: false, isDynamax: false },
+  { id: 'timburr', name: 'Timburr', tier: 1, cp: 4707, image: 'https://img.pokemondb.net/sprites/home/normal/timburr.png', isShadow: false, isDynamax: false },
+  { id: 'klink', name: 'Klink', tier: 1, cp: 3227, image: 'https://img.pokemondb.net/sprites/home/normal/klink.png', isShadow: false, isDynamax: false },
 ] as const;
 
-export type Boss = typeof BOSSES[number];
+// RaidBoss with active status (server-controlled)
+export interface RaidBoss {
+  id: string;
+  name: string;
+  tier: number;
+  cp: number;
+  image: string;
+  isShadow: boolean;
+  isDynamax: boolean;
+  isActive: boolean;
+  startTime?: number;
+  endTime?: number;
+}
+
+// Schema for raid boss validation
+export const raidBossSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tier: z.number(),
+  cp: z.number(),
+  image: z.string(),
+  isShadow: z.boolean(),
+  isDynamax: z.boolean(),
+  isActive: z.boolean(),
+  startTime: z.number().optional(),
+  endTime: z.number().optional(),
+});
+
+// Legacy BOSSES export for backward compatibility (now computed from active bosses)
+export const BOSSES = ALL_BOSSES;
+
+export type Boss = typeof ALL_BOSSES[number];
 
 // Zod schemas
 export const playerSchema = z.object({
