@@ -192,17 +192,6 @@ export function JoinFeed({
   // Get unique bosses that have active lobbies for the Pokémon filter display
   const availableBossIds = new Set(lobbies.map(l => l.bossId));
 
-  const handleManualRefresh = async () => {
-    if (onRefresh && !isRefreshing) {
-      setIsRefreshing(true);
-      try {
-        await onRefresh();
-      } finally {
-        setIsRefreshing(false);
-      }
-    }
-  };
-
   return (
     <div 
       ref={containerRef}
@@ -230,28 +219,10 @@ export function JoinFeed({
         </div>
       )}
       
-      {/* MINIMAL REFRESH CONTROL
-       * Pull-to-refresh functionality remains active via touch gestures.
-       * The visible text is removed to reduce UI clutter, but a small icon
-       * button remains visible for tap-to-refresh on non-touch devices.
-       * 
-       * Features:
-       * - Icon-only button for minimal visual footprint
-       * - Spins during refresh operation
-       * - Accessible for keyboard navigation
-       * - Pull gesture still works for touch users
+      {/* QUEUE BAR - First element under header
+       * Shows active queue positions and allows joining boss-specific queues.
+       * Placed at top of feed for immediate visibility.
        */}
-      {onRefresh && (
-        <button
-          onClick={handleManualRefresh}
-          disabled={isRefreshing}
-          className="w-full py-1 flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity"
-          aria-label="Refresh feed"
-          data-testid="button-refresh-feed"
-        >
-          <RefreshCw className={cn("w-4 h-4 text-muted-foreground", isRefreshing && "animate-spin")} />
-        </button>
-      )}
       <QueueBossBar
         userId={userId}
         userName={userName}

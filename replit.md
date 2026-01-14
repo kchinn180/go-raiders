@@ -49,10 +49,9 @@ The frontend is built with **React** and **TypeScript**, utilizing **Wouter** fo
 - Badges are styled consistently with similar size (text-[9px]) to avoid visual clutter
 
 ### Pull-to-Refresh (join-feed.tsx)
-- Pull-down gesture remains fully functional
-- Minimal icon-only refresh button (no visible text)
-- Button has reduced opacity (40%) by default, full opacity on hover
-- Accessible for keyboard navigation
+- Pull-down gesture triggers refresh with spinning icon indicator
+- No visible button - swipe down only
+- Queue bar positioned at top of feed, immediately under header
 
 ### Scroll Reset Behavior (home.tsx)
 - All pages scroll to top when view changes
