@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, Users, Clock, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,11 @@ export function QueueStatusModal({
 }: QueueStatusModalProps) {
   const queryClient = useQueryClient();
   const [hasNotifiedMatch, setHasNotifiedMatch] = useState(false);
+  const onMatchedRef = useRef(onMatched);
+  
+  useEffect(() => {
+    onMatchedRef.current = onMatched;
+  }, [onMatched]);
 
   const boss = BOSSES.find(b => b.id === bossId);
 
@@ -58,11 +63,11 @@ export function QueueStatusModal({
       setHasNotifiedMatch(true);
       triggerNotification('success');
       playRewardSound();
-      if (onMatched) {
-        onMatched(status.matchedLobbyId);
+      if (onMatchedRef.current) {
+        onMatchedRef.current(status.matchedLobbyId);
       }
     }
-  }, [status, hasNotifiedMatch, onMatched]);
+  }, [status, hasNotifiedMatch]);
 
   useEffect(() => {
     if (!isOpen) {

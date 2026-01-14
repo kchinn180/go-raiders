@@ -250,44 +250,6 @@ export default function Home() {
     createLobbyMutation.mutate(lobby);
   }, [createLobbyMutation, activeLobby, toast, hapticEnabled, soundEnabled]);
 
-  const handleQuickRaid = useCallback(async () => {
-    if (!user || activeLobby) {
-      if (activeLobby) {
-        toast({ 
-          title: "Already in a Lobby", 
-          description: "Leave your current lobby first",
-          variant: "destructive"
-        });
-      }
-      return;
-    }
-    
-    if (hapticEnabled) triggerImpact('medium');
-    if (soundEnabled) playClickSound();
-    
-    try {
-      const res = await fetch('/api/lobbies');
-      const freshLobbies = await res.json();
-      const availableLobby = freshLobbies.find((l: Lobby) => l.players.length < l.maxPlayers);
-      
-      if (availableLobby) {
-        handleJoinLobby(availableLobby);
-      } else {
-        toast({ 
-          title: "No raids available", 
-          description: "Try hosting your own raid!",
-          variant: "destructive"
-        });
-      }
-    } catch {
-      toast({ 
-        title: "Connection error", 
-        description: "Please try again",
-        variant: "destructive"
-      });
-    }
-  }, [user, activeLobby, handleJoinLobby, toast, hapticEnabled, soundEnabled]);
-
   const handleLeaveLobby = useCallback(() => {
     if (!user || !activeLobby) return;
     
@@ -396,7 +358,6 @@ export default function Home() {
             setFilter={setFilter}
             isPremium={user.isPremium}
             onJoin={handleJoinLobby}
-            onQuickRaid={handleQuickRaid}
             onRefresh={async () => { await refetch(); }}
             userId={user.id}
             userName={user.name}

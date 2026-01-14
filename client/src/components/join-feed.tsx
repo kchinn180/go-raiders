@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Zap, RefreshCw, Radar } from "lucide-react";
+import { RefreshCw, Radar } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LobbyCard } from "@/components/lobby-card";
 import { PokemonDetailsModal } from "@/components/pokemon-details-modal";
@@ -27,7 +27,6 @@ interface JoinFeedProps {
   setFilter: (filter: FilterType) => void;
   isPremium: boolean;
   onJoin: (lobby: Lobby) => void;
-  onQuickRaid?: () => void;
   onRefresh?: () => Promise<void>;
   userId: string;
   userName: string;
@@ -44,7 +43,6 @@ export function JoinFeed({
   setFilter,
   isPremium,
   onJoin,
-  onQuickRaid,
   onRefresh,
   userId,
   userName,
@@ -179,22 +177,6 @@ export function JoinFeed({
           {isRefreshing ? "Refreshing..." : "Pull down or tap to refresh"}
         </button>
       )}
-      {onQuickRaid && (
-        <button
-          onClick={onQuickRaid}
-          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 p-4 rounded-2xl flex items-center gap-3 shadow-lg relative overflow-hidden active:scale-[0.98] transition-transform"
-          data-testid="button-quick-raid"
-        >
-          <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
-          <div className="text-left text-white flex-1">
-            <div className="font-bold text-sm">{t("quickRaid.title")}</div>
-            <div className="text-[10px] opacity-80">{t("quickRaid.desc")}</div>
-          </div>
-        </button>
-      )}
-
       <QueueBossBar
         userId={userId}
         userName={userName}

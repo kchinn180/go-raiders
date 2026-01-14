@@ -47,6 +47,7 @@ export interface IStorage {
   getQueueStatus(userId: string, bossId: string): Promise<QueueStatus | null>;
   getUserQueues(userId: string): Promise<QueueStatus[]>;
   getQueueForBoss(bossId: string): Promise<QueueEntry[]>;
+  getQueueCounts(): Promise<Record<string, number>>;
   processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }>;
 }
 
@@ -562,6 +563,18 @@ export class MemStorage implements IStorage {
         }
         return a.joinedAt - b.joinedAt;
       });
+  }
+
+  async getQueueCounts(): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    const waitingEntries = Array.from(this.queueEntries.values())
+      .filter(e => e.status === 'waiting');
+    
+    for (const entry of waitingEntries) {
+      counts[entry.bossId] = (counts[entry.bossId] || 0) + 1;
+    }
+    
+    return counts;
   }
 
   async processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }> {

@@ -482,6 +482,16 @@ export async function registerRoutes(
     }
   });
 
+  // Get queue counts for all bosses
+  app.get("/api/queue/counts", async (req, res) => {
+    try {
+      const counts = await storage.getQueueCounts();
+      res.json(counts);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get queue counts" });
+    }
+  });
+
   // Process queue matches (can be called periodically or on events)
   app.post("/api/queue/process", async (req, res) => {
     try {
