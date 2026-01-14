@@ -1,7 +1,19 @@
+/**
+ * JoinFeed Component
+ * 
+ * Displays a scrollable feed of available raid lobbies with:
+ * - Pull-to-refresh functionality
+ * - Quick Raid button for instant lobby joining
+ * - Auto Join button for premium users
+ * - Filter chips for raid tiers (All, 1, 3, 5, Mega, Shadow, Max)
+ * - Lobby cards with Details button for Pokémon information
+ */
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Radar, Zap, RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { LobbyCard } from "@/components/lobby-card";
+import { PokemonDetailsModal } from "@/components/pokemon-details-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { FILTERS, BOSSES } from "@shared/schema";
@@ -37,6 +49,16 @@ export function JoinFeed({
   const touchStartY = useRef(0);
   const isPulling = useRef(false);
   const [, forceUpdate] = useState(0);
+  
+  // State for Pokemon details modal
+  const [detailsInfo, setDetailsInfo] = useState<{ bossId: string; endTime: number } | null>(null);
+  
+  /**
+   * Handler for showing Pokemon details modal from lobby cards
+   */
+  const handleShowDetails = useCallback((bossId: string, lobbyEndTime: number) => {
+    setDetailsInfo({ bossId, endTime: lobbyEndTime });
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => forceUpdate(n => n + 1), 1000);
@@ -217,11 +239,20 @@ export function JoinFeed({
                 lobby={lobby}
                 isLocked={isLocked}
                 onJoin={() => onJoin(lobby)}
+                onShowDetails={handleShowDetails}
               />
             );
           })
         )}
       </div>
+
+      {/* Pokemon Details Modal - shows comprehensive boss information */}
+      <PokemonDetailsModal
+        pokemonId={detailsInfo?.bossId || ""}
+        raidEndTime={detailsInfo?.endTime}
+        isOpen={!!detailsInfo}
+        onClose={() => setDetailsInfo(null)}
+      />
     </div>
   );
 }

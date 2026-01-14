@@ -1,7 +1,21 @@
+/**
+ * LobbyCard Component
+ * 
+ * Displays a raid lobby card in the join feed with:
+ * - Raid boss image and tier
+ * - Host information with Elite status indicator
+ * - Player count and spots remaining
+ * - Lobby countdown timer
+ * - Weather boost indicator
+ * - Elite Early Access lock for new lobbies
+ * - Details button to view comprehensive Pokémon information
+ */
+
 import { useState, useEffect } from "react";
-import { Lock, Users, CloudLightning, Clock, Shield, Flame, Zap, Sparkles } from "lucide-react";
+import { Lock, Users, CloudLightning, Clock, Shield, Flame, Zap, Sparkles, Info } from "lucide-react";
 import { SafeImage } from "@/components/safe-image";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { BOSSES, TEAMS } from "@shared/schema";
 import type { Lobby } from "@shared/schema";
@@ -10,6 +24,7 @@ interface LobbyCardProps {
   lobby: Lobby;
   isLocked: boolean;
   onJoin: () => void;
+  onShowDetails?: (bossId: string, lobbyEndTime: number) => void;
 }
 
 const teamIcons = {
@@ -28,7 +43,7 @@ const teamGlowClasses = {
 
 const LOBBY_LIFESPAN_MS = 15 * 60 * 1000;
 
-export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
+export function LobbyCard({ lobby, isLocked, onJoin, onShowDetails }: LobbyCardProps) {
   const [lockCountdown, setLockCountdown] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(0);
   
@@ -165,18 +180,36 @@ export function LobbyCard({ lobby, isLocked, onJoin }: LobbyCardProps) {
           <Clock className="w-3 h-3" />
           <span className="text-xs font-bold">{formatTime(timeRemaining)}</span>
         </div>
-        <span
-          className={cn(
-            "text-[10px] font-bold px-2 py-0.5 rounded-full",
-            spotsLeft <= 2
-              ? "bg-red-600/20 text-red-400"
-              : spotsLeft <= 4
-              ? "bg-yellow-600/20 text-yellow-400"
-              : "bg-green-600/20 text-green-400"
+        <div className="flex items-center gap-1">
+          <span
+            className={cn(
+              "text-[10px] font-bold px-2 py-0.5 rounded-full",
+              spotsLeft <= 2
+                ? "bg-red-600/20 text-red-400"
+                : spotsLeft <= 4
+                ? "bg-yellow-600/20 text-yellow-400"
+                : "bg-green-600/20 text-green-400"
+            )}
+          >
+            {spotsLeft} spots
+          </span>
+          {/* Details button - shows Pokemon info modal */}
+          {onShowDetails && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 w-6 p-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                const lobbyEndTime = lobby.createdAt + LOBBY_LIFESPAN_MS;
+                onShowDetails(lobby.bossId, lobbyEndTime);
+              }}
+              data-testid={`button-lobby-details-${lobby.id}`}
+            >
+              <Info className="w-3 h-3" />
+            </Button>
           )}
-        >
-          {spotsLeft} spots
-        </span>
+        </div>
       </div>
     </button>
   );
