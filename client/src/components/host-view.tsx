@@ -40,9 +40,9 @@ export function HostView({ onHost }: HostViewProps) {
   // State for Pokemon details modal
   const [detailsBossId, setDetailsBossId] = useState<string | null>(null);
 
-  // Fetch active bosses from server
+  // Fetch ALL bosses from server so hosts can create raids for any worldwide boss
   const { data: activeBosses = [], isLoading, isError, refetch } = useQuery<RaidBoss[]>({
-    queryKey: ["/api/bosses/active"],
+    queryKey: ["/api/bosses/all"],
     retry: 2,
   });
 
@@ -130,13 +130,13 @@ export function HostView({ onHost }: HostViewProps) {
       <div className="text-center">
         <h2 className="text-2xl font-black">Host a Raid</h2>
         <p className="text-muted-foreground text-sm">
-          Select from {activeBosses.length} currently available raid bosses
+          Select from {activeBosses.length} worldwide raid bosses
         </p>
       </div>
 
       <div className="space-y-4">
         <label className="text-xs font-bold text-muted-foreground uppercase block">
-          Active Raid Bosses ({activeBosses.length})
+          Worldwide Raid Bosses ({activeBosses.length})
         </label>
         {/* 3-column scrollable grid of active raid bosses */}
         <div className="grid grid-cols-3 gap-2 max-h-[320px] overflow-y-auto overflow-x-visible p-1">
