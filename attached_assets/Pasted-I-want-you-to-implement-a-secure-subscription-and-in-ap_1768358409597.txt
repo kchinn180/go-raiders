@@ -1,0 +1,84 @@
+I want you to implement a secure subscription and in-app purchase system for my Go Raiders app with the following strict rules and guarantees:
+
+GENERAL SECURITY PRINCIPLES:
+- Premium (Elite / Go Premium) access MUST NEVER be controlled by the frontend alone.
+- All premium permissions, features, and UI unlocks must be validated by the backend.
+- No user should be able to activate Elite features without a verified payment confirmation from the payment processor.
+- Client-side state, local storage, cookies, or frontend flags must NOT grant premium access.
+
+PAYMENT FLOW REQUIREMENTS:
+1. Use a trusted payment processor (Stripe, Apple In-App Purchases, Google Play Billing, or equivalent).
+2. A subscription or in-store purchase is considered VALID only after:
+   - The payment processor confirms the transaction as “successful”
+   - The backend receives a verified webhook or server-side confirmation
+3. The backend must independently verify:
+   - Payment ID
+   - Transaction status
+   - Product ID (Go Premium / Elite)
+   - User ID associated with the payment
+4. Only after verification should the backend:
+   - Update the user’s account record to `is_premium = true`
+   - Store subscription metadata (start date, expiration date, plan type)
+
+PREVENTING HACKS & EXPLOITS:
+- The frontend must NEVER be able to:
+  - Set `is_premium = true`
+  - Unlock premium routes
+  - Enable elite-only buttons, queues, or features without backend confirmation
+- Every premium-only API endpoint must:
+  - Validate the user’s authentication token
+  - Check the user’s premium status server-side
+  - Reject access if the user is not verified as premium
+- Any attempt to access elite features without authorization should return:
+  - HTTP 403 (Forbidden)
+  - A clear error message (“Premium access required”)
+
+WEBHOOK & PAYMENT VERIFICATION:
+- Implement server-side webhooks from the payment processor:
+  - Handle `payment_success`
+  - Handle `payment_failed`
+  - Handle `subscription_renewed`
+  - Handle `subscription_canceled`
+- Webhooks must be:
+  - Verified using the payment processor’s signing secret
+  - Idempotent (safe from replay attacks)
+- Subscription status must automatically update if:
+  - Payment fails
+  - Subscription expires
+  - User cancels
+
+ELITE FEATURE PROTECTION:
+- Elite features (priority queues, advanced counters, instant matching, premium hosting, alerts, etc.) must:
+  - Be gated behind backend permission checks
+  - Be unavailable via direct API calls without premium status
+- The UI may visually hide elite features for non-premium users, but the backend must be the final authority.
+
+ANTI-TAMPERING & VALIDATION:
+- Do NOT trust:
+  - Frontend flags
+  - Modified JavaScript
+  - Intercepted API calls
+- All sensitive actions must be validated server-side.
+- Log suspicious behavior (multiple failed attempts, tampered tokens, fake purchase attempts).
+
+USER EXPERIENCE:
+- After a successful purchase:
+  - Show a confirmation screen
+  - Fetch updated user status from the backend
+  - Unlock elite features only after confirmation
+- If payment fails or is pending:
+  - Do NOT unlock any premium features
+  - Display a clear status message
+
+DOCUMENTATION:
+- Add clear comments explaining:
+  - Where premium access is verified
+  - Why frontend-only access is unsafe
+  - How payment verification works
+- Clearly separate:
+  - Authentication logic
+  - Payment verification logic
+  - Feature gating logic
+
+GOAL:
+Ensure it is technically impossible for a user to gain Elite / Go Premium access without a confirmed, verified payment. No glitches, no hacks, no client-side bypasses.
