@@ -160,14 +160,31 @@ export const playerSchema = z.object({
   hasSentRequest: z.boolean().optional()
 });
 
+/**
+ * Subscription Schema - Server-Controlled Premium Access
+ * 
+ * SECURITY: Premium status is ONLY granted after server-side verification
+ * of purchase receipts from Apple App Store or Google Play Store.
+ * The frontend CANNOT set isPremium directly - it must go through
+ * the /api/subscription/verify endpoint which validates receipts.
+ */
 export const subscriptionSchema = z.object({
-  status: z.enum(['active', 'canceled', 'expired', 'none']),
+  status: z.enum(['active', 'canceled', 'expired', 'pending', 'none']),
   startDate: z.number().nullable(),
   renewalDate: z.number().nullable(),
   canceledAt: z.number().nullable(),
-  plan: z.enum(['monthly', 'none']).default('none'),
-  price: z.number().default(0)
+  plan: z.enum(['elite_monthly', 'elite_yearly', 'none']).default('none'),
+  price: z.number().default(0),
+  // Store-specific fields for receipt verification
+  storeType: z.enum(['apple', 'google', 'none']).default('none'),
+  originalTransactionId: z.string().nullable().optional(),
+  productId: z.string().nullable().optional(),
+  // Server verification tracking
+  lastVerifiedAt: z.number().nullable().optional(),
+  verificationStatus: z.enum(['verified', 'pending', 'failed', 'none']).default('none'),
 });
+
+export type Subscription = z.infer<typeof subscriptionSchema>;
 
 export const notificationPrefsSchema = z.object({
   pushEnabled: z.boolean().default(true),

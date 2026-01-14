@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus } from "@shared/schema";
+import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus, Subscription } from "@shared/schema";
 import type { Player as PlayerType } from "@shared/schema";
 import { ALL_BOSSES, TEAMS } from "@shared/schema";
 
@@ -12,6 +12,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  // Subscription management - SECURITY: Only these methods can modify premium status
+  updateUserSubscription(userId: string, updates: { isPremium: boolean; subscription: Subscription }): Promise<User | undefined>;
   
   getLobbies(): Promise<Lobby[]>;
   getLobby(id: string): Promise<Lobby | undefined>;
@@ -211,6 +214,30 @@ export class MemStorage implements IStorage {
     const user: User = { ...insertUser, id };
     this.users.set(id, user);
     return user;
+  }
+
+  /**
+   * Update user subscription - SECURITY: Only method to modify premium status
+   * 
+   * This is called ONLY after server-side receipt verification.
+   * The frontend CANNOT call this directly.
+   */
+  async updateUserSubscription(
+    userId: string, 
+    updates: { isPremium: boolean; subscription: Subscription }
+  ): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+
+    const updatedUser: User = {
+      ...user,
+      isPremium: updates.isPremium,
+      subscription: updates.subscription as any,
+    };
+    
+    this.users.set(userId, updatedUser);
+    console.log(`[STORAGE] Updated subscription for user ${userId}: isPremium=${updates.isPremium}`);
+    return updatedUser;
   }
 
   async getLobbies(): Promise<Lobby[]> {

@@ -1,11 +1,13 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema } from "@shared/schema";
-import type { InsertQueueEntry } from "@shared/schema";
+import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema, subscriptionSchema } from "@shared/schema";
+import type { InsertQueueEntry, Subscription } from "@shared/schema";
 import { z } from "zod";
 import { sendPushNotification, type NotificationPayload } from "./push-service";
 import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
+import { verifyPurchaseReceipt, ELITE_PRODUCTS } from "./services/subscription";
+import { requirePremium } from "./middleware/require-premium";
 
 const getAdminToken = () => {
   const token = process.env.ADMIN_TOKEN;
@@ -645,6 +647,234 @@ export async function registerRoutes(
     } catch (error) {
       res.status(500).json({ error: "Failed to send notifications" });
     }
+  });
+
+  // ============================================
+  // SUBSCRIPTION & IN-APP PURCHASE ROUTES
+  // ============================================
+  // SECURITY: Premium access is ONLY granted after server-side verification
+  // The frontend CANNOT set isPremium directly
+
+  /**
+   * Get available Elite subscription products
+   * Returns product info for display in the shop/upgrade UI
+   */
+  app.get("/api/subscription/products", (req, res) => {
+    res.json({
+      products: [
+        {
+          id: 'elite_monthly',
+          name: 'Elite Monthly',
+          description: 'Priority queue access, skip the line, and exclusive features',
+          price: ELITE_PRODUCTS.MONTHLY.price,
+          period: 'month',
+          appleProductId: ELITE_PRODUCTS.MONTHLY.apple,
+          googleProductId: ELITE_PRODUCTS.MONTHLY.google,
+          features: [
+            'Skip the queue - instant raid matching',
+            'Priority placement in popular raids',
+            'No wait time for Elite-locked lobbies',
+            'Exclusive Elite badge',
+            'Advanced raid counters & tips',
+          ]
+        },
+        {
+          id: 'elite_yearly',
+          name: 'Elite Yearly',
+          description: 'All Elite features at 2 months free',
+          price: ELITE_PRODUCTS.YEARLY.price,
+          period: 'year',
+          appleProductId: ELITE_PRODUCTS.YEARLY.apple,
+          googleProductId: ELITE_PRODUCTS.YEARLY.google,
+          features: [
+            'Everything in Elite Monthly',
+            '2 months FREE (save 17%)',
+            'Priority support',
+          ]
+        }
+      ]
+    });
+  });
+
+  /**
+   * Verify in-app purchase receipt - THE ONLY WAY TO GET PREMIUM
+   * 
+   * SECURITY:
+   * - Receipt is validated with Apple/Google servers
+   * - isPremium is ONLY set after successful verification
+   * - Fake receipts will be rejected
+   * - All attempts are logged for audit
+   */
+  app.post("/api/subscription/verify", async (req, res) => {
+    try {
+      const { userId, storeType, receipt, productId } = req.body;
+
+      if (!userId || !storeType || !receipt || !productId) {
+        return res.status(400).json({ 
+          error: "Missing required fields",
+          code: "INVALID_REQUEST"
+        });
+      }
+
+      // Validate store type
+      if (storeType !== 'apple' && storeType !== 'google') {
+        return res.status(400).json({
+          error: "Invalid store type",
+          code: "INVALID_STORE"
+        });
+      }
+
+      // Get user to verify they exist
+      const user = await storage.getUser(userId);
+      if (!user) {
+        console.warn(`[SUBSCRIPTION] Verification for unknown user: ${userId}`);
+        return res.status(404).json({
+          error: "User not found",
+          code: "USER_NOT_FOUND"
+        });
+      }
+
+      // Verify the receipt with Apple/Google servers
+      const result = await verifyPurchaseReceipt({
+        storeType,
+        receipt,
+        productId,
+        userId
+      });
+
+      if (!result.success) {
+        console.warn(`[SUBSCRIPTION] Verification failed for ${userId}: ${result.error}`);
+        return res.status(400).json({
+          error: result.error || "Verification failed",
+          code: "VERIFICATION_FAILED",
+          isPremium: false
+        });
+      }
+
+      // SUCCESS: Update user's premium status in database
+      // This is the ONLY place isPremium can be set to true
+      if (result.isPremium && result.subscription) {
+        await storage.updateUserSubscription(userId, {
+          isPremium: true,
+          subscription: result.subscription as Subscription
+        });
+
+        console.log(`[SUBSCRIPTION] Premium activated for user: ${userId}`);
+      }
+
+      // Fetch updated user to return current status
+      const updatedUser = await storage.getUser(userId);
+
+      res.json({
+        success: true,
+        isPremium: updatedUser?.isPremium || false,
+        subscription: updatedUser?.subscription || null,
+        message: result.isPremium ? "Elite subscription activated!" : "Subscription updated"
+      });
+
+    } catch (error) {
+      console.error("[SUBSCRIPTION] Verification error:", error);
+      res.status(500).json({
+        error: "Internal server error",
+        code: "SERVER_ERROR",
+        isPremium: false
+      });
+    }
+  });
+
+  /**
+   * Get current subscription status for a user
+   * Frontend uses this to refresh premium status from server
+   */
+  app.get("/api/subscription/status/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      // Check if subscription has expired
+      const subscription = user.subscription as Subscription | null;
+      let isPremium = user.isPremium;
+
+      if (isPremium && subscription?.renewalDate && subscription.renewalDate < Date.now()) {
+        // Subscription has expired - update status
+        await storage.updateUserSubscription(userId, {
+          isPremium: false,
+          subscription: {
+            ...subscription,
+            status: 'expired'
+          }
+        });
+        isPremium = false;
+      }
+
+      res.json({
+        isPremium,
+        subscription: user.subscription || null,
+        expiresAt: subscription?.renewalDate || null
+      });
+
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get subscription status" });
+    }
+  });
+
+  /**
+   * Restore purchases - validates existing subscription
+   * Called when user reinstalls app or switches devices
+   */
+  app.post("/api/subscription/restore", async (req, res) => {
+    try {
+      const { userId, storeType, receipt } = req.body;
+
+      if (!userId || !storeType || !receipt) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Use the same verification logic as new purchases
+      const result = await verifyPurchaseReceipt({
+        storeType,
+        receipt,
+        productId: '', // Will be extracted from receipt
+        userId
+      });
+
+      if (result.success && result.isPremium && result.subscription) {
+        await storage.updateUserSubscription(userId, {
+          isPremium: true,
+          subscription: result.subscription as Subscription
+        });
+
+        console.log(`[SUBSCRIPTION] Purchases restored for user: ${userId}`);
+      }
+
+      const updatedUser = await storage.getUser(userId);
+
+      res.json({
+        success: true,
+        isPremium: updatedUser?.isPremium || false,
+        subscription: updatedUser?.subscription || null
+      });
+
+    } catch (error) {
+      res.status(500).json({ error: "Failed to restore purchases" });
+    }
+  });
+
+  // Example of a premium-only endpoint using the middleware
+  app.get("/api/premium/features", requirePremium, (req, res) => {
+    res.json({
+      features: {
+        priorityQueue: true,
+        skipWaitTime: true,
+        advancedCounters: true,
+        eliteBadge: true,
+        exclusiveRaids: true
+      }
+    });
   });
 
   return httpServer;
