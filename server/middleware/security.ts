@@ -153,7 +153,8 @@ export const inputValidator = (req: Request, res: Response, next: NextFunction) 
 
 export const securityHeaders = (req: Request, res: Response, next: NextFunction) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
+  // Allow embedding in Replit preview iframe - use SAMEORIGIN for production
+  // X-Frame-Options is removed to allow Replit's webview to work properly
   res.setHeader("X-XSS-Protection", "1; mode=block");
   res.setHeader("Permissions-Policy", "geolocation=(), camera=(), microphone=()");
   res.setHeader("Cache-Control", "no-store, max-age=0");
