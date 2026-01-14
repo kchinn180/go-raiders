@@ -5,7 +5,12 @@ interface UserContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   isLoading: boolean;
-  upgradeToPremium: () => void;
+  /**
+   * SECURITY: This function should ONLY be called after the server has verified
+   * a valid purchase receipt. It updates the local state to match server-verified status.
+   * The server is the source of truth for premium status.
+   */
+  syncPremiumFromServer: (isPremium: boolean, subscription: Subscription | null) => void;
   cancelSubscription: () => void;
   updateUser: (updates: Partial<User>) => void;
   updateNotifications: (prefs: NotificationPrefs) => void;
@@ -100,21 +105,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const upgradeToPremium = () => {
+  /**
+   * SECURITY: Sync premium status from server-verified data only.
+   * This should ONLY be called after receiving verification from the backend.
+   * The server verifies purchase receipts before granting premium status.
+   */
+  const syncPremiumFromServer = (isPremium: boolean, subscription: Subscription | null) => {
     if (user) {
-      const now = Date.now();
-      const subscription: Subscription = {
-        status: 'active',
-        startDate: now,
-        renewalDate: now + MONTH_IN_MS,
-        canceledAt: null,
-        plan: 'monthly',
-        price: 19.99
-      };
       setUser({ 
         ...user, 
-        isPremium: true,
-        subscription
+        isPremium,
+        subscription: subscription || undefined
       });
     }
   };
@@ -191,7 +192,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       user, 
       setUser, 
       isLoading, 
-      upgradeToPremium,
+      syncPremiumFromServer,
       cancelSubscription,
       updateUser,
       updateNotifications,

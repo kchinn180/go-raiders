@@ -263,6 +263,7 @@ Server-side enforcement of the 10-second Elite Early Access period.
 **Recommended for Production**: Implement proper session/JWT authentication to verify caller identity server-side before all mutations.
 
 ## Recent Changes
+- **SECURITY: Client-side premium bypass vulnerability fixed** - Removed `upgradeToPremium()` function that allowed direct client-side premium status changes. Replaced with `syncPremiumFromServer()` that ONLY accepts server-verified premium status after proper receipt verification. All subscription changes must go through the backend's subscription verification service.
 - **Host capacity control** with server-side permission enforcement and slider UI
 - **Pokémon filter** with multi-select and persistence in join feed
 - **Enhanced lock overlay** with prominent blur, pulsing lock icon, and large countdown timer
