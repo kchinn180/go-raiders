@@ -202,8 +202,8 @@ export function QueueBossBar({
       
       <p className="text-[10px] text-white/50 text-center px-2">
         {isInAnyQueue 
-          ? "Tap your queued Pokémon to view status. Leave queue to join a different raid."
-          : "Tap a Pokémon to join the queue. You can only be in one queue at a time."
+          ? "Tap your queued boss to view status. Leave queue to join a different raid."
+          : "Tap a boss to join the queue. You can only be in one queue at a time."
         }
       </p>
     </div>

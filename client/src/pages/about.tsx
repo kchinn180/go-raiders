@@ -35,7 +35,7 @@ export function AboutPage({ onBack }: AboutPageProps) {
             Our Mission
           </h3>
           <p className="text-muted-foreground">
-            GO Raiders was created to help Pokémon GO trainers around the world connect and coordinate for raid battles. We believe that every trainer should have access to legendary Pokémon, regardless of their local community size.
+            GO Raiders was created to help trainers around the world connect and coordinate for raid battles. We believe that every trainer should have access to legendary raid bosses, regardless of their local community size.
           </p>
         </Card>
 
