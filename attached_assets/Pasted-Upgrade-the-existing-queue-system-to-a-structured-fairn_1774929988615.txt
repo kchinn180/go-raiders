@@ -1,0 +1,192 @@
+Upgrade the existing queue system to a structured, fairness-controlled system similar to professional raid coordination apps.
+
+====================
+CORE GOALS
+====================
+- Fair queue ordering
+- High throughput matchmaking
+- Anti-abuse protection
+- Real-time updates
+- Premium priority without breaking fairness
+
+====================
+QUEUE STRUCTURE
+====================
+
+Each raid queue must include:
+
+QueueEntry:
+- userId
+- joinedAt (timestamp)
+- priorityScore
+- isPremium
+- connectionStatus (active, disconnected)
+- lastHeartbeat
+- reserved (boolean)
+
+Queue Rules:
+- Queue is ordered by priorityScore, then joinedAt
+- Lower score = higher priority
+
+====================
+PRIORITY SYSTEM
+====================
+
+Priority Score Calculation:
+
+Base:
+- joinedAt timestamp
+
+Modifiers:
+- Premium users: -10 priority boost
+- Rejoin protection: keep original timestamp
+- Frequent leavers: + penalty
+- Inactive users: deprioritized
+
+Ensure:
+- Premium users move ahead, but do NOT skip entire queue unfairly
+
+====================
+JOIN FLOW
+====================
+
+When user taps “Join Raid”:
+
+1. Check if already in queue → reject duplicates
+2. Apply wait timer:
+   - Free: 10 seconds
+   - Premium: 0 seconds
+3. Add user to queue
+4. Broadcast updated queue to all clients
+
+====================
+QUEUE DISPLAY (UI REQUIREMENTS)
+====================
+
+Show:
+- Exact position in queue
+- Estimated wait time
+- Total queue length
+- Live movement animation
+
+====================
+PROMOTION SYSTEM
+====================
+
+When a slot opens:
+
+1. Select next eligible user:
+   - Must be active
+   - Must not be disconnected > 30 seconds
+2. Mark as “reserved”
+3. Send push notification:
+   Title: “You’re up!”
+   Body: “Join your raid now”
+
+4. Start 20-second response timer
+
+If user accepts:
+- Move to lobby
+- Remove from queue
+
+If user does not respond:
+- Remove from queue
+- Apply penalty
+
+====================
+RESERVATION SYSTEM (KEY FEATURE)
+====================
+
+Reserved users:
+- Temporarily hold a slot
+- Prevent double assignment
+- Cannot be replaced immediately
+
+====================
+ANTI-ABUSE SYSTEM
+====================
+
+Implement:
+
+- Cooldown for repeated joins/leaves
+- Penalty score for:
+  - Leaving queue early
+  - Ignoring promotion
+- Temporary bans for spam behavior
+
+Prevent:
+- Multi-account abuse
+- Queue jumping
+- Rapid rejoining
+
+====================
+DISCONNECT HANDLING
+====================
+
+If user disconnects:
+- Keep spot for 30 seconds
+- Mark as inactive
+
+If not reconnected:
+- Remove from queue
+
+Premium users:
+- 2-minute protection
+
+====================
+QUEUE LOCKING
+====================
+
+When host initiates raid:
+- Freeze queue
+- Stop new joins
+- Clear reservations after timeout
+
+====================
+REAL-TIME ENGINE
+====================
+
+Use Socket.IO:
+
+- Broadcast queue updates instantly
+- Sync all clients
+- No refresh required
+
+====================
+SCALABILITY
+====================
+
+- Support 100+ users per queue
+- Efficient sorting algorithm
+- Avoid re-sorting entire queue unnecessarily
+
+====================
+USER EXPERIENCE
+====================
+
+Add:
+- Smooth queue movement animations
+- Haptic feedback on position change
+- Visual “almost your turn” indicator
+- Sound alert for promotion
+
+====================
+FAILSAFE SYSTEM
+====================
+
+- Prevent duplicate promotions
+- Ensure queue consistency across reconnects
+- Server is always source of truth
+
+====================
+FINAL REQUIREMENT
+====================
+
+This queue system must feel:
+- Fast
+- Fair
+- Professional
+- Abuse-resistant
+- Comparable to top-tier raid coordination apps
+
+No shortcuts. No simplified logic.

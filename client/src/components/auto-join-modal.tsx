@@ -41,6 +41,8 @@ export function AutoJoinModal({
     enabled: isOpen,
   });
 
+  const [cooldownError, setCooldownError] = useState<string | null>(null);
+
   const joinQueueMutation = useMutation({
     mutationFn: async (bossId: string) => {
       const response = await fetch('/api/queue/join', {
@@ -56,16 +58,29 @@ export function AutoJoinModal({
           isPremium,
         }),
       });
+      if (response.status === 429) {
+        const data = await response.json();
+        throw new Error(`cooldown:${data.cooldownSeconds}`);
+      }
       if (!response.ok) throw new Error('Failed to join queue');
       return response.json() as Promise<QueueStatus>;
     },
     onSuccess: (status) => {
       triggerImpact('medium');
+      setCooldownError(null);
       queryClient.invalidateQueries({ queryKey: ['/api/queue/user'] });
       setSelectedBoss(null);
       setSearch("");
       onQueueJoined(status.bossId);
       onClose();
+    },
+    onError: (err: Error) => {
+      if (err.message.startsWith('cooldown:')) {
+        const seconds = err.message.split(':')[1];
+        setCooldownError(`Please wait ${seconds}s before rejoining this queue`);
+      } else {
+        setCooldownError('Failed to join queue. Please try again.');
+      }
     },
   });
 
@@ -169,6 +184,9 @@ export function AutoJoinModal({
           )}
         </div>
 
+        {cooldownError && (
+          <p className="text-center text-sm text-red-400 mb-2 font-medium">{cooldownError}</p>
+        )}
         <Button
           onClick={handleConfirm}
           disabled={!selectedBoss || joinQueueMutation.isPending}

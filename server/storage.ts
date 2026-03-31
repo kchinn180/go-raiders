@@ -72,14 +72,19 @@ export interface IStorage {
   getPushTokensForUser(userId: string): Promise<PushToken[]>;
   getPushTokensForUsers(userIds: string[]): Promise<PushToken[]>;
   
-  // Queue management (PokeGenie-style)
-  joinQueue(entry: InsertQueueEntry): Promise<QueueEntry>;
+  // Queue management - structured fairness-based system
+  joinQueue(entry: InsertQueueEntry): Promise<{ entry: QueueEntry; cooldownMs?: number }>;
   leaveQueue(userId: string, bossId?: string): Promise<boolean>;
+  heartbeatQueue(userId: string, bossId: string): Promise<boolean>;
+  acceptReservation(userId: string, bossId: string): Promise<{ lobbyId: string } | null>;
+  rejectReservation(userId: string, bossId: string): Promise<boolean>;
   getQueueStatus(userId: string, bossId: string): Promise<QueueStatus | null>;
   getUserQueues(userId: string): Promise<QueueStatus[]>;
   getQueueForBoss(bossId: string): Promise<QueueEntry[]>;
   getQueueCounts(): Promise<Record<string, number>>;
   processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }>;
+  processQueueHeartbeats(): Promise<{ removed: string[] }>;
+  processReservationExpiry(): Promise<{ expired: string[] }>;
   
   // Report management
   createReport(report: InsertReport): Promise<Report>;
@@ -133,6 +138,28 @@ function generateMockLobbies(): Lobby[] {
   }));
 }
 
+/**
+ * Per-user persistent abuse tracking — survives queue leave/rejoin cycles.
+ * Stored separately from QueueEntry so penalties carry across sessions.
+ */
+interface UserAbuseRecord {
+  leaveCount: number;
+  noResponseCount: number;
+  originalJoinedAt: Record<string, number>; // bossId -> first join timestamp
+  rejoinCooldownUntil: Record<string, number>; // bossId -> cooldown end timestamp
+}
+
+const RESERVATION_TIMEOUT_MS = 20_000;  // 20 seconds to accept promotion
+const DISCONNECT_FREE_MS = 30_000;       // 30s disconnect tolerance for free
+const DISCONNECT_PREMIUM_MS = 120_000;   // 2 min disconnect tolerance for premium
+const REJOIN_COOLDOWN_MS = 60_000;       // 60s cooldown after rapid leave
+const RAPID_LEAVE_THRESHOLD_MS = 30_000; // Leaving within 30s of joining is "rapid"
+
+// Priority score constants (lower = higher priority)
+const PREMIUM_BOOST = -10;
+const LEAVE_PENALTY = 5;
+const NO_RESPONSE_PENALTY = 10;
+
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private lobbies: Map<string, Lobby>;
@@ -144,6 +171,7 @@ export class MemStorage implements IStorage {
   private pushTokenIdCounter: number;
   private raidBosses: Map<string, RaidBoss>;
   private queueEntries: Map<string, QueueEntry>;
+  private userAbuseRecords: Map<string, UserAbuseRecord>;
   private reports: Map<number, Report>;
   private reportsIdCounter: number;
 
@@ -158,6 +186,7 @@ export class MemStorage implements IStorage {
     this.pushTokenIdCounter = 1;
     this.raidBosses = new Map();
     this.queueEntries = new Map();
+    this.userAbuseRecords = new Map();
     this.reports = new Map();
     this.reportsIdCounter = 1;
     
@@ -571,79 +600,234 @@ export class MemStorage implements IStorage {
     return Array.from(this.pushTokens.values()).filter(t => userIdSet.has(t.userId));
   }
 
-  // Queue management (PokeGenie-style)
-  async joinQueue(entry: InsertQueueEntry): Promise<QueueEntry> {
-    // Check if user is already in queue for this boss
-    const existingKey = `${entry.userId}-${entry.bossId}`;
-    const existing = this.queueEntries.get(existingKey);
-    if (existing && existing.status === 'waiting') {
-      return existing; // Already in queue
+  // =============================================
+  // Queue management - structured fairness system
+  // =============================================
+
+  private getAbuseRecord(userId: string): UserAbuseRecord {
+    if (!this.userAbuseRecords.has(userId)) {
+      this.userAbuseRecords.set(userId, {
+        leaveCount: 0,
+        noResponseCount: 0,
+        originalJoinedAt: {},
+        rejoinCooldownUntil: {},
+      });
     }
-    
+    return this.userAbuseRecords.get(userId)!;
+  }
+
+  private calculatePriorityScore(userId: string, isPremium: boolean): number {
+    const abuse = this.getAbuseRecord(userId);
+    let score = 0;
+    if (isPremium) score += PREMIUM_BOOST;
+    score += abuse.leaveCount * LEAVE_PENALTY;
+    score += abuse.noResponseCount * NO_RESPONSE_PENALTY;
+    return score;
+  }
+
+  private sortQueue(entries: QueueEntry[]): QueueEntry[] {
+    return [...entries].sort((a, b) => {
+      if (a.priorityScore !== b.priorityScore) return a.priorityScore - b.priorityScore;
+      return a.originalJoinedAt - b.originalJoinedAt;
+    });
+  }
+
+  async joinQueue(entry: InsertQueueEntry): Promise<{ entry: QueueEntry; cooldownMs?: number }> {
+    const now = Date.now();
+    const key = `${entry.userId}-${entry.bossId}`;
+    const abuse = this.getAbuseRecord(entry.userId);
+
+    // Check rejoin cooldown (anti-abuse: rapid leave+rejoin prevention)
+    const cooldownUntil = abuse.rejoinCooldownUntil[entry.bossId] || 0;
+    if (now < cooldownUntil) {
+      const cooldownMs = cooldownUntil - now;
+      // Return existing entry or a placeholder — caller checks cooldownMs
+      const existing = this.queueEntries.get(key);
+      if (existing) return { entry: existing, cooldownMs };
+      // Build a stub for the response
+      const stub: QueueEntry = {
+        id: 'cooldown',
+        ...entry,
+        joinedAt: now,
+        originalJoinedAt: abuse.originalJoinedAt[entry.bossId] || now,
+        priorityScore: this.calculatePriorityScore(entry.userId, entry.isPremium),
+        connectionStatus: 'active',
+        lastHeartbeat: now,
+        reserved: false,
+        reservedAt: null,
+        leaveCount: abuse.leaveCount,
+        noResponseCount: abuse.noResponseCount,
+        status: 'cancelled',
+      };
+      return { entry: stub, cooldownMs };
+    }
+
+    // Already in queue and still active → return existing (no duplicate)
+    const existing = this.queueEntries.get(key);
+    if (existing && (existing.status === 'waiting' || existing.status === 'reserved')) {
+      // Refresh heartbeat on re-open
+      existing.lastHeartbeat = now;
+      existing.connectionStatus = 'active';
+      this.queueEntries.set(key, existing);
+      return { entry: existing };
+    }
+
+    // Rejoin protection: keep original join timestamp for fair positioning
+    const originalJoinedAt = abuse.originalJoinedAt[entry.bossId] || now;
+    if (!abuse.originalJoinedAt[entry.bossId]) {
+      abuse.originalJoinedAt[entry.bossId] = now;
+    }
+
     const queueEntry: QueueEntry = {
       id: randomUUID(),
       ...entry,
-      joinedAt: Date.now(),
+      joinedAt: now,
+      originalJoinedAt,
+      priorityScore: this.calculatePriorityScore(entry.userId, entry.isPremium),
+      connectionStatus: 'active',
+      lastHeartbeat: now,
+      reserved: false,
+      reservedAt: null,
+      leaveCount: abuse.leaveCount,
+      noResponseCount: abuse.noResponseCount,
       status: 'waiting',
     };
-    
-    this.queueEntries.set(existingKey, queueEntry);
-    return queueEntry;
+
+    this.queueEntries.set(key, queueEntry);
+    return { entry: queueEntry };
   }
 
   async leaveQueue(userId: string, bossId?: string): Promise<boolean> {
+    const now = Date.now();
     let removed = false;
-    
+
+    const processLeave = (key: string, entry: QueueEntry) => {
+      const abuse = this.getAbuseRecord(entry.userId);
+      const timeInQueue = now - entry.joinedAt;
+
+      // Apply leave penalty for rapid leaves
+      if (timeInQueue < RAPID_LEAVE_THRESHOLD_MS) {
+        abuse.leaveCount++;
+        abuse.rejoinCooldownUntil[entry.bossId] = now + REJOIN_COOLDOWN_MS;
+      }
+
+      // Clear original join timestamp on voluntary leave (they're fully resetting)
+      delete abuse.originalJoinedAt[entry.bossId];
+
+      entry.status = 'cancelled';
+      this.queueEntries.set(key, entry);
+    };
+
     if (bossId) {
-      // Leave specific boss queue
       const key = `${userId}-${bossId}`;
-      if (this.queueEntries.has(key)) {
-        const entry = this.queueEntries.get(key)!;
-        entry.status = 'cancelled';
-        this.queueEntries.set(key, entry);
+      const entry = this.queueEntries.get(key);
+      if (entry && (entry.status === 'waiting' || entry.status === 'reserved')) {
+        processLeave(key, entry);
         removed = true;
       }
     } else {
-      // Leave all queues
-      const entries = Array.from(this.queueEntries.entries());
-      for (const [key, entry] of entries) {
-        if (entry.userId === userId && entry.status === 'waiting') {
-          entry.status = 'cancelled';
-          this.queueEntries.set(key, entry);
+      for (const [key, entry] of Array.from(this.queueEntries.entries())) {
+        if (entry.userId === userId && (entry.status === 'waiting' || entry.status === 'reserved')) {
+          processLeave(key, entry);
           removed = true;
         }
       }
     }
-    
+
     return removed;
+  }
+
+  async heartbeatQueue(userId: string, bossId: string): Promise<boolean> {
+    const key = `${userId}-${bossId}`;
+    const entry = this.queueEntries.get(key);
+    if (!entry || (entry.status !== 'waiting' && entry.status !== 'reserved')) return false;
+
+    entry.lastHeartbeat = Date.now();
+    entry.connectionStatus = 'active';
+    this.queueEntries.set(key, entry);
+    return true;
+  }
+
+  async acceptReservation(userId: string, bossId: string): Promise<{ lobbyId: string } | null> {
+    const key = `${userId}-${bossId}`;
+    const entry = this.queueEntries.get(key);
+    if (!entry || entry.status !== 'reserved' || !entry.matchedLobbyId) return null;
+
+    // Check reservation hasn't expired
+    const now = Date.now();
+    if (entry.reservedAt && now - entry.reservedAt > RESERVATION_TIMEOUT_MS) {
+      entry.status = 'expired';
+      this.queueEntries.set(key, entry);
+      return null;
+    }
+
+    const lobby = this.lobbies.get(entry.matchedLobbyId);
+    if (!lobby || lobby.raidStarted || lobby.players.length >= lobby.maxPlayers) {
+      // Lobby gone or full — put user back in queue
+      entry.status = 'waiting';
+      entry.reserved = false;
+      entry.reservedAt = null;
+      entry.matchedLobbyId = undefined;
+      this.queueEntries.set(key, entry);
+      return null;
+    }
+
+    // Commit: add player to lobby and remove from queue
+    const player: Player = {
+      id: entry.userId,
+      name: entry.userName,
+      level: entry.userLevel,
+      team: entry.userTeam,
+      isReady: false,
+      isHost: false,
+      friendCode: entry.friendCode,
+      isPremium: entry.isPremium,
+    };
+
+    lobby.players.push(player);
+    this.lobbies.set(lobby.id, lobby);
+
+    entry.status = 'matched';
+    this.queueEntries.set(key, entry);
+
+    return { lobbyId: lobby.id };
+  }
+
+  async rejectReservation(userId: string, bossId: string): Promise<boolean> {
+    const key = `${userId}-${bossId}`;
+    const entry = this.queueEntries.get(key);
+    if (!entry || entry.status !== 'reserved') return false;
+
+    const abuse = this.getAbuseRecord(userId);
+    abuse.noResponseCount++;
+
+    entry.status = 'cancelled';
+    entry.reserved = false;
+    entry.reservedAt = null;
+    entry.matchedLobbyId = undefined;
+    this.queueEntries.set(key, entry);
+    return true;
   }
 
   async getQueueStatus(userId: string, bossId: string): Promise<QueueStatus | null> {
     const key = `${userId}-${bossId}`;
     const entry = this.queueEntries.get(key);
-    
+
     if (!entry || entry.status === 'cancelled' || entry.status === 'expired') {
       return null;
     }
-    
-    // Get all waiting entries for this boss, sorted by join time (premium first)
-    const bossQueue = Array.from(this.queueEntries.values())
-      .filter(e => e.bossId === bossId && e.status === 'waiting')
-      .sort((a, b) => {
-        // Premium users get priority
-        if (a.isPremium !== b.isPremium) {
-          return a.isPremium ? -1 : 1;
-        }
-        return a.joinedAt - b.joinedAt;
-      });
-    
-    const position = bossQueue.findIndex(e => e.userId === userId) + 1;
+
     const boss = ALL_BOSSES.find(b => b.id === bossId);
-    
-    // Estimate wait time based on position and typical raid time (3-5 min per raid)
+    const bossQueue = this.sortQueue(
+      Array.from(this.queueEntries.values()).filter(
+        e => e.bossId === bossId && (e.status === 'waiting' || e.status === 'reserved')
+      )
+    );
+
+    const position = bossQueue.findIndex(e => e.userId === userId) + 1;
     const avgWaitPerPerson = 45; // seconds
     const estimatedWaitSeconds = Math.max(0, (position - 1) * avgWaitPerPerson);
-    
+
     return {
       bossId,
       bossName: boss?.name || bossId,
@@ -652,96 +836,148 @@ export class MemStorage implements IStorage {
       estimatedWaitSeconds,
       status: entry.status,
       matchedLobbyId: entry.matchedLobbyId,
+      reserved: entry.reserved,
+      reservationExpiresAt: entry.reserved && entry.reservedAt
+        ? entry.reservedAt + RESERVATION_TIMEOUT_MS
+        : undefined,
+      isAlmostUp: position <= 2 && position > 0,
     };
   }
 
   async getUserQueues(userId: string): Promise<QueueStatus[]> {
     const userEntries = Array.from(this.queueEntries.values())
-      .filter(e => e.userId === userId && e.status === 'waiting');
-    
+      .filter(e => e.userId === userId && (e.status === 'waiting' || e.status === 'reserved'));
+
     const statuses: QueueStatus[] = [];
-    
     for (const entry of userEntries) {
       const status = await this.getQueueStatus(userId, entry.bossId);
-      if (status) {
-        statuses.push(status);
-      }
+      if (status) statuses.push(status);
     }
-    
     return statuses;
   }
 
   async getQueueForBoss(bossId: string): Promise<QueueEntry[]> {
-    return Array.from(this.queueEntries.values())
-      .filter(e => e.bossId === bossId && e.status === 'waiting')
-      .sort((a, b) => {
-        if (a.isPremium !== b.isPremium) {
-          return a.isPremium ? -1 : 1;
-        }
-        return a.joinedAt - b.joinedAt;
-      });
+    return this.sortQueue(
+      Array.from(this.queueEntries.values()).filter(
+        e => e.bossId === bossId && (e.status === 'waiting' || e.status === 'reserved')
+      )
+    );
   }
 
   async getQueueCounts(): Promise<Record<string, number>> {
     const counts: Record<string, number> = {};
-    const waitingEntries = Array.from(this.queueEntries.values())
-      .filter(e => e.status === 'waiting');
-    
-    for (const entry of waitingEntries) {
-      counts[entry.bossId] = (counts[entry.bossId] || 0) + 1;
+    for (const entry of Array.from(this.queueEntries.values())) {
+      if (entry.status === 'waiting' || entry.status === 'reserved') {
+        counts[entry.bossId] = (counts[entry.bossId] || 0) + 1;
+      }
     }
-    
     return counts;
   }
 
+  /**
+   * Process queue matches using the reservation system.
+   * When a lobby slot opens, reserve the top eligible user instead of
+   * directly joining them — they must accept within RESERVATION_TIMEOUT_MS.
+   */
   async processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }> {
     const matchedEntries: QueueEntry[] = [];
     const affectedLobbies: Lobby[] = [];
-    
-    // Get all lobbies with space
+    const now = Date.now();
+
     const lobbiesWithSpace = Array.from(this.lobbies.values())
-      .filter(l => l.players.length < l.maxPlayers && !l.raidStarted);
-    
+      .filter(l => !l.raidStarted && l.players.length < l.maxPlayers);
+
     for (const lobby of lobbiesWithSpace) {
-      // Get queue for this boss
       const queue = await this.getQueueForBoss(lobby.bossId);
-      
+
       for (const entry of queue) {
-        // Check if lobby still has space
         if (lobby.players.length >= lobby.maxPlayers) break;
-        
-        // Check minimum level requirement
+
+        // Skip already reserved entries
+        if (entry.reserved) continue;
+
+        // Skip disconnected users past their tolerance
+        if (entry.connectionStatus === 'disconnected') {
+          const tolerance = entry.isPremium ? DISCONNECT_PREMIUM_MS : DISCONNECT_FREE_MS;
+          if (now - entry.lastHeartbeat > tolerance) continue;
+        }
+
+        // Skip if level doesn't meet minimum requirement
         if (entry.userLevel < lobby.minLevel) continue;
-        
-        // Add player to lobby
-        const player: Player = {
-          id: entry.userId,
-          name: entry.userName,
-          level: entry.userLevel,
-          team: entry.userTeam,
-          isReady: false,
-          isHost: false,
-          friendCode: entry.friendCode,
-          isPremium: entry.isPremium,
-        };
-        
-        lobby.players.push(player);
-        this.lobbies.set(lobby.id, lobby);
-        
-        // Update queue entry
-        entry.status = 'matched';
+
+        // Reserve this user — they must accept
+        entry.reserved = true;
+        entry.reservedAt = now;
+        entry.status = 'reserved';
         entry.matchedLobbyId = lobby.id;
         this.queueEntries.set(`${entry.userId}-${entry.bossId}`, entry);
-        
+
         matchedEntries.push(entry);
-        
-        if (!affectedLobbies.includes(lobby)) {
-          affectedLobbies.push(lobby);
-        }
+        if (!affectedLobbies.includes(lobby)) affectedLobbies.push(lobby);
       }
     }
-    
+
     return { matched: matchedEntries, lobbies: affectedLobbies };
+  }
+
+  /**
+   * Background job: Remove disconnected users who exceeded their tolerance window.
+   */
+  async processQueueHeartbeats(): Promise<{ removed: string[] }> {
+    const now = Date.now();
+    const removed: string[] = [];
+
+    for (const [key, entry] of Array.from(this.queueEntries.entries())) {
+      if (entry.status !== 'waiting' && entry.status !== 'reserved') continue;
+
+      const timeSinceHeartbeat = now - entry.lastHeartbeat;
+
+      // Mark as disconnected first
+      if (timeSinceHeartbeat > 10_000 && entry.connectionStatus === 'active') {
+        entry.connectionStatus = 'disconnected';
+        this.queueEntries.set(key, entry);
+      }
+
+      // Remove if exceeds tolerance
+      const tolerance = entry.isPremium ? DISCONNECT_PREMIUM_MS : DISCONNECT_FREE_MS;
+      if (entry.connectionStatus === 'disconnected' && timeSinceHeartbeat > tolerance) {
+        entry.status = 'expired';
+        this.queueEntries.set(key, entry);
+        removed.push(entry.userId);
+      }
+    }
+
+    return { removed };
+  }
+
+  /**
+   * Background job: Expire reservations where user didn't respond within timeout.
+   * Apply no-response penalty and try to find the next eligible user.
+   */
+  async processReservationExpiry(): Promise<{ expired: string[] }> {
+    const now = Date.now();
+    const expired: string[] = [];
+
+    for (const [key, entry] of Array.from(this.queueEntries.entries())) {
+      if (entry.status !== 'reserved' || !entry.reservedAt) continue;
+
+      const age = now - entry.reservedAt;
+      if (age <= RESERVATION_TIMEOUT_MS) continue;
+
+      // Reservation timed out — penalize and cancel
+      const abuse = this.getAbuseRecord(entry.userId);
+      abuse.noResponseCount++;
+
+      entry.status = 'cancelled';
+      entry.reserved = false;
+      entry.reservedAt = null;
+      entry.matchedLobbyId = undefined;
+      this.queueEntries.set(key, entry);
+
+      expired.push(entry.userId);
+    }
+
+    return { expired };
   }
 
   async createReport(insertReport: InsertReport): Promise<Report> {

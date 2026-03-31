@@ -87,6 +87,58 @@ app.use((req, res, next) => {
 (async () => {
   lobbyWSManager.initialize(httpServer);
   await registerRoutes(httpServer, app);
+  
+  // Queue background jobs — run after routes are registered so storage is ready
+  const { storage } = await import("./storage");
+  
+  // Every 10s: check heartbeats and remove truly disconnected users
+  setInterval(async () => {
+    try {
+      const { removed } = await storage.processQueueHeartbeats();
+      if (removed.length > 0) {
+        log(`Queue heartbeat: removed ${removed.length} disconnected user(s)`, "queue");
+      }
+    } catch (e) {
+      log(`Queue heartbeat error: ${e}`, "queue");
+    }
+  }, 10_000);
+  
+  // Every 5s: expire unanswered reservations and apply no-response penalty
+  setInterval(async () => {
+    try {
+      const { expired } = await storage.processReservationExpiry();
+      if (expired.length > 0) {
+        log(`Reservation expiry: ${expired.length} expired`, "queue");
+        // After expiry, try to promote the next eligible user
+        await storage.processQueueMatches();
+      }
+    } catch (e) {
+      log(`Reservation expiry error: ${e}`, "queue");
+    }
+  }, 5_000);
+  
+  // Every 15s: try to match waiting users to available lobby slots
+  setInterval(async () => {
+    try {
+      const result = await storage.processQueueMatches();
+      if (result.matched.length > 0) {
+        log(`Queue match: ${result.matched.length} user(s) reserved`, "queue");
+        // Notify each promoted user via WebSocket
+        const activeBosses = await storage.getActiveRaidBosses();
+        for (const matched of result.matched) {
+          const boss = activeBosses.find(b => b.id === matched.bossId);
+          lobbyWSManager.notifyUserPromotion(matched.userId, {
+            bossId: matched.bossId,
+            bossName: boss?.name || matched.bossId,
+            lobbyId: matched.matchedLobbyId,
+            reservationExpiresAt: matched.reservedAt ? matched.reservedAt + 20000 : undefined,
+          });
+        }
+      }
+    } catch (e) {
+      log(`Queue match error: ${e}`, "queue");
+    }
+  }, 15_000);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

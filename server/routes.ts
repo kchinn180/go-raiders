@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, RAID_CAPACITY, ELITE_EARLY_ACCESS_MS } from "./storage";
+import { lobbyWSManager } from "./websocket";
 import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema, subscriptionSchema, insertReportSchema } from "@shared/schema";
 import type { InsertQueueEntry, Subscription } from "@shared/schema";
 import { z } from "zod";
@@ -8,7 +9,6 @@ import { sendPushNotification, type NotificationPayload } from "./push-service";
 import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
 import { verifyPurchaseReceipt, ELITE_PRODUCTS } from "./services/subscription";
 import { requirePremium } from "./middleware/require-premium";
-import { lobbyWSManager } from "./websocket";
 
 const getAdminToken = () => {
   const token = process.env.ADMIN_TOKEN;
@@ -638,23 +638,23 @@ export async function registerRoutes(
     }
   });
 
-  // ===== Queue System (PokeGenie-style) =====
-  
+  // ===== Queue System - Structured Fairness Model =====
+
   // Join the queue for a specific boss
   app.post("/api/queue/join", async (req, res) => {
     try {
       const { bossId, userId, userName, userLevel, userTeam, friendCode, isPremium } = req.body;
-      
+
       if (!bossId || !userId || !userName || !userLevel || !userTeam || !friendCode) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-      
+
       // Verify boss is active
       const isActive = await storage.isRaidBossActive(bossId);
       if (!isActive) {
         return res.status(400).json({ error: "This raid boss is not currently available" });
       }
-      
+
       const entry: InsertQueueEntry = {
         bossId,
         userId,
@@ -664,17 +664,41 @@ export async function registerRoutes(
         friendCode,
         isPremium: isPremium || false,
       };
-      
-      const queueEntry = await storage.joinQueue(entry);
+
+      const result = await storage.joinQueue(entry);
+
+      // Reject if user is on cooldown
+      if (result.cooldownMs) {
+        return res.status(429).json({
+          error: "You must wait before rejoining",
+          cooldownMs: result.cooldownMs,
+          cooldownSeconds: Math.ceil(result.cooldownMs / 1000),
+        });
+      }
+
+      // Immediately try to match
+      const matchResult = await storage.processQueueMatches();
+
+      // Notify promoted users via WebSocket
+      for (const matched of matchResult.matched) {
+        const bossInfo = (await storage.getActiveRaidBosses()).find(b => b.id === matched.bossId);
+        lobbyWSManager.notifyUserPromotion(matched.userId, {
+          bossId: matched.bossId,
+          bossName: bossInfo?.name || matched.bossId,
+          lobbyId: matched.matchedLobbyId,
+          reservationExpiresAt: matched.reservedAt ? matched.reservedAt + 20000 : undefined,
+        });
+      }
+
+      // Broadcast queue update to all watchers of this boss
+      const counts = await storage.getQueueCounts();
+      lobbyWSManager.broadcastQueueUpdate(bossId, {
+        bossId,
+        count: counts[bossId] || 0,
+      });
+
       const status = await storage.getQueueStatus(userId, bossId);
-      
-      // Trigger queue processing to see if there's an immediate match
-      await storage.processQueueMatches();
-      
-      // Get updated status after processing
-      const updatedStatus = await storage.getQueueStatus(userId, bossId);
-      
-      res.status(201).json(updatedStatus || status);
+      res.status(201).json(status);
     } catch (error) {
       console.error("Error joining queue:", error);
       res.status(500).json({ error: "Failed to join queue" });
@@ -685,15 +709,89 @@ export async function registerRoutes(
   app.post("/api/queue/leave", async (req, res) => {
     try {
       const { userId, bossId } = req.body;
-      
+
       if (!userId) {
         return res.status(400).json({ error: "User ID required" });
       }
-      
+
       const success = await storage.leaveQueue(userId, bossId);
+
+      if (success && bossId) {
+        const counts = await storage.getQueueCounts();
+        lobbyWSManager.broadcastQueueUpdate(bossId, {
+          bossId,
+          count: counts[bossId] || 0,
+        });
+      }
+
       res.json({ success });
     } catch (error) {
       res.status(500).json({ error: "Failed to leave queue" });
+    }
+  });
+
+  // Heartbeat: keep the user's queue slot alive and prevent disconnect expiry
+  app.post("/api/queue/heartbeat", async (req, res) => {
+    try {
+      const { userId, bossId } = req.body;
+      if (!userId || !bossId) return res.status(400).json({ error: "userId and bossId required" });
+
+      const alive = await storage.heartbeatQueue(userId, bossId);
+      res.json({ alive });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send heartbeat" });
+    }
+  });
+
+  // Accept a reservation (user confirms they want to join the lobby)
+  app.post("/api/queue/accept", async (req, res) => {
+    try {
+      const { userId, bossId } = req.body;
+      if (!userId || !bossId) return res.status(400).json({ error: "userId and bossId required" });
+
+      const result = await storage.acceptReservation(userId, bossId);
+      if (!result) {
+        return res.status(409).json({ error: "Reservation expired or lobby unavailable" });
+      }
+
+      // Broadcast queue update after slot filled
+      const counts = await storage.getQueueCounts();
+      lobbyWSManager.broadcastQueueUpdate(bossId, {
+        bossId,
+        count: counts[bossId] || 0,
+      });
+
+      // Also update lobby members
+      const lobby = await storage.getLobby(result.lobbyId);
+      if (lobby) {
+        lobbyWSManager.broadcastLobbyUpdate(lobby);
+      }
+
+      res.json({ lobbyId: result.lobbyId });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to accept reservation" });
+    }
+  });
+
+  // Reject a reservation (user declines — penalty applied)
+  app.post("/api/queue/reject", async (req, res) => {
+    try {
+      const { userId, bossId } = req.body;
+      if (!userId || !bossId) return res.status(400).json({ error: "userId and bossId required" });
+
+      const success = await storage.rejectReservation(userId, bossId);
+
+      if (success) {
+        const counts = await storage.getQueueCounts();
+        lobbyWSManager.broadcastQueueUpdate(bossId, {
+          bossId,
+          count: counts[bossId] || 0,
+        });
+      }
+
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to reject reservation" });
     }
   });
 
@@ -702,11 +800,11 @@ export async function registerRoutes(
     try {
       const { userId, bossId } = req.params;
       const status = await storage.getQueueStatus(userId, bossId);
-      
+
       if (!status) {
         return res.status(404).json({ error: "Not in queue" });
       }
-      
+
       res.json(status);
     } catch (error) {
       res.status(500).json({ error: "Failed to get queue status" });
@@ -734,10 +832,22 @@ export async function registerRoutes(
     }
   });
 
-  // Process queue matches (can be called periodically or on events)
+  // Process queue matches (background — also called by periodic job)
   app.post("/api/queue/process", async (req, res) => {
     try {
       const result = await storage.processQueueMatches();
+
+      // Notify promoted users via WebSocket
+      for (const matched of result.matched) {
+        const bossInfo = (await storage.getActiveRaidBosses()).find(b => b.id === matched.bossId);
+        lobbyWSManager.notifyUserPromotion(matched.userId, {
+          bossId: matched.bossId,
+          bossName: bossInfo?.name || matched.bossId,
+          lobbyId: matched.matchedLobbyId,
+          reservationExpiresAt: matched.reservedAt ? matched.reservedAt + 20000 : undefined,
+        });
+      }
+
       res.json({
         matchedCount: result.matched.length,
         lobbiesAffected: result.lobbies.length,

@@ -58,7 +58,35 @@ The frontend is built with **React** and **TypeScript**, utilizing **Wouter** fo
 - Uses ref on main content area with `scrollTo({ top: 0, behavior: 'auto' })`
 - Prevents pages from opening at previous scroll position
 
+## Queue System Architecture
+
+### Structured Fairness Queue (server/storage.ts)
+- **Priority Score**: Lower score = higher priority. Modifiers: Premium users get -10 boost; frequent leavers get +5 per leave; no-response penalty +10 per ignored promotion
+- **Rejoin Protection**: Original join timestamp preserved on rejoin so cycling doesn't reset position
+- **Rapid Rejoin Cooldown**: Leaving within 30s of joining triggers a 60-second cooldown before rejoining
+- **Reservation System**: When a slot opens, user is `reserved` (not placed) and has 20 seconds to accept via WebSocket notification
+- **Disconnect Handling**: Free users removed after 30s disconnect; Premium users get 2 minutes
+- **Background Jobs**: Heartbeat check every 10s, reservation expiry every 5s, queue matching every 15s
+- **Anti-Abuse Tracking**: Persistent `UserAbuseRecord` per user — survives queue leave/rejoin cycles
+
+### New Queue API Endpoints
+- `POST /api/queue/heartbeat` — keep slot alive (called every 10s by frontend)
+- `POST /api/queue/accept` — accept reservation and enter lobby
+- `POST /api/queue/reject` — decline reservation (penalty applied)
+
+### WebSocket Queue Channel
+- Clients subscribe to a boss queue with `subscribe_queue` message
+- `queue_update` events broadcast to all watchers when queue changes
+- `queue_promotion` event sent directly to the reserved user
+
 ## Recent Changes
+- **QUEUE: Structured fairness system** - Full queue overhaul with priority scoring, reservation system, anti-abuse, and disconnect handling
+- **QUEUE: WebSocket real-time updates** - Queue position updates and promotion notifications via WebSocket (no polling required)
+- **QUEUE: Reservation UI** - 20-second countdown with circular progress ring, Accept/Skip buttons when promoted
+- **QUEUE: Almost your turn indicator** - Amber highlighting when at position 1 or 2
+- **QUEUE: Heartbeat system** - Frontend sends heartbeat every 10s to maintain queue slot; disconnect tolerance 30s (free) / 2min (premium)
+- **QUEUE: Anti-abuse cooldowns** - Rapid rejoin (< 30s) triggers 60-second cooldown; penalizes ignoring promotions
+- **QUEUE: Position change animation** - Position number scales on change + medium haptic feedback
 - **No mock lobbies** - Removed all test/mock lobbies; queue is empty until hosts create real raids (both dev and production)
 - **In-App Purchases** - Elite subscriptions via Apple App Store and Google Play Store only ($6.99/month, $69.90/year)
 - **Webhook endpoints** - Added /api/webhooks/apple and /api/webhooks/google for subscription lifecycle events

@@ -50,6 +50,7 @@ export function Onboarding() {
       code: formatted,
       isPremium: false,
       isVerified: true,
+      coins: 0,
     };
 
     setUser(newUser);

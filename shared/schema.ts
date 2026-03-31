@@ -255,7 +255,7 @@ export type RaidHistoryEntry = z.infer<typeof raidHistoryEntrySchema>;
 export const FILTERS = ['all', '1', '3', '5', 'mega', 'max', 'shadow'] as const;
 export type FilterType = typeof FILTERS[number];
 
-// Queue system for PokeGenie-style boss matching
+// Queue system - structured fairness-based model
 export const queueEntrySchema = z.object({
   id: z.string(),
   bossId: z.string(),
@@ -266,12 +266,24 @@ export const queueEntrySchema = z.object({
   friendCode: z.string(),
   isPremium: z.boolean().default(false),
   joinedAt: z.number(),
-  status: z.enum(['waiting', 'matched', 'expired', 'cancelled']).default('waiting'),
+  originalJoinedAt: z.number(),
+  priorityScore: z.number().default(0),
+  connectionStatus: z.enum(['active', 'disconnected']).default('active'),
+  lastHeartbeat: z.number(),
+  reserved: z.boolean().default(false),
+  reservedAt: z.number().nullable().default(null),
+  leaveCount: z.number().default(0),
+  noResponseCount: z.number().default(0),
+  status: z.enum(['waiting', 'reserved', 'matched', 'expired', 'cancelled']).default('waiting'),
   matchedLobbyId: z.string().optional(),
 });
 
 export type QueueEntry = z.infer<typeof queueEntrySchema>;
-export type InsertQueueEntry = Omit<QueueEntry, 'id' | 'joinedAt' | 'status'>;
+export type InsertQueueEntry = Omit<QueueEntry,
+  'id' | 'joinedAt' | 'originalJoinedAt' | 'priorityScore' |
+  'connectionStatus' | 'lastHeartbeat' | 'reserved' | 'reservedAt' |
+  'leaveCount' | 'noResponseCount' | 'status'
+>;
 
 export interface QueueStatus {
   bossId: string;
@@ -279,8 +291,11 @@ export interface QueueStatus {
   position: number;
   totalInQueue: number;
   estimatedWaitSeconds: number;
-  status: 'waiting' | 'matched' | 'expired' | 'cancelled';
+  status: 'waiting' | 'reserved' | 'matched' | 'expired' | 'cancelled';
   matchedLobbyId?: string;
+  reserved: boolean;
+  reservationExpiresAt?: number;
+  isAlmostUp: boolean;
 }
 
 export const feedbackTable = pgTable("feedback", {
