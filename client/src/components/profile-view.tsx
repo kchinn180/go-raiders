@@ -131,7 +131,7 @@ export function ProfileView({ onPremiumClick }: ProfileViewProps) {
                 </span>
               </div>
             </div>
-            <span className="text-sm font-bold text-indigo-500">$19.99/mo</span>
+            <span className="text-sm font-bold text-indigo-500">$12.99/mo</span>
           </button>
         )}
 

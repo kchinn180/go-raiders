@@ -30,16 +30,16 @@ export const ELITE_PRODUCTS = {
   MONTHLY: {
     apple: 'com.goraiders.elite.monthly',
     google: 'elite_monthly_subscription',
-    price: 6.99,
+    price: 12.99,
     period: 'month',
   },
   YEARLY: {
     apple: 'com.goraiders.elite.yearly', 
     google: 'elite_yearly_subscription',
-    price: 69.90,
+    price: 129.90,
     period: 'year',
-    savings: 13.98, // 2 months free ($6.99 * 2)
-    monthlyEquivalent: 5.83, // $69.90 / 12
+    savings: 25.98, // 2 months free ($12.99 * 2)
+    monthlyEquivalent: 10.83, // $129.90 / 12
   }
 } as const;
 

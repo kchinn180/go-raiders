@@ -525,7 +525,7 @@ export function QueueStatusModal({
                     ) : (
                       <>
                         <Crown className="w-5 h-5 mr-2" />
-                        SKIP THE LINE — $6.99/mo
+                        SKIP THE LINE — $12.99/mo
                         <Zap className="w-4 h-4 ml-2" />
                       </>
                     )}

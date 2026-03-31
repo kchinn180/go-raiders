@@ -307,7 +307,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
               data-testid="button-upgrade"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Upgrade to Elite - $19.99/mo
+              Upgrade to Elite - $12.99/mo
             </Button>
             <p className="text-xs text-muted-foreground text-center">
               In-app purchase via App Store or Play Store

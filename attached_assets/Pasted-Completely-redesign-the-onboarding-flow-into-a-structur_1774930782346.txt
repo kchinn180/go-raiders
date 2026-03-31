@@ -1,0 +1,219 @@
+Completely redesign the onboarding flow into a structured, multi-step funnel.
+
+The onboarding must feel premium, seamless, and professional.
+
+====================
+ONBOARDING FLOW ORDER
+====================
+
+1. Welcome Screen
+2. Terms & Conditions
+3. Profile Scanner (screenshot verification)
+4. Friend Code Entry
+5. Premium Upgrade Prompt
+6. Account Creation Complete
+
+Use a step-based navigation system with progress tracking.
+
+====================
+GLOBAL REQUIREMENTS
+====================
+
+- Use React Native (Expo)
+- Maintain onboarding state
+- Prevent skipping steps
+- Smooth transitions between steps
+- Progress indicator (Step X of 6)
+- Save partial progress safely
+- Clean modern UI
+
+====================
+STEP 1 — WELCOME SCREEN
+====================
+
+UI:
+- App logo
+- Headline: “Welcome to [App Name]”
+- Subtext: “Join raids faster. Connect with players worldwide.”
+- Button: “Get Started”
+
+UX:
+- Subtle animation
+- Clean, minimal design
+
+====================
+STEP 2 — TERMS & CONDITIONS
+====================
+
+UI:
+- Scrollable terms text
+- Checkbox: “I agree to the Terms & Conditions”
+- Continue button (disabled until checked)
+
+LOGIC:
+- Must accept to continue
+- Store acceptance timestamp
+
+INCLUDE:
+- No affiliation with Niantic, Nintendo, Pokémon
+- Liability waiver
+- User responsibility
+
+====================
+STEP 3 — PROFILE SCANNER
+====================
+
+UI:
+- Title: “Verify Your Trainer Profile”
+- Upload button
+- Example screenshot preview
+- Instructions text
+
+FLOW:
+- User uploads screenshot
+- Send to backend OCR endpoint
+- Extract:
+  - Trainer Name
+  - Trainer Level
+  - Team
+
+DISPLAY:
+- Show extracted data for confirmation
+
+VALIDATION:
+- Level must be 1–50
+- Trainer name must exist
+
+FAIL:
+- Show retry screen with tips
+
+SUCCESS:
+- Store trainer data
+- Move to next step
+
+PRIVACY:
+- Do NOT store screenshot
+- Show message:
+  “Images are not stored. Used only for verification.”
+
+====================
+STEP 4 — FRIEND CODE ENTRY
+====================
+
+UI:
+- Input field: “Enter your Trainer Code”
+- Placeholder: “1234 5678 9012”
+- Auto-format spacing
+
+VALIDATION:
+- Must be 12 digits
+- Format automatically
+
+UX:
+- Show success checkmark when valid
+
+STORE:
+- Save friend code to user profile
+
+====================
+STEP 5 — PREMIUM UPSELL
+====================
+
+UI:
+- Headline: “Upgrade to Premium”
+- Feature list:
+  - Skip wait times
+  - Priority queue
+  - No ads
+  - Unlimited raids
+- Price: $19.99/month
+
+BUTTONS:
+- “Upgrade Now”
+- “Continue Free”
+
+LOGIC:
+- Do NOT block onboarding if skipped
+- If purchased:
+  - Set isPremium = true
+
+UX:
+- Highlight value
+- Clean comparison layout
+
+====================
+STEP 6 — ACCOUNT COMPLETE
+====================
+
+UI:
+- Success screen
+- Message:
+  “You’re all set!”
+- Show:
+  - Trainer name
+  - Level
+  - Friend code
+
+BUTTON:
+- “Enter App”
+
+UX:
+- Celebration animation
+
+====================
+NAVIGATION SYSTEM
+====================
+
+- Use step index state
+- Prevent skipping steps
+- Allow going back (except after scanner success)
+
+====================
+DATA STORAGE
+====================
+
+Store in Firestore:
+
+User:
+- userId
+- email
+- trainerName
+- trainerLevel
+- team
+- friendCode
+- isPremium
+- termsAcceptedAt
+
+====================
+ERROR HANDLING
+====================
+
+- Network errors
+- OCR failures
+- Invalid friend code
+- Subscription errors
+
+Show clear user-friendly messages.
+
+====================
+ANIMATIONS & POLISH
+====================
+
+- Smooth transitions between steps
+- Progress bar at top
+- Haptic feedback on success
+- Loading indicators
+
+====================
+FINAL REQUIREMENT
+====================
+
+The onboarding must feel:
+- Premium
+- Fast
+- Smooth
+- Trustworthy
+
+Comparable to top-tier mobile apps.
+
+No placeholder UI. No incomplete flows.

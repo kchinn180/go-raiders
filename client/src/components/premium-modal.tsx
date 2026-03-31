@@ -49,7 +49,7 @@ const ELITE_MONTHLY: SubscriptionProduct = {
   id: 'elite_monthly',
   name: 'Elite Monthly',
   description: 'Premium raid features',
-  price: 6.99,
+  price: 12.99,
   period: 'month',
   appleProductId: 'com.goraiders.elite.monthly',
   googleProductId: 'elite_monthly_subscription',
@@ -60,7 +60,7 @@ const ELITE_YEARLY: SubscriptionProduct = {
   id: 'elite_yearly',
   name: 'Elite Annual',
   description: 'Best value - 2 months free',
-  price: 69.90,
+  price: 129.90,
   period: 'year',
   appleProductId: 'com.goraiders.elite.yearly',
   googleProductId: 'elite_yearly_subscription',
@@ -77,8 +77,8 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
   if (!isOpen) return null;
 
   const currentProduct = selectedPlan === 'yearly' ? ELITE_YEARLY : ELITE_MONTHLY;
-  const monthlyEquivalent = selectedPlan === 'yearly' ? (69.90 / 12).toFixed(2) : '6.99';
-  const savings = selectedPlan === 'yearly' ? (6.99 * 12 - 69.90).toFixed(2) : '0';
+  const monthlyEquivalent = selectedPlan === 'yearly' ? (129.90 / 12).toFixed(2) : '12.99';
+  const savings = selectedPlan === 'yearly' ? (12.99 * 12 - 129.90).toFixed(2) : '0';
 
   /**
    * Handle subscription purchase

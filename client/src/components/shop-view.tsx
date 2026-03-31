@@ -67,7 +67,7 @@ export function ShopView({ onUpgrade }: ShopViewProps) {
       ) : (
         <Card className="p-6 bg-gradient-to-br from-indigo-600/20 to-purple-600/20 border-indigo-500/30">
           <div className="text-center mb-4">
-            <div className="text-4xl font-black mb-1">$19.99</div>
+            <div className="text-4xl font-black mb-1">$12.99</div>
             <div className="text-muted-foreground text-sm">per month</div>
           </div>
           <Button
