@@ -128,18 +128,14 @@ export interface AppAnalytics {
 
 // Default active bosses (January 2026 Pokemon GO raid rotation)
 const DEFAULT_ACTIVE_BOSS_IDS = [
-  // 5-Star Legendary
-  'genesect-burn', 'genesect-chill', 'thundurus-incarnate',
-  // Shadow Raids
-  'shadow-cresselia', 'shadow-scyther', 'shadow-aerodactyl',
-  // Mega Raids
-  'mega-blaziken', 'mega-sceptile',
+  // 5-Star Legendary (April 15–21, 2026)
+  'groudon', 'shadow-latios',
+  // Mega Raids (April 15–21, 2026)
+  'mega-alakazam',
   // Tier 3
-  'onix', 'magmar', 'diggersby',
+  'vileplume', 'dugtrio', 'torterra',
   // Tier 1
-  'ponyta', 'krabby', 'sandygast', 'scorbunny',
-  // Max Battles
-  'drampa-max'
+  'foongus', 'phantump', 'sandygast', 'gossifleur',
 ];
 
 function generateMockLobbies(): Lobby[] {
@@ -173,7 +169,7 @@ function generateMockLobbies(): Lobby[] {
 }
 
 /**
- * Per-user persistent abuse tracking — survives queue leave/rejoin cycles.
+ * Per-user persistent abuse tracking â survives queue leave/rejoin cycles.
  * Stored separately from QueueEntry so penalties carry across sessions.
  */
 interface UserAbuseRecord {
@@ -675,7 +671,7 @@ export class MemStorage implements IStorage {
     const cooldownUntil = abuse.rejoinCooldownUntil[entry.bossId] || 0;
     if (now < cooldownUntil) {
       const cooldownMs = cooldownUntil - now;
-      // Return existing entry or a placeholder — caller checks cooldownMs
+      // Return existing entry or a placeholder â caller checks cooldownMs
       const existing = this.queueEntries.get(key);
       if (existing) return { entry: existing, cooldownMs };
       // Build a stub for the response
@@ -696,7 +692,7 @@ export class MemStorage implements IStorage {
       return { entry: stub, cooldownMs };
     }
 
-    // Already in queue and still active → return existing (no duplicate)
+    // Already in queue and still active â return existing (no duplicate)
     const existing = this.queueEntries.get(key);
     if (existing && (existing.status === 'waiting' || existing.status === 'reserved')) {
       // Refresh heartbeat on re-open
@@ -797,7 +793,7 @@ export class MemStorage implements IStorage {
 
     const lobby = this.lobbies.get(entry.matchedLobbyId);
     if (!lobby || lobby.raidStarted || lobby.players.length >= lobby.maxPlayers) {
-      // Lobby gone or full — put user back in queue
+      // Lobby gone or full â put user back in queue
       entry.status = 'waiting';
       entry.reserved = false;
       entry.reservedAt = null;
@@ -911,7 +907,7 @@ export class MemStorage implements IStorage {
   /**
    * Process queue matches using the reservation system.
    * When a lobby slot opens, reserve the top eligible user instead of
-   * directly joining them — they must accept within RESERVATION_TIMEOUT_MS.
+   * directly joining them â they must accept within RESERVATION_TIMEOUT_MS.
    */
   async processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }> {
     const matchedEntries: QueueEntry[] = [];
@@ -939,7 +935,7 @@ export class MemStorage implements IStorage {
         // Skip if level doesn't meet minimum requirement
         if (entry.userLevel < lobby.minLevel) continue;
 
-        // Reserve this user — they must accept
+        // Reserve this user â they must accept
         entry.reserved = true;
         entry.reservedAt = now;
         entry.status = 'reserved';
@@ -998,7 +994,7 @@ export class MemStorage implements IStorage {
       const age = now - entry.reservedAt;
       if (age <= RESERVATION_TIMEOUT_MS) continue;
 
-      // Reservation timed out — penalize and cancel
+      // Reservation timed out â penalize and cancel
       const abuse = this.getAbuseRecord(entry.userId);
       abuse.noResponseCount++;
 
