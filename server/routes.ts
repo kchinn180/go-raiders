@@ -9,6 +9,8 @@ import { sendPushNotification, type NotificationPayload } from "./push-service";
 import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
 import { verifyPurchaseReceipt, ELITE_PRODUCTS } from "./services/subscription";
 import { requirePremium } from "./middleware/require-premium";
+import { RaidScraperService } from "./services/raid-scraper";
+import { parseTrainerScreenshot } from "./services/trainer-ocr";
 
 const getAdminToken = () => {
   const token = process.env.ADMIN_TOKEN;
@@ -635,6 +637,406 @@ export async function registerRoutes(
       res.json(banned);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch banned users" });
+    }
+  });
+
+  // ===== Admin: Analytics Dashboard =====
+
+  app.get("/api/admin/analytics", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const analytics = await storage.getAnalytics();
+      res.json(analytics);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
+  // ===== Admin: User Management =====
+
+  app.get("/api/admin/users", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch users" });
+    }
+  });
+
+  app.get("/api/admin/users/:id", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = await storage.getUser(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+
+      // Get additional data
+      const feedback = await storage.getFeedbackByHost(req.params.id);
+      const reports = await storage.getReportsByUser(req.params.id);
+      const queues = await storage.getUserQueues(req.params.id);
+
+      res.json({ user, feedback, reports, queues });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user details" });
+    }
+  });
+
+  // Grant premium to user (free)
+  app.post("/api/admin/users/:id/grant-premium", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = await storage.grantPremium(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to grant premium" });
+    }
+  });
+
+  // Revoke premium from user
+  app.post("/api/admin/users/:id/revoke-premium", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const user = await storage.revokePremium(req.params.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to revoke premium" });
+    }
+  });
+
+  // Edit user profile
+  app.patch("/api/admin/users/:id", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const { name, level, team, coins } = req.body;
+      const updates: any = {};
+      if (name && typeof name === 'string') updates.name = name;
+      if (level && typeof level === 'number') updates.level = Math.min(80, Math.max(1, level));
+      if (team && ['valor', 'mystic', 'instinct', 'neutral'].includes(team)) updates.team = team;
+      if (typeof coins === 'number') updates.coins = Math.max(0, coins);
+
+      const user = await storage.updateUser(req.params.id, updates);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update user" });
+    }
+  });
+
+  // Delete user account
+  app.delete("/api/admin/users/:id", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const success = await storage.deleteUser(req.params.id);
+      if (!success) return res.status(404).json({ error: "User not found" });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete user" });
+    }
+  });
+
+  // Set user coins
+  app.post("/api/admin/users/:id/coins", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const { coins } = req.body;
+      if (typeof coins !== 'number' || coins < 0) {
+        return res.status(400).json({ error: "Valid coin amount required" });
+      }
+      const user = await storage.resetUserCoins(req.params.id, coins);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      res.json(user);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to set coins" });
+    }
+  });
+
+  // ===== Admin: Lobby Management =====
+
+  app.get("/api/admin/lobbies", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const lobbies = await storage.getAllLobbiesIncludingStarted();
+      res.json(lobbies);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch lobbies" });
+    }
+  });
+
+  app.post("/api/admin/lobbies/:id/force-close", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      lobbyWSManager.broadcastLobbyClosed(req.params.id, "This lobby was closed by an administrator");
+      const success = await storage.forceCloseLobby(req.params.id);
+      if (!success) return res.status(404).json({ error: "Lobby not found" });
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to force close lobby" });
+    }
+  });
+
+  app.post("/api/admin/lobbies/:id/kick/:playerId", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const lobby = await storage.kickPlayerFromLobby(req.params.id, req.params.playerId);
+      if (!lobby) return res.status(404).json({ error: "Lobby not found or cannot kick host" });
+
+      lobbyWSManager.broadcastPlayerLeft(req.params.id, req.params.playerId, "Removed by admin");
+      lobbyWSManager.broadcastLobbyUpdate(lobby);
+      res.json(lobby);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to kick player" });
+    }
+  });
+
+  // ===== Admin: Report Management =====
+
+  app.patch("/api/admin/reports/:id", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const { status } = req.body;
+      if (!status || !['reviewed', 'resolved', 'dismissed'].includes(status)) {
+        return res.status(400).json({ error: "Valid status required: reviewed, resolved, dismissed" });
+      }
+
+      const reportId = parseInt(req.params.id);
+      const report = await storage.updateReportStatus(reportId, status);
+      if (!report) return res.status(404).json({ error: "Report not found" });
+      res.json(report);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update report" });
+    }
+  });
+
+  // ===== Admin: Push Broadcast =====
+
+  app.post("/api/admin/broadcast", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const { title, body, target } = req.body;
+      if (!title || !body) {
+        return res.status(400).json({ error: "Title and body required" });
+      }
+
+      let tokens: PushToken[] = [];
+
+      if (target === 'premium') {
+        const users = await storage.getAllUsers();
+        const premiumIds = users.filter(u => u.isPremium).map(u => u.id);
+        tokens = await storage.getPushTokensForUsers(premiumIds);
+      } else if (target === 'basic') {
+        const users = await storage.getAllUsers();
+        const basicIds = users.filter(u => !u.isPremium).map(u => u.id);
+        tokens = await storage.getPushTokensForUsers(basicIds);
+      } else {
+        // All users
+        tokens = await storage.getAllPushTokens();
+      }
+
+      if (tokens.length === 0) {
+        return res.json({ success: true, sent: 0, message: "No push tokens found" });
+      }
+
+      const payload: NotificationPayload = {
+        type: 'event_announcement',
+        title,
+        body,
+        data: { type: 'admin_broadcast' },
+      };
+
+      const result = await sendPushNotification(tokens, payload);
+      res.json({ ...result, tokenCount: tokens.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to send broadcast" });
+    }
+  });
+
+  // ===== Raid Boss Auto-Update Service =====
+
+  const raidScraper = new RaidScraperService(storage, {
+    intervalMs: 30 * 60 * 1000, // 30 minutes
+    enabled: process.env.RAID_SCRAPER_ENABLED !== 'false',
+    autoActivate: true,
+    autoDeactivate: true,
+    notifyAdmin: true,
+  });
+
+  // Start the scraper (non-blocking)
+  raidScraper.start();
+
+  // Admin: Get scraper status & last update
+  app.get("/api/admin/scraper/status", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      res.json({
+        config: raidScraper.getConfig(),
+        lastUpdate: raidScraper.getLastUpdate(),
+      });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to get scraper status" });
+    }
+  });
+
+  // Admin: Force a manual refresh of raid bosses
+  app.post("/api/admin/scraper/refresh", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const result = await raidScraper.forceRefresh();
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to refresh raid bosses" });
+    }
+  });
+
+  // Admin: Update scraper config
+  app.patch("/api/admin/scraper/config", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const { enabled, intervalMs, autoActivate, autoDeactivate } = req.body;
+      const updates: any = {};
+      if (typeof enabled === 'boolean') updates.enabled = enabled;
+      if (typeof intervalMs === 'number' && intervalMs >= 60000) updates.intervalMs = intervalMs;
+      if (typeof autoActivate === 'boolean') updates.autoActivate = autoActivate;
+      if (typeof autoDeactivate === 'boolean') updates.autoDeactivate = autoDeactivate;
+
+      raidScraper.updateConfig(updates);
+      res.json({ config: raidScraper.getConfig() });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update scraper config" });
+    }
+  });
+
+  // Admin: Manually activate/deactivate a raid boss
+  app.patch("/api/admin/boss/:bossId", async (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
+      const authHeader = req.headers.authorization;
+      const token = authHeader?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+
+      const { bossId } = req.params;
+      const { isActive, startTime, endTime } = req.body;
+
+      if (typeof isActive !== 'boolean') {
+        return res.status(400).json({ error: "isActive (boolean) required" });
+      }
+
+      const updated = await storage.setRaidBossActive(bossId, isActive, startTime, endTime);
+      if (!updated) {
+        return res.status(404).json({ error: "Boss not found" });
+      }
+
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update boss status" });
+    }
+  });
+
+  // ===== Trainer Screenshot OCR =====
+
+  /**
+   * Parse a trainer profile screenshot using OCR
+   * Extracts: trainer name, team, level, friend code
+   * Used during onboarding to auto-fill profile data
+   */
+  app.post("/api/trainer/scan", async (req, res) => {
+    try {
+      const { imageData } = req.body;
+
+      if (!imageData || typeof imageData !== 'string') {
+        return res.status(400).json({ error: "Base64 image data required" });
+      }
+
+      // Strip data URI prefix if present
+      const base64 = imageData.replace(/^data:image\/\w+;base64,/, '');
+
+      const result = await parseTrainerScreenshot(base64);
+      res.json(result);
+    } catch (error) {
+      console.error("Trainer scan error:", error);
+      res.status(500).json({ error: "Failed to scan trainer screenshot" });
     }
   });
 

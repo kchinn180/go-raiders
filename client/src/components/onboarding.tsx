@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
+import { TrainerScanner } from "@/components/trainer-scanner";
 import type { TeamId, User } from "@shared/schema";
 import logoImage from "@assets/IMG_0027_1768190905765.png";
 
@@ -157,6 +158,25 @@ export function Onboarding() {
             {error}
           </div>
         )}
+
+        {/* Trainer Profile Scanner */}
+        <TrainerScanner
+          onScanComplete={(scanned) => {
+            setFormData(prev => ({
+              ...prev,
+              ...(scanned.name ? { name: scanned.name } : {}),
+              ...(scanned.team ? { team: scanned.team } : {}),
+              ...(scanned.level ? { level: scanned.level } : {}),
+              ...(scanned.code ? { code: scanned.code } : {}),
+            }));
+          }}
+        />
+
+        <div className="relative flex items-center gap-3 my-2">
+          <div className="flex-1 h-px bg-zinc-700" />
+          <span className="text-[10px] text-zinc-500 uppercase tracking-widest">or fill in manually</span>
+          <div className="flex-1 h-px bg-zinc-700" />
+        </div>
 
         <div className="space-y-4">
           <div>

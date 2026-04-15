@@ -90,6 +90,40 @@ export interface IStorage {
   createReport(report: InsertReport): Promise<Report>;
   getAllReports(): Promise<Report[]>;
   getReportsByUser(userId: string): Promise<Report[]>;
+  updateReportStatus(reportId: number, status: string): Promise<Report | undefined>;
+
+  // Admin: User management
+  updateUser(userId: string, updates: Partial<User>): Promise<User | undefined>;
+  deleteUser(userId: string): Promise<boolean>;
+  grantPremium(userId: string): Promise<User | undefined>;
+  revokePremium(userId: string): Promise<User | undefined>;
+  resetUserCoins(userId: string, coins: number): Promise<User | undefined>;
+
+  // Admin: Lobby management
+  getAllLobbiesIncludingStarted(): Promise<Lobby[]>;
+  forceCloseLobby(lobbyId: string): Promise<boolean>;
+  kickPlayerFromLobby(lobbyId: string, playerId: string): Promise<Lobby | undefined>;
+
+  // Admin: Analytics
+  getAnalytics(): Promise<AppAnalytics>;
+
+  // Admin: Broadcast
+  getAllPushTokens(): Promise<PushToken[]>;
+}
+
+export interface AppAnalytics {
+  totalUsers: number;
+  premiumUsers: number;
+  activeLobbies: number;
+  startedRaids: number;
+  totalFeedback: number;
+  averageHostRating: number;
+  totalReports: number;
+  pendingReports: number;
+  totalBanned: number;
+  queuedUsers: number;
+  activeBosses: number;
+  serverUptime: number;
 }
 
 // Default active bosses (January 2026 Pokemon GO raid rotation)
@@ -1001,6 +1035,182 @@ export class MemStorage implements IStorage {
     return Array.from(this.reports.values())
       .filter(r => r.reportedUserId === userId)
       .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+  }
+
+  async updateReportStatus(reportId: number, status: string): Promise<Report | undefined> {
+    const report = this.reports.get(reportId);
+    if (!report) return undefined;
+    const updated: Report = { ...report, status: status as any };
+    this.reports.set(reportId, updated);
+    return updated;
+  }
+
+  // =============================================
+  // Admin: User management
+  // =============================================
+
+  async updateUser(userId: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    const updated: User = { ...user, ...updates, id: userId };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  async deleteUser(userId: string): Promise<boolean> {
+    const user = this.users.get(userId);
+    if (!user) return false;
+
+    // Remove from all lobbies
+    for (const [lobbyId, lobby] of this.lobbies.entries()) {
+      if (lobby.hostId === userId) {
+        this.lobbies.delete(lobbyId);
+      } else if (lobby.players.some(p => p.id === userId)) {
+        this.lobbies.set(lobbyId, {
+          ...lobby,
+          players: lobby.players.filter(p => p.id !== userId),
+        });
+      }
+    }
+
+    // Remove push tokens
+    for (const [token, pt] of this.pushTokens.entries()) {
+      if (pt.userId === userId) this.pushTokens.delete(token);
+    }
+
+    // Remove queue entries
+    for (const [key, entry] of this.queueEntries.entries()) {
+      if (entry.userId === userId) this.queueEntries.delete(key);
+    }
+
+    this.users.delete(userId);
+    return true;
+  }
+
+  async grantPremium(userId: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    const updated: User = {
+      ...user,
+      isPremium: true,
+      subscription: {
+        status: 'active',
+        startDate: Date.now(),
+        renewalDate: null,
+        canceledAt: null,
+        plan: 'elite_monthly',
+        price: 0,
+        storeType: 'none',
+        verificationStatus: 'verified',
+        lastVerifiedAt: Date.now(),
+      } as any,
+    };
+    this.users.set(userId, updated);
+    console.log(`[ADMIN] Granted premium to user ${userId} (${user.name})`);
+    return updated;
+  }
+
+  async revokePremium(userId: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    const updated: User = {
+      ...user,
+      isPremium: false,
+      subscription: {
+        status: 'none',
+        startDate: null,
+        renewalDate: null,
+        canceledAt: Date.now(),
+        plan: 'none',
+        price: 0,
+        storeType: 'none',
+        verificationStatus: 'none',
+      } as any,
+    };
+    this.users.set(userId, updated);
+    console.log(`[ADMIN] Revoked premium from user ${userId} (${user.name})`);
+    return updated;
+  }
+
+  async resetUserCoins(userId: string, coins: number): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    const updated: User = { ...user, coins };
+    this.users.set(userId, updated);
+    return updated;
+  }
+
+  // =============================================
+  // Admin: Lobby management
+  // =============================================
+
+  async getAllLobbiesIncludingStarted(): Promise<Lobby[]> {
+    return Array.from(this.lobbies.values())
+      .sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  async forceCloseLobby(lobbyId: string): Promise<boolean> {
+    const deleted = this.lobbies.delete(lobbyId);
+    if (deleted) {
+      console.log(`[ADMIN] Force-closed lobby ${lobbyId}`);
+    }
+    return deleted;
+  }
+
+  async kickPlayerFromLobby(lobbyId: string, playerId: string): Promise<Lobby | undefined> {
+    const lobby = this.lobbies.get(lobbyId);
+    if (!lobby) return undefined;
+
+    // Cannot kick the host
+    if (lobby.hostId === playerId) return undefined;
+
+    const updated: Lobby = {
+      ...lobby,
+      players: lobby.players.filter(p => p.id !== playerId),
+    };
+    this.lobbies.set(lobbyId, updated);
+    console.log(`[ADMIN] Kicked player ${playerId} from lobby ${lobbyId}`);
+    return updated;
+  }
+
+  // =============================================
+  // Admin: Analytics
+  // =============================================
+
+  async getAnalytics(): Promise<AppAnalytics> {
+    const allUsers = Array.from(this.users.values());
+    const allLobbies = Array.from(this.lobbies.values());
+    const allFeedback = Array.from(this.feedback.values());
+    const allReports = Array.from(this.reports.values());
+    const allQueues = Array.from(this.queueEntries.values());
+    const activeBosses = Array.from(this.raidBosses.values()).filter(b => b.isActive);
+
+    const avgRating = allFeedback.length > 0
+      ? allFeedback.reduce((sum, f) => sum + f.hostRating, 0) / allFeedback.length
+      : 0;
+
+    return {
+      totalUsers: allUsers.length,
+      premiumUsers: allUsers.filter(u => u.isPremium).length,
+      activeLobbies: allLobbies.filter(l => !l.raidStarted).length,
+      startedRaids: allLobbies.filter(l => l.raidStarted).length,
+      totalFeedback: allFeedback.length,
+      averageHostRating: Math.round(avgRating * 10) / 10,
+      totalReports: allReports.length,
+      pendingReports: allReports.filter(r => r.status === 'pending').length,
+      totalBanned: this.bannedUsers.size,
+      queuedUsers: allQueues.filter(q => q.status === 'waiting').length,
+      activeBosses: activeBosses.length,
+      serverUptime: process.uptime(),
+    };
+  }
+
+  // =============================================
+  // Admin: Push tokens
+  // =============================================
+
+  async getAllPushTokens(): Promise<PushToken[]> {
+    return Array.from(this.pushTokens.values());
   }
 }
 

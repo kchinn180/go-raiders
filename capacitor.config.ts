@@ -5,7 +5,9 @@ const config: CapacitorConfig = {
   appName: 'GO Raiders',
   webDir: 'dist/public',
   server: {
-    androidScheme: 'https'
+    androidScheme: 'https',
+    // Set this to your Railway URL for production mobile builds:
+    // url: 'https://your-app.railway.app',
   },
   plugins: {
     SplashScreen: {

@@ -8,10 +8,10 @@ export const securityMiddleware = helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "https://fonts.googleapis.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https://img.pokemondb.net", "blob:"],
-      connectSrc: ["'self'"],
+      connectSrc: ["'self'", "wss:", "ws:"],
       frameSrc: ["'none'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
@@ -34,12 +34,15 @@ export const securityMiddleware = helmet({
 export const corsMiddleware = cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
+      process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null,
+      process.env.APP_URL || null,
       process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null,
       process.env.REPLIT_DEPLOYMENT_DOMAIN ? `https://${process.env.REPLIT_DEPLOYMENT_DOMAIN}` : null,
       "https://goraiders.replit.app",
     ].filter(Boolean);
-    
-    if (!origin || allowedOrigins.includes(origin) || origin?.includes('.replit.dev') || origin?.includes('.replit.app')) {
+
+    // Allow same-origin requests (no origin header) and whitelisted origins
+    if (!origin || allowedOrigins.includes(origin) || origin?.includes('.replit.dev') || origin?.includes('.replit.app') || origin?.includes('.railway.app')) {
       callback(null, true);
     } else {
       callback(null, true);
