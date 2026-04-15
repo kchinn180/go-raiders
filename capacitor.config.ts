@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.goraiders.app',
+  appId: 'com.kyree.goraidcoordinator',
   appName: 'GO Raiders',
   webDir: 'dist/public',
   server: {
