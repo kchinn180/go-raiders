@@ -73,22 +73,22 @@ export const TEAMS = [
 export type TeamId = 'valor' | 'mystic' | 'instinct' | 'neutral';
 
 // All available raid bosses (master list - server controls which are active)
-// Updated to April 2026 Pokemon GO raid rotation
+// Updated to April 15, 2026 Pokemon GO raid rotation
 export const ALL_BOSSES = [
-  // 5-Star Legendary Raids (Current: April 2026)
-  { id: 'heatran', name: 'Heatran', tier: 5, cp: 49192, image: 'https://img.pokemondb.net/sprites/home/normal/heatran.png', isShadow: false, isDynamax: false, types: ['Fire', 'Steel'] as const },
-  // Mega Raids (Current: April 2026)
-  { id: 'mega-sableye', name: 'Mega Sableye', tier: 4, cp: 24383, image: 'https://img.pokemondb.net/sprites/home/normal/sableye-mega.png', isShadow: false, isDynamax: false, types: ['Dark', 'Ghost'] as const },
-  // Tier 3 Raids (Current: April 2026)
-  { id: 'turtonator', name: 'Turtonator', tier: 3, cp: 18541, image: 'https://img.pokemondb.net/sprites/home/normal/turtonator.png', isShadow: false, isDynamax: false, types: ['Fire', 'Dragon'] as const },
-  { id: 'marowak-alolan', name: 'Marowak (Alolan)', tier: 3, cp: 14829, image: 'https://img.pokemondb.net/sprites/home/normal/marowak-alolan.png', isShadow: false, isDynamax: false, types: ['Fire', 'Ghost'] as const },
-  { id: 'umbreon', name: 'Umbreon', tier: 3, cp: 19028, image: 'https://img.pokemondb.net/sprites/home/normal/umbreon.png', isShadow: false, isDynamax: false, types: ['Dark'] as const },
-  { id: 'flareon', name: 'Flareon', tier: 3, cp: 25654, image: 'https://img.pokemondb.net/sprites/home/normal/flareon.png', isShadow: false, isDynamax: false, types: ['Fire'] as const },
-  // Tier 1 Raids (Current: April 2026)
-  { id: 'deino', name: 'Deino', tier: 1, cp: 8606, image: 'https://img.pokemondb.net/sprites/home/normal/deino.png', isShadow: false, isDynamax: false, types: ['Dark', 'Dragon'] as const },
-  { id: 'sneasel', name: 'Sneasel', tier: 1, cp: 17226, image: 'https://img.pokemondb.net/sprites/home/normal/sneasel.png', isShadow: false, isDynamax: false, types: ['Dark', 'Ice'] as const },
-  { id: 'darumaka', name: 'Darumaka', tier: 1, cp: 11852, image: 'https://img.pokemondb.net/sprites/home/normal/darumaka.png', isShadow: false, isDynamax: false, types: ['Fire'] as const },
-  { id: 'scraggy', name: 'Scraggy', tier: 1, cp: 11235, image: 'https://img.pokemondb.net/sprites/home/normal/scraggy.png', isShadow: false, isDynamax: false, types: ['Dark', 'Fighting'] as const },
+  // 5-Star Legendary Raids (Current: April 15–21, 2026)
+  { id: 'groudon', name: 'Groudon', tier: 5, cp: 54411, image: 'https://img.pokemondb.net/sprites/home/normal/groudon.png', isShadow: false, isDynamax: false, types: ['Ground'] as const },
+  { id: 'shadow-latios', name: 'Shadow Latios', tier: 5, cp: 43338, image: 'https://img.pokemondb.net/sprites/home/normal/latios.png', isShadow: true, isDynamax: false, types: ['Dragon', 'Psychic'] as const },
+  // Mega Raids (Current: April 15–21, 2026)
+  { id: 'mega-alakazam', name: 'Mega Alakazam', tier: 4, cp: 38139, image: 'https://img.pokemondb.net/sprites/home/normal/alakazam-mega.png', isShadow: false, isDynamax: false, types: ['Psychic'] as const },
+  // Tier 3 Raids
+  { id: 'vileplume', name: 'Vileplume', tier: 3, cp: 19982, image: 'https://img.pokemondb.net/sprites/home/normal/vileplume.png', isShadow: false, isDynamax: false, types: ['Grass', 'Poison'] as const },
+  { id: 'dugtrio', name: 'Dugtrio', tier: 3, cp: 11093, image: 'https://img.pokemondb.net/sprites/home/normal/dugtrio.png', isShadow: false, isDynamax: false, types: ['Ground'] as const },
+  { id: 'torterra', name: 'Torterra', tier: 3, cp: 24002, image: 'https://img.pokemondb.net/sprites/home/normal/torterra.png', isShadow: false, isDynamax: false, types: ['Grass', 'Ground'] as const },
+  // Tier 1 Raids
+  { id: 'foongus', name: 'Foongus', tier: 1, cp: 6501, image: 'https://img.pokemondb.net/sprites/home/normal/foongus.png', isShadow: false, isDynamax: false, types: ['Grass', 'Poison'] as const },
+  { id: 'phantump', name: 'Phantump', tier: 1, cp: 7710, image: 'https://img.pokemondb.net/sprites/home/normal/phantump.png', isShadow: false, isDynamax: false, types: ['Ghost', 'Grass'] as const },
+  { id: 'sandygast', name: 'Sandygast', tier: 1, cp: 7988, image: 'https://img.pokemondb.net/sprites/home/normal/sandygast.png', isShadow: false, isDynamax: false, types: ['Ghost', 'Ground'] as const },
+  { id: 'gossifleur', name: 'Gossifleur', tier: 1, cp: 4501, image: 'https://img.pokemondb.net/sprites/home/normal/gossifleur.png', isShadow: false, isDynamax: false, types: ['Grass'] as const },
 ] as const;
 
 // RaidBoss with active status (server-controlled)

@@ -128,14 +128,14 @@ export interface AppAnalytics {
 
 // Default active bosses (January 2026 Pokemon GO raid rotation)
 const DEFAULT_ACTIVE_BOSS_IDS = [
-  // 5-Star Legendary (April 2026)
-  'heatran',
-  // Mega Raids (April 2026)
-  'mega-sableye',
-  // Tier 3 (April 2026)
-  'turtonator', 'marowak-alolan', 'umbreon', 'flareon',
-  // Tier 1 (April 2026)
-  'deino', 'sneasel', 'darumaka', 'scraggy',
+  // 5-Star Legendary (April 15–21, 2026)
+  'groudon', 'shadow-latios',
+  // Mega Raids (April 15–21, 2026)
+  'mega-alakazam',
+  // Tier 3
+  'vileplume', 'dugtrio', 'torterra',
+  // Tier 1
+  'foongus', 'phantump', 'sandygast', 'gossifleur',
 ];
 
 function generateMockLobbies(): Lobby[] {
