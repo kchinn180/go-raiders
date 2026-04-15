@@ -128,18 +128,14 @@ export interface AppAnalytics {
 
 // Default active bosses (January 2026 Pokemon GO raid rotation)
 const DEFAULT_ACTIVE_BOSS_IDS = [
-  // 5-Star Legendary
-  'genesect-burn', 'genesect-chill', 'thundurus-incarnate',
-  // Shadow Raids
-  'shadow-cresselia', 'shadow-scyther', 'shadow-aerodactyl',
-  // Mega Raids
-  'mega-blaziken', 'mega-sceptile',
-  // Tier 3
-  'onix', 'magmar', 'diggersby',
-  // Tier 1
-  'ponyta', 'krabby', 'sandygast', 'scorbunny',
-  // Max Battles
-  'drampa-max'
+  // 5-Star Legendary (April 2026)
+  'heatran',
+  // Mega Raids (April 2026)
+  'mega-sableye',
+  // Tier 3 (April 2026)
+  'turtonator', 'marowak-alolan', 'umbreon', 'flareon',
+  // Tier 1 (April 2026)
+  'deino', 'sneasel', 'darumaka', 'scraggy',
 ];
 
 function generateMockLobbies(): Lobby[] {
