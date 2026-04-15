@@ -6,8 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
-    // Set this to your Railway URL for production mobile builds:
-    // url: 'https://your-app.railway.app',
+    url: 'https://web-production-cce91.up.railway.app',
   },
   plugins: {
     SplashScreen: {
