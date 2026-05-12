@@ -45,7 +45,7 @@ export function ShopView({ onUpgrade }: ShopViewProps) {
   const { user } = useUser();
 
   return (
-    <div className="p-4 space-y-6 pb-28">
+    <div className="p-4 space-y-6 pb-nav">
       <div className="text-center relative">
         <div className="w-20 h-20 bg-gradient-to-br from-amber-400 to-orange-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl">
           <Crown className="w-10 h-10 text-white" />

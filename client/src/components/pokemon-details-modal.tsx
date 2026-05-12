@@ -14,18 +14,17 @@
  * enabling a nested modal experience for full exploration.
  */
 
-import { useState, useEffect, useCallback } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { X, Swords, Shield, Heart, Clock, ChevronRight, Loader2, AlertTriangle, Zap, Target, Info } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { X, Swords, Shield, Heart, Clock, Loader2, AlertTriangle, Zap, Target, Info, TrendingUp } from "lucide-react";
+import { getRaidBossDetailsClient, getCounterDetailsClient, calcCatchCPRange } from "@/lib/pokemon-client-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SafeImage } from "@/components/safe-image";
 import { cn } from "@/lib/utils";
-import type { 
-  PokemonDetails, 
-  CounterPokemon, 
-  RaidBossDetails, 
-  PokemonType 
+import type {
+  PokemonDetails,
+  CounterPokemon,
+  PokemonType
 } from "@shared/schema";
 
 /**
@@ -270,60 +269,37 @@ function StatsDisplay({ stats }: { stats: { attack: number; defense: number; sta
  * Fetches and displays comprehensive Pokémon data from the API.
  * Supports both raid bosses and counter Pokémon with nested modals.
  */
-export function PokemonDetailsModal({ 
-  pokemonId, 
+export function PokemonDetailsModal({
+  pokemonId,
   raidEndTime,
-  isOpen, 
+  isOpen,
   onClose,
   isCounter = false
 }: PokemonDetailsModalProps) {
   // State for nested counter details modal
   const [selectedCounterId, setSelectedCounterId] = useState<string | null>(null);
 
-  // Fetch raid boss details from API - only when we have a valid pokemonId
-  const { data: bossDetails, isLoading: bossLoading, isError: bossError, refetch: refetchBoss } = useQuery<RaidBossDetails>({
-    queryKey: ['/api/pokemon/details', pokemonId, raidEndTime ?? 'no-timer'],
-    queryFn: async () => {
-      const url = raidEndTime 
-        ? `/api/pokemon/${pokemonId}/details?raidEndTime=${raidEndTime}`
-        : `/api/pokemon/${pokemonId}/details`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch boss details');
-      return response.json();
-    },
-    enabled: isOpen && !isCounter && !!pokemonId && pokemonId.length > 0,
-  });
+  // All data is computed client-side — no network request needed
+  const bossDetails = useMemo(
+    () => (isOpen && !isCounter && pokemonId) ? getRaidBossDetailsClient(pokemonId, raidEndTime) : null,
+    [isOpen, isCounter, pokemonId, raidEndTime],
+  );
 
-  // Fetch counter pokemon details from API (for nested modals)
-  const { data: counterDetails, isLoading: counterLoading, isError: counterError, refetch: refetchCounter } = useQuery<PokemonDetails>({
-    queryKey: ['/api/pokemon/counter/details', pokemonId],
-    queryFn: async () => {
-      const response = await fetch(`/api/pokemon/counter/${pokemonId}/details`);
-      if (!response.ok) throw new Error('Failed to fetch counter details');
-      return response.json();
-    },
-    enabled: isOpen && isCounter && !!pokemonId && pokemonId.length > 0,
-  });
+  const counterDetails = useMemo(
+    () => (isOpen && isCounter && pokemonId) ? getCounterDetailsClient(pokemonId) : null,
+    [isOpen, isCounter, pokemonId],
+  );
 
-  // Use appropriate data based on whether this is a counter or raid boss
   const pokemon = isCounter ? counterDetails : bossDetails?.pokemon;
   const counters = bossDetails?.counters;
   const estimatedPlayers = bossDetails?.estimatedPlayers;
-  const isLoading = isCounter ? counterLoading : bossLoading;
-  const isError = isCounter ? counterError : bossError;
-  const refetch = isCounter ? refetchCounter : refetchBoss;
+  const isLoading = false;
+  const isError = isOpen && !!pokemonId && !pokemon;
 
-  /**
-   * Handles clicking on a counter to show its details
-   * Opens a nested modal with the counter's information
-   */
   const handleShowCounterDetails = useCallback((counterId: string) => {
     setSelectedCounterId(counterId);
   }, []);
 
-  /**
-   * Closes the counter details modal
-   */
   const handleCloseCounterDetails = useCallback(() => {
     setSelectedCounterId(null);
   }, []);
@@ -343,12 +319,17 @@ export function PokemonDetailsModal({
   return (
     <>
       {/* Main Modal - Full screen overlay that scrolls naturally */}
-      <div 
-        className="fixed inset-0 z-50 bg-background overflow-y-auto"
+      {/* z-[200] ensures it renders above the GO Raiders app header (z-10) */}
+      <div
+        className="fixed inset-0 z-[200] bg-background overflow-y-auto"
         data-testid="modal-pokemon-details"
       >
-        {/* Modal Header - Sticky at top */}
-        <div className="sticky top-0 z-10 bg-background border-b border-card-border">
+        {/* Modal Header - Sticky at top, with safe-area-inset-top so close button
+            clears the device notch/dynamic island AND the app header */}
+        <div
+          className="sticky top-0 z-10 bg-background border-b border-card-border"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
           <div className="flex items-center justify-between p-4">
             <h2 className="font-bold text-lg">
               {isCounter ? "Counter Details" : "Raid Boss Details"}
@@ -365,7 +346,7 @@ export function PokemonDetailsModal({
         </div>
 
         {/* Modal Body - Natural scrolling */}
-        <div className="p-4 pb-24 space-y-6">
+        <div className="p-4 pb-nav space-y-6">
             {/* Loading State */}
             {isLoading && (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
@@ -378,10 +359,8 @@ export function PokemonDetailsModal({
             {isError && (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <AlertTriangle className="w-8 h-8 text-destructive" />
-                <p className="text-destructive font-medium">Failed to load details</p>
-                <Button variant="outline" onClick={() => refetch()} data-testid="button-retry-details">
-                  Try Again
-                </Button>
+                <p className="text-destructive font-medium">No details available for this Pokémon</p>
+                <p className="text-xs text-muted-foreground text-center px-6">This boss may not be in the current rotation database.</p>
               </div>
             )}
 
@@ -419,6 +398,32 @@ export function PokemonDetailsModal({
                 {/* Raid Timer (if applicable) */}
                 {raidEndTime && (
                   <RaidCountdown endTime={raidEndTime} />
+                )}
+
+                {/* Catch CP Range (raid bosses only) */}
+                {pokemon.tier && pokemon.stats && (
+                  (() => {
+                    const ranges = calcCatchCPRange(pokemon.stats);
+                    return (
+                      <div className="space-y-2">
+                        <h4 className="text-xs font-bold text-muted-foreground uppercase flex items-center gap-1">
+                          <TrendingUp className="w-3 h-3" /> Catch CP Range
+                        </h4>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-card border border-card-border rounded-lg p-3">
+                            <p className="text-xs text-muted-foreground mb-1">Normal</p>
+                            <p className="font-bold text-sm">{ranges.normal.min.toLocaleString()} – {ranges.normal.max.toLocaleString()}</p>
+                            <p className="text-[10px] text-muted-foreground">Level 20</p>
+                          </div>
+                          <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                            <p className="text-xs text-blue-400 mb-1">☁️ Weather Boost</p>
+                            <p className="font-bold text-sm">{ranges.weatherBoosted.min.toLocaleString()} – {ranges.weatherBoosted.max.toLocaleString()}</p>
+                            <p className="text-[10px] text-muted-foreground">Level 25</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
                 )}
 
                 {/* Stats Section */}

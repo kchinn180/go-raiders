@@ -47,7 +47,7 @@ export function ProfileView({ onPremiumClick }: ProfileViewProps) {
   };
 
   return (
-    <div className="p-4 space-y-6 pb-28">
+    <div className="p-4 space-y-6 pb-nav">
       <div className={cn("p-6 rounded-3xl border-2 text-center", team.border, team.tint)}>
         <div className={cn("w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4", team.bg)}>
           <TeamIcon className="w-10 h-10 text-white" fill="currentColor" />

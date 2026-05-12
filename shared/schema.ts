@@ -73,22 +73,29 @@ export const TEAMS = [
 export type TeamId = 'valor' | 'mystic' | 'instinct' | 'neutral';
 
 // All available raid bosses (master list - server controls which are active)
-// Updated to April 15, 2026 Pokemon GO raid rotation
+// Cross-referenced with live sources — accurate as of May 2026
 export const ALL_BOSSES = [
-  // 5-Star Legendary Raids (Current: April 15–21, 2026)
-  { id: 'groudon', name: 'Groudon', tier: 5, cp: 54411, image: 'https://img.pokemondb.net/sprites/home/normal/groudon.png', isShadow: false, isDynamax: false, types: ['Ground'] as const },
-  { id: 'shadow-latios', name: 'Shadow Latios', tier: 5, cp: 43338, image: 'https://img.pokemondb.net/sprites/home/normal/latios.png', isShadow: true, isDynamax: false, types: ['Dragon', 'Psychic'] as const },
-  // Mega Raids (Current: April 15–21, 2026)
-  { id: 'mega-alakazam', name: 'Mega Alakazam', tier: 4, cp: 38139, image: 'https://img.pokemondb.net/sprites/home/normal/alakazam-mega.png', isShadow: false, isDynamax: false, types: ['Psychic'] as const },
-  // Tier 3 Raids
-  { id: 'vileplume', name: 'Vileplume', tier: 3, cp: 19982, image: 'https://img.pokemondb.net/sprites/home/normal/vileplume.png', isShadow: false, isDynamax: false, types: ['Grass', 'Poison'] as const },
-  { id: 'dugtrio', name: 'Dugtrio', tier: 3, cp: 11093, image: 'https://img.pokemondb.net/sprites/home/normal/dugtrio.png', isShadow: false, isDynamax: false, types: ['Ground'] as const },
-  { id: 'torterra', name: 'Torterra', tier: 3, cp: 24002, image: 'https://img.pokemondb.net/sprites/home/normal/torterra.png', isShadow: false, isDynamax: false, types: ['Grass', 'Ground'] as const },
-  // Tier 1 Raids
-  { id: 'foongus', name: 'Foongus', tier: 1, cp: 6501, image: 'https://img.pokemondb.net/sprites/home/normal/foongus.png', isShadow: false, isDynamax: false, types: ['Grass', 'Poison'] as const },
-  { id: 'phantump', name: 'Phantump', tier: 1, cp: 7710, image: 'https://img.pokemondb.net/sprites/home/normal/phantump.png', isShadow: false, isDynamax: false, types: ['Ghost', 'Grass'] as const },
-  { id: 'sandygast', name: 'Sandygast', tier: 1, cp: 7988, image: 'https://img.pokemondb.net/sprites/home/normal/sandygast.png', isShadow: false, isDynamax: false, types: ['Ghost', 'Ground'] as const },
-  { id: 'gossifleur', name: 'Gossifleur', tier: 1, cp: 4501, image: 'https://img.pokemondb.net/sprites/home/normal/gossifleur.png', isShadow: false, isDynamax: false, types: ['Grass'] as const },
+  // ── 5-Star Legendary Raids ──────────────────────────────────
+  { id: 'nihilego',        name: 'Nihilego',         tier: 5, cp: 48499, image: 'https://img.pokemondb.net/sprites/home/normal/nihilego.png',         isShadow: false, isDynamax: false, types: ['Poison', 'Rock'] as const },
+  { id: 'tapu-bulu',       name: 'Tapu Bulu',        tier: 5, cp: 46044, image: 'https://img.pokemondb.net/sprites/home/normal/tapu-bulu.png',         isShadow: false, isDynamax: false, types: ['Grass', 'Fairy'] as const },
+  { id: 'tapu-fini',       name: 'Tapu Fini',        tier: 5, cp: 40765, image: 'https://img.pokemondb.net/sprites/home/normal/tapu-fini.png',         isShadow: false, isDynamax: false, types: ['Water', 'Fairy'] as const },
+  // ── Shadow Raids ─────────────────────────────────────────────
+  { id: 'shadow-cresselia', name: 'Shadow Cresselia', tier: 5, cp: 33794, image: 'https://img.pokemondb.net/sprites/home/normal/cresselia.png',        isShadow: true,  isDynamax: false, types: ['Psychic'] as const },
+  // ── Mega Raids ───────────────────────────────────────────────
+  { id: 'mega-camerupt',   name: 'Mega Camerupt',    tier: 4, cp: 31532, image: 'https://img.pokemondb.net/sprites/home/normal/camerupt-mega.png',     isShadow: false, isDynamax: false, types: ['Fire', 'Ground'] as const },
+  { id: 'mega-glalie',     name: 'Mega Glalie',      tier: 4, cp: 27892, image: 'https://img.pokemondb.net/sprites/home/normal/glalie-mega.png',       isShadow: false, isDynamax: false, types: ['Ice'] as const },
+  { id: 'mega-altaria',    name: 'Mega Altaria',     tier: 4, cp: 35621, image: 'https://img.pokemondb.net/sprites/home/normal/altaria-mega.png',      isShadow: false, isDynamax: false, types: ['Dragon', 'Fairy'] as const },
+  { id: 'mega-medicham',   name: 'Mega Medicham',    tier: 4, cp: 28005, image: 'https://img.pokemondb.net/sprites/home/normal/medicham-mega.png',     isShadow: false, isDynamax: false, types: ['Fighting', 'Psychic'] as const },
+  // ── Tier 3 Raids ─────────────────────────────────────────────
+  { id: 'nidoqueen',       name: 'Nidoqueen',        tier: 3, cp: 22796, image: 'https://img.pokemondb.net/sprites/home/normal/nidoqueen.png',         isShadow: false, isDynamax: false, types: ['Poison', 'Ground'] as const },
+  { id: 'starmie',         name: 'Starmie',          tier: 3, cp: 20445, image: 'https://img.pokemondb.net/sprites/home/normal/starmie.png',           isShadow: false, isDynamax: false, types: ['Water', 'Psychic'] as const },
+  { id: 'druddigon',       name: 'Druddigon',        tier: 3, cp: 20508, image: 'https://img.pokemondb.net/sprites/home/normal/druddigon.png',         isShadow: false, isDynamax: false, types: ['Dragon'] as const },
+  // ── Tier 1 Raids ─────────────────────────────────────────────
+  { id: 'hisuian-voltorb', name: 'H. Voltorb',       tier: 1, cp: 7459,  image: 'https://img.pokemondb.net/sprites/home/normal/voltorb-hisuian.png',   isShadow: false, isDynamax: false, types: ['Electric', 'Grass'] as const },
+  { id: 'bagon',           name: 'Bagon',            tier: 1, cp: 6099,  image: 'https://img.pokemondb.net/sprites/home/normal/bagon.png',             isShadow: false, isDynamax: false, types: ['Dragon'] as const },
+  { id: 'shieldon',        name: 'Shieldon',         tier: 1, cp: 4813,  image: 'https://img.pokemondb.net/sprites/home/normal/shieldon.png',          isShadow: false, isDynamax: false, types: ['Rock', 'Steel'] as const },
+  { id: 'espurr',          name: 'Espurr',           tier: 1, cp: 8608,  image: 'https://img.pokemondb.net/sprites/home/normal/espurr.png',            isShadow: false, isDynamax: false, types: ['Psychic'] as const },
+  { id: 'shadow-larvitar', name: 'S. Larvitar',      tier: 1, cp: 5765,  image: 'https://img.pokemondb.net/sprites/home/normal/larvitar.png',          isShadow: true,  isDynamax: false, types: ['Rock', 'Ground'] as const },
 ] as const;
 
 // RaidBoss with active status (server-controlled)
@@ -218,7 +225,10 @@ export const lobbySchema = z.object({
   createdAt: z.number(),
   timeLeft: z.number(),
   raidStarted: z.boolean().default(false),
-  invitesSent: z.boolean().default(false)
+  invitesSent: z.boolean().default(false),
+  groupId: z.string().optional(),       // private group this lobby belongs to
+  raidTrainId: z.string().optional(),   // raid train chain identifier
+  trainIndex: z.number().optional(),    // position within the train (1, 2, 3…)
 });
 
 export const insertUserSchema = userSchema.omit({ id: true });
@@ -403,10 +413,67 @@ export const notificationTypeSchema = z.enum([
   'friend_request',
   'lobby_joined',
   'all_ready',
-  'event_announcement'
+  'event_announcement',
+  'queue_promotion',
+  'queue_almost_up',
 ]);
 
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
+
+// ============================================================================
+// ADVERTISEMENT MODEL
+// ============================================================================
+
+/**
+ * Where an ad can appear in the app.
+ * - banner       : sticky bottom banner in the Join Feed (AdMob banner unit)
+ * - native_card  : card-style ad injected every N lobbies in the Join Feed
+ * - rewarded     : user watches a full video to earn a queue-skip reward
+ * - interstitial : full-screen ad shown between major navigation events
+ */
+export type AdPlacement = 'banner' | 'native_card' | 'rewarded' | 'interstitial';
+
+/**
+ * Single impression record — logged server-side for revenue reporting.
+ * estimatedRevenueMicros: CPM × 1 impression, in micro-USD (÷1_000_000 = USD).
+ */
+export interface AdImpression {
+  id: string;
+  userId: string;
+  placement: AdPlacement;
+  adUnitId: string;
+  /** True when the user actually saw the ad (viewable impression) */
+  viewable: boolean;
+  /** Estimated revenue in micro-USD from AdMob's paid impression callback */
+  estimatedRevenueMicros: number;
+  createdAt: number;
+}
+
+/**
+ * Per-placement config stored server-side so the admin can toggle placements
+ * and adjust frequency without an app update.
+ */
+export interface AdConfig {
+  placement: AdPlacement;
+  enabled: boolean;
+  /** For native_card: inject every N lobbies (default 5) */
+  frequency?: number;
+  /** For rewarded: how many queue positions to skip on completion */
+  rewardQueueSkip?: number;
+}
+
+export interface AdStats {
+  totalImpressions: number;
+  totalClicks: number;
+  estimatedRevenueUsd: number;
+  byPlacement: Record<AdPlacement, {
+    impressions: number;
+    clicks: number;
+    estimatedRevenueUsd: number;
+  }>;
+  /** Last 7 days, newest first */
+  dailyRevenue: Array<{ date: string; estimatedRevenueUsd: number; impressions: number }>;
+}
 
 // ============================================================================
 // POKÉMON TYPE SYSTEM AND DETAILED DATA
@@ -566,3 +633,97 @@ export const raidBossDetailsSchema = z.object({
   counters: z.array(counterPokemonSchema),
   estimatedPlayers: z.number()
 });
+
+// ============================================================================
+// CATCH & IV TRACKER  (premium feature)
+// ============================================================================
+
+/**
+ * A single catch attempt logged after a raid ends.
+ * cp is the catch CP (used to estimate IVs — exact IVs require the game's appraisal).
+ * isShiny tracks shiny encounters even if the player didn't catch.
+ */
+export interface CatchRecord {
+  id: string;
+  userId: string;
+  bossId: string;
+  bossName: string;
+  lobbyId: string;
+  caught: boolean;
+  cp?: number;          // CP of the caught Pokémon (blank if not caught)
+  isShiny: boolean;
+  createdAt: number;
+}
+
+export interface CatchStats {
+  totalRaids: number;
+  totalCaught: number;
+  totalShiny: number;
+  catchRate: number;        // 0-1
+  shinyRate: number;        // 0-1
+  byBoss: Record<string, {
+    raids: number;
+    caught: number;
+    shiny: number;
+    bestCp: number;
+  }>;
+  recentCatches: CatchRecord[];
+}
+
+// ============================================================================
+// PRIVATE GROUPS
+// ============================================================================
+
+/**
+ * A private group that members can join via a short join code.
+ * Lobbies marked with a groupId are only visible to group members.
+ */
+export interface RaidGroup {
+  id: string;
+  name: string;
+  joinCode: string;       // 6-char uppercase alphanumeric
+  ownerId: string;
+  ownerName: string;
+  memberIds: string[];
+  createdAt: number;
+  maxMembers: number;     // default 50
+}
+
+export interface RaidGroupMembership {
+  group: RaidGroup;
+  memberCount: number;
+  isOwner: boolean;
+}
+
+// ============================================================================
+// WEATHER (for weather-boosted filter)
+// ============================================================================
+
+/**
+ * The 7 in-game weather conditions in Pokémon GO.
+ * Maps to the OpenWeatherMap condition codes on the client.
+ */
+export type PgoWeather =
+  | 'sunny'
+  | 'rainy'
+  | 'partly_cloudy'
+  | 'cloudy'
+  | 'windy'
+  | 'snow'
+  | 'fog'
+  | 'unknown';
+
+/**
+ * Which Pokémon types are boosted by each weather condition.
+ * A lobby boss with a matching type gets a ⚡ badge in the feed.
+ */
+export const WEATHER_BOOSTS: Record<PgoWeather, string[]> = {
+  sunny:         ['Fire', 'Grass', 'Ground'],
+  rainy:         ['Water', 'Electric', 'Bug'],
+  partly_cloudy: ['Normal', 'Rock'],
+  cloudy:        ['Fairy', 'Fighting', 'Poison'],
+  windy:         ['Dragon', 'Flying', 'Psychic'],
+  snow:          ['Ice', 'Steel'],
+  fog:           ['Dark', 'Ghost'],
+  unknown:       [],
+};

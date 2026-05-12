@@ -218,8 +218,40 @@
     display: none;
   }
 
+  /* ---- Safe area utilities ---- */
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /*
+   * Full-screen container that fills the actual visible viewport
+   * on every iPhone — including Dynamic Island and home indicator.
+   * Use instead of h-screen / 100vh.
+   */
+  .h-dvh {
+    height: 100dvh;
+  }
+
+  /*
+   * Bottom scroll padding so content is never hidden behind the
+   * bottom nav + home indicator.  Nav ~64px + safe-area (up to 34px on
+   * 15 Pro Max) + a little breathing room = 112px safe default.
+   */
+  .pb-nav {
+    padding-bottom: max(7rem, calc(4.5rem + env(safe-area-inset-bottom)));
+  }
+
+  /*
+   * For pages with a sticky header that sit in a full-screen
+   * container — the header already pads for safe-area-top, so
+   * the scrollable body just needs the bottom guard.
+   */
+  .scroll-safe {
+    padding-bottom: max(7rem, calc(4.5rem + env(safe-area-inset-bottom)));
   }
 
   /* .no-default-hover-elevate/no-default-active-elevate is an escape hatch so consumers of

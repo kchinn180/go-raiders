@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { SwipeBackWrapper } from "@/components/swipe-back-wrapper";
 
 interface TermsPageProps {
   onBack: () => void;
@@ -7,13 +7,16 @@ interface TermsPageProps {
 
 export function TermsPage({ onBack }: TermsPageProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-card border-b border-card-border p-4 flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back">
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
+    <SwipeBackWrapper onBack={onBack}>
+    <div className="h-dvh flex flex-col bg-background overflow-hidden">
+      {/* Title bar — no back button here, safe area handled by padding */}
+      <header
+        className="sticky top-0 z-10 bg-card border-b border-card-border flex items-center justify-center px-4 pb-3 shrink-0"
+        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
+      >
         <h1 className="text-lg font-bold">Terms of Service</h1>
       </header>
+      <div className="flex-1 overflow-y-auto pb-24">
 
       <div className="p-6 space-y-6 max-w-2xl mx-auto">
         <p className="text-sm text-muted-foreground">Last updated: January 2025</p>
@@ -113,6 +116,23 @@ export function TermsPage({ onBack }: TermsPageProps) {
           </p>
         </section>
       </div>
+      </div>
+
+      {/* Floating back button — anchored above home indicator, always reachable */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 flex justify-start px-5"
+        style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+      >
+        <button
+          onClick={onBack}
+          data-testid="button-back"
+          className="flex items-center gap-2 bg-card border border-card-border px-5 py-3 rounded-full font-bold text-sm shadow-xl active:scale-95 transition-transform"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+      </div>
     </div>
+    </SwipeBackWrapper>
   );
 }

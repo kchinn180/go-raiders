@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { BOSSES } from "@shared/schema";
 import type { Boss, RaidBoss, QueueStatus } from "@shared/schema";
 import { triggerImpact } from "@/lib/haptics";
+import { getApiUrl } from "@/lib/queryClient";
 
 interface AutoJoinModalProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export function AutoJoinModal({
 
   const joinQueueMutation = useMutation({
     mutationFn: async (bossId: string) => {
-      const response = await fetch('/api/queue/join', {
+      const response = await fetch(getApiUrl('/api/queue/join'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

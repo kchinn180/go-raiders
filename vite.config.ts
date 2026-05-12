@@ -30,6 +30,11 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      // Capacitor community plugins are native-only and not installed as npm
+      // packages in the web build — tell Rollup to leave them alone.
+      external: ["@capacitor-community/admob"],
+    },
   },
   server: {
     fs: {

@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
-import { TrainerScanner } from "@/components/trainer-scanner";
 import type { TeamId, User } from "@shared/schema";
 import logoImage from "@assets/IMG_0027_1768190905765.png";
 
@@ -59,8 +58,99 @@ export function Onboarding() {
 
   if (step === "landing") {
     return (
-      <div className="h-full flex flex-col items-center justify-center p-8 bg-black text-center relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-orange-900/40 via-black to-black" />
+      <div
+        className="h-dvh flex flex-col items-center justify-center p-8 bg-black text-center relative overflow-hidden"
+        style={{ paddingTop: 'max(2rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+      >
+        {/* Animated ember/particle background */}
+        <style>{`
+          @keyframes ember-rise {
+            0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; }
+            10% { opacity: 1; }
+            80% { opacity: 0.6; }
+            100% { transform: translateY(-110vh) translateX(var(--drift)) scale(0.3); opacity: 0; }
+          }
+          @keyframes pulse-glow {
+            0%, 100% { opacity: 0.15; transform: scale(1); }
+            50% { opacity: 0.35; transform: scale(1.08); }
+          }
+          @keyframes rotate-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+          .ember {
+            position: absolute;
+            border-radius: 50%;
+            animation: ember-rise linear infinite;
+            pointer-events: none;
+          }
+        `}</style>
+
+        {/* Deep radial gradient base */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_80%,_#7c1d0a_0%,_#3b0000_35%,_#000_75%)]" />
+
+        {/* Pulsing mid glow */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            width: '120vw', height: '60vw',
+            bottom: '-10vw', left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'radial-gradient(ellipse, rgba(234,88,12,0.25) 0%, transparent 70%)',
+            animation: 'pulse-glow 4s ease-in-out infinite',
+          }}
+        />
+
+        {/* Secondary glow ring */}
+        <div
+          className="absolute rounded-full"
+          style={{
+            width: '80vw', height: '80vw',
+            bottom: '-25vw', left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'radial-gradient(ellipse, rgba(185,28,28,0.2) 0%, transparent 65%)',
+            animation: 'pulse-glow 6s ease-in-out infinite 1s',
+          }}
+        />
+
+        {/* Ember particles */}
+        {[
+          { left: '8%',  size: 4,  dur: '5.2s', delay: '0s',    drift: '20px',  color: '#f97316' },
+          { left: '18%', size: 3,  dur: '7.1s', delay: '1.2s',  drift: '-15px', color: '#fb923c' },
+          { left: '28%', size: 5,  dur: '6.4s', delay: '0.4s',  drift: '30px',  color: '#ef4444' },
+          { left: '38%', size: 2,  dur: '8.3s', delay: '2.0s',  drift: '-25px', color: '#fbbf24' },
+          { left: '48%', size: 4,  dur: '5.8s', delay: '0.8s',  drift: '10px',  color: '#f97316' },
+          { left: '58%', size: 3,  dur: '7.6s', delay: '1.7s',  drift: '-20px', color: '#fb923c' },
+          { left: '68%', size: 5,  dur: '6.0s', delay: '0.2s',  drift: '18px',  color: '#ef4444' },
+          { left: '78%', size: 2,  dur: '9.1s', delay: '2.5s',  drift: '-12px', color: '#fbbf24' },
+          { left: '88%', size: 4,  dur: '5.5s', delay: '1.0s',  drift: '22px',  color: '#f97316' },
+          { left: '13%', size: 3,  dur: '8.8s', delay: '3.1s',  drift: '-30px', color: '#fb923c' },
+          { left: '33%', size: 2,  dur: '6.7s', delay: '1.5s',  drift: '15px',  color: '#ef4444' },
+          { left: '53%', size: 4,  dur: '7.3s', delay: '0.6s',  drift: '-18px', color: '#fbbf24' },
+          { left: '73%', size: 3,  dur: '5.9s', delay: '2.2s',  drift: '25px',  color: '#f97316' },
+          { left: '93%', size: 5,  dur: '8.0s', delay: '1.8s',  drift: '-22px', color: '#fb923c' },
+          { left: '23%', size: 2,  dur: '6.2s', delay: '3.5s',  drift: '12px',  color: '#ef4444' },
+          { left: '43%', size: 3,  dur: '7.9s', delay: '0.9s',  drift: '-28px', color: '#fbbf24' },
+          { left: '63%', size: 4,  dur: '5.4s', delay: '2.8s',  drift: '20px',  color: '#f97316' },
+          { left: '83%', size: 2,  dur: '8.5s', delay: '1.3s',  drift: '-16px', color: '#fb923c' },
+        ].map((e, i) => (
+          <div
+            key={i}
+            className="ember"
+            style={{
+              left: e.left,
+              bottom: '-10px',
+              width: e.size,
+              height: e.size,
+              background: `radial-gradient(circle, ${e.color} 0%, transparent 70%)`,
+              boxShadow: `0 0 ${e.size * 3}px ${e.color}`,
+              animationDuration: e.dur,
+              animationDelay: e.delay,
+              '--drift': e.drift,
+            } as React.CSSProperties}
+          />
+        ))}
+
         <div className="relative z-10 space-y-8 max-w-sm">
           <div className="w-32 h-32 rounded-[2rem] flex items-center justify-center mx-auto shadow-2xl overflow-hidden mb-8 ring-4 ring-orange-600/50">
             <img src={logoImage} alt="GO Raiders Logo" className="w-full h-full object-cover" />
@@ -93,7 +183,10 @@ export function Onboarding() {
 
   if (step === "terms") {
     return (
-      <div className="h-full flex items-center justify-center p-6 bg-black">
+      <div
+        className="h-dvh flex items-center justify-center p-6 bg-black"
+        style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+      >
         <div className="bg-zinc-900 w-full max-w-sm rounded-3xl p-6 border border-zinc-800 max-h-[80vh] flex flex-col">
           <h2 className="text-xl font-black text-white mb-4">Terms of Service</h2>
           <div className="flex-1 overflow-y-auto text-left space-y-4 text-xs text-zinc-400 mb-6 pr-2">
@@ -143,7 +236,11 @@ export function Onboarding() {
   }
 
   return (
-    <div className="h-full flex items-center justify-center p-6 bg-gradient-to-b from-zinc-900 via-black to-black">
+    <div className="h-dvh overflow-y-auto bg-gradient-to-b from-zinc-900 via-black to-black">
+      <div
+        className="min-h-full flex items-center justify-center px-6 py-8"
+        style={{ paddingTop: 'max(2rem, env(safe-area-inset-top))', paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
+      >
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center mb-8">
           <div className="w-20 h-20 rounded-2xl mx-auto mb-4 overflow-hidden ring-2 ring-orange-600/50">
@@ -158,25 +255,6 @@ export function Onboarding() {
             {error}
           </div>
         )}
-
-        {/* Trainer Profile Scanner */}
-        <TrainerScanner
-          onScanComplete={(scanned) => {
-            setFormData(prev => ({
-              ...prev,
-              ...(scanned.name ? { name: scanned.name } : {}),
-              ...(scanned.team ? { team: scanned.team } : {}),
-              ...(scanned.level ? { level: scanned.level } : {}),
-              ...(scanned.code ? { code: scanned.code } : {}),
-            }));
-          }}
-        />
-
-        <div className="relative flex items-center gap-3 my-2">
-          <div className="flex-1 h-px bg-zinc-700" />
-          <span className="text-[10px] text-zinc-500 uppercase tracking-widest">or fill in manually</span>
-          <div className="flex-1 h-px bg-zinc-700" />
-        </div>
 
         <div className="space-y-4">
           <div>
@@ -275,6 +353,7 @@ export function Onboarding() {
           Complete Setup
           <ChevronRight className="ml-1 w-5 h-5" />
         </Button>
+      </div>
       </div>
     </div>
   );

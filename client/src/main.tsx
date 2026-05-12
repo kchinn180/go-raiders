@@ -6,6 +6,13 @@ import App from "./App";
 import "./index.css";
 import "./i18n";
 
+// Global unhandled promise rejection guard — prevents silent failures
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('[UnhandledPromiseRejection]', event.reason);
+  // Don't re-throw — let the ErrorBoundary handle render errors
+  event.preventDefault();
+});
+
 async function initializeApp() {
   if (Capacitor.isNativePlatform()) {
     try {

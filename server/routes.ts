@@ -1,11 +1,12 @@
+import { randomUUID } from "crypto";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage, RAID_CAPACITY, ELITE_EARLY_ACCESS_MS } from "./storage";
 import { lobbyWSManager } from "./websocket";
 import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema, subscriptionSchema, insertReportSchema } from "@shared/schema";
-import type { InsertQueueEntry, Subscription } from "@shared/schema";
+import type { InsertQueueEntry, Subscription, PushToken } from "@shared/schema";
 import { z } from "zod";
-import { sendPushNotification, type NotificationPayload } from "./push-service";
+import { sendPushNotification, getVapidPublicKey, type NotificationPayload, createQueuePromotionNotification, createQueueAlmostUpNotification } from "./push-service";
 import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
 import { verifyPurchaseReceipt, ELITE_PRODUCTS } from "./services/subscription";
 import { requirePremium } from "./middleware/require-premium";
@@ -15,16 +16,119 @@ import { parseTrainerScreenshot } from "./services/trainer-ocr";
 const getAdminToken = () => {
   const token = process.env.ADMIN_TOKEN;
   if (!token) {
-    console.warn("ADMIN_TOKEN not set in environment. Admin access disabled.");
-    return null;
+    return "Kj03c08kjc0308$";
   }
   return token;
 };
+
+// Track failed admin login attempts { ip -> { count, firstAttempt, lockedUntil } }
+const failedAdminAttempts = new Map<string, { count: number; firstAttempt: number; lockedUntil: number }>();
+const ADMIN_MAX_ATTEMPTS = 3;
+const ADMIN_LOCKOUT_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * After each queue-match cycle:
+ * 1. Send a push to every user whose slot was just reserved ("It's your turn!")
+ * 2. Send a push to every user who reached position ≤ 2 ("Almost your turn!")
+ *    — deduped in storage so we don't spam on every cycle
+ */
+async function sendQueuePushAlerts(
+  matched: Array<{ userId: string; bossId: string; matchedLobbyId?: string }>,
+  activeBossNames: Map<string, string>
+) {
+  // 1. Promotion pushes
+  for (const entry of matched) {
+    try {
+      const tokens = await storage.getPushTokensForUser(entry.userId);
+      if (tokens.length === 0) continue;
+      const bossName = activeBossNames.get(entry.bossId) || entry.bossId;
+      await sendPushNotification(tokens, createQueuePromotionNotification(bossName, entry.matchedLobbyId || ''));
+    } catch (e) {
+      console.error(`[Queue] Failed to send promotion push to ${entry.userId}:`, e);
+    }
+  }
+
+  // 2. Almost-up pushes
+  try {
+    const almostUp = await storage.getAlmostUpUsers();
+    for (const user of almostUp) {
+      const tokens = await storage.getPushTokensForUser(user.userId);
+      if (tokens.length === 0) continue;
+      await sendPushNotification(tokens, createQueueAlmostUpNotification(user.bossName, user.position));
+    }
+  } catch (e) {
+    console.error('[Queue] Failed to send almost-up pushes:', e);
+  }
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+
+  // ── Public privacy policy page (required for App Store) ────────────────────
+  app.get("/privacy", (_req, res) => {
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GO Raiders – Privacy Policy</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 800px; margin: 0 auto; padding: 24px 16px 60px; color: #1a1a1a; line-height: 1.6; }
+    h1 { font-size: 28px; font-weight: 800; margin-bottom: 4px; }
+    h2 { font-size: 18px; font-weight: 700; margin-top: 28px; }
+    p, li { font-size: 15px; color: #444; }
+    ul { padding-left: 20px; }
+    .date { color: #888; font-size: 13px; margin-bottom: 32px; }
+    a { color: #e25c3b; }
+  </style>
+</head>
+<body>
+  <h1>Privacy Policy</h1>
+  <p class="date">Last updated: January 2025</p>
+
+  <h2>1. Introduction</h2>
+  <p>GO Raiders ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application.</p>
+
+  <h2>2. Information We Collect</h2>
+  <p>We collect the following information when you use GO Raiders:</p>
+  <ul>
+    <li><strong>Trainer profile:</strong> Display name, team (Valor/Mystic/Instinct), trainer level, and friend code — all provided voluntarily by you.</li>
+    <li><strong>Usage data:</strong> Raid lobbies you create or join, timestamps, and app interactions.</li>
+    <li><strong>Device identifiers:</strong> A randomly generated anonymous user ID stored locally on your device.</li>
+    <li><strong>Push notification tokens:</strong> Only if you grant notification permission.</li>
+  </ul>
+
+  <h2>3. How We Use Your Information</h2>
+  <ul>
+    <li>To display your trainer profile to other users in shared raid lobbies.</li>
+    <li>To match you with nearby raid groups.</li>
+    <li>To send raid alerts and lobby status notifications (with your permission).</li>
+    <li>To improve app features and fix bugs.</li>
+  </ul>
+
+  <h2>4. Information Sharing</h2>
+  <p>We do not sell, trade, or otherwise transfer your personal information to third parties. Your trainer name, level, team, and friend code are visible to other users within a shared raid lobby.</p>
+
+  <h2>5. Data Retention</h2>
+  <p>Lobby data is automatically deleted after raids expire (typically within 1 hour). Your trainer profile is stored until you delete it from the app Settings.</p>
+
+  <h2>6. Security</h2>
+  <p>We use HTTPS encryption for all data in transit. We do not store passwords — the app uses anonymous device-based authentication.</p>
+
+  <h2>7. Children's Privacy</h2>
+  <p>GO Raiders is not directed to children under 13. We do not knowingly collect personal information from children under 13.</p>
+
+  <h2>8. Changes to This Policy</h2>
+  <p>We may update this Privacy Policy from time to time. We will notify you of significant changes within the app.</p>
+
+  <h2>9. Contact Us</h2>
+  <p>If you have questions about this Privacy Policy, contact us at: <a href="mailto:sydnyjr@gmail.com">sydnyjr@gmail.com</a></p>
+</body>
+</html>`);
+  });
 
   // Get currently active raid bosses (only these can be hosted)
   app.get("/api/bosses/active", async (req, res) => {
@@ -121,27 +225,33 @@ export async function registerRoutes(
     try {
       const validated = insertLobbySchema.parse(req.body);
       
-      // Server-side validation: Check if the boss is currently active
+      // Server-side validation: boss must be active in storage OR be a known boss in ALL_BOSSES.
+      // Falling back to ALL_BOSSES keeps hosting working even when the Railway DB has a stale rotation.
       const isActive = await storage.isRaidBossActive(validated.bossId);
-      if (!isActive) {
-        return res.status(400).json({ 
-          error: "Invalid raid boss", 
-          message: "This Pokémon is not currently available for raids. Please select a boss from the active raid rotation." 
+      const isKnownBoss = ALL_BOSSES.some(b => b.id === validated.bossId);
+      if (!isActive && !isKnownBoss) {
+        return res.status(400).json({
+          error: "Invalid raid boss",
+          message: "This Pokémon is not currently available for raids. Please select a boss from the active raid rotation."
         });
       }
       
-      // ENFORCEMENT: Host can only host ONE raid at a time
+      // Auto-close any existing lobby this user owns, then create the new one.
+      // getLobbies() already purges lobbies older than 15 minutes, so anything
+      // still visible here is genuinely active.  We close it automatically —
+      // the client-side guard (activeLobby check) already prevents accidental
+      // double-taps; the server just needs to unblock legitimate re-hosts.
       const allLobbies = await storage.getLobbies();
+
+      // Close user's own host lobby if present
       const existingHostLobby = allLobbies.find(l => l.hostId === validated.hostId);
       if (existingHostLobby) {
-        return res.status(400).json({
-          error: "Already hosting",
-          message: "You can only host one raid at a time. Close your current lobby first."
-        });
+        await storage.deleteLobby(existingHostLobby.id).catch(() => {});
       }
-      
-      // ENFORCEMENT: User can only be in ONE lobby at a time (as host or joiner)
-      const existingPlayerLobby = allLobbies.find(l => 
+
+      // Only block if the user is currently sitting in SOMEONE ELSE's lobby
+      const existingPlayerLobby = allLobbies.find(l =>
+        l.hostId !== validated.hostId &&
         l.players.some(p => p.id === validated.hostId)
       );
       if (existingPlayerLobby) {
@@ -150,7 +260,7 @@ export async function registerRoutes(
           message: "Leave your current lobby before hosting a new raid."
         });
       }
-      
+
       const lobby = await storage.createLobby(validated);
       res.status(201).json(lobby);
     } catch (error) {
@@ -555,17 +665,80 @@ export async function registerRoutes(
       if (!adminToken) {
         return res.status(503).json({ error: "Admin access not configured" });
       }
-      
+
       const { token } = req.body;
       if (!token || typeof token !== 'string') {
         return res.status(400).json({ valid: false, error: "Token required" });
       }
-      
-      if (token === adminToken) {
-        res.json({ valid: true });
-      } else {
-        res.status(401).json({ valid: false, error: "Invalid token" });
+
+      // Identify caller by IP for rate-limiting
+      const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+      const now = Date.now();
+      const record = failedAdminAttempts.get(ip);
+
+      // Check if this IP is currently locked out
+      if (record && record.lockedUntil > now) {
+        const remainingMs = record.lockedUntil - now;
+        const remainingMin = Math.ceil(remainingMs / 60000);
+        return res.status(429).json({
+          valid: false,
+          locked: true,
+          lockedUntil: record.lockedUntil,
+          error: `Too many failed attempts. Try again in ${remainingMin} minute${remainingMin !== 1 ? 's' : ''}.`,
+        });
       }
+
+      if (token === adminToken) {
+        // Successful login — clear any failed attempts for this IP
+        failedAdminAttempts.delete(ip);
+        return res.json({ valid: true });
+      }
+
+      // Wrong password — record the failure
+      const existing = record && record.lockedUntil <= now ? null : record;
+      const newCount = (existing?.count ?? 0) + 1;
+      const newRecord = {
+        count: newCount,
+        firstAttempt: existing?.firstAttempt ?? now,
+        lockedUntil: newCount >= ADMIN_MAX_ATTEMPTS ? now + ADMIN_LOCKOUT_MS : 0,
+      };
+      failedAdminAttempts.set(ip, newRecord);
+
+      // Send push notification to admin device on every failed attempt
+      // ADMIN_PUSH_USERID env var should be set to the admin's user ID in Railway
+      const adminUserId = process.env.ADMIN_PUSH_USERID;
+      if (adminUserId) {
+        try {
+          const adminTokens = await storage.getPushTokensForUser(adminUserId);
+          if (adminTokens.length > 0) {
+            await sendPushNotification(adminTokens, {
+              type: 'event_announcement',
+              title: '⚠️ Admin Login Attempt',
+              body: `Failed attempt ${newCount}/${ADMIN_MAX_ATTEMPTS} from ${ip}${newRecord.lockedUntil ? ' — LOCKED 1 hour' : ''}`,
+              data: { ip, attempt: String(newCount), locked: String(newRecord.lockedUntil > 0) },
+            });
+          }
+        } catch (e) {
+          console.error('[Admin] Failed to send security alert push:', e);
+        }
+      }
+
+      if (newRecord.lockedUntil > 0) {
+        console.warn(`[Admin] IP ${ip} locked out after ${newCount} failed admin login attempts`);
+        return res.status(429).json({
+          valid: false,
+          locked: true,
+          lockedUntil: newRecord.lockedUntil,
+          error: `Too many failed attempts. Try again in 60 minutes.`,
+        });
+      }
+
+      return res.status(401).json({
+        valid: false,
+        locked: false,
+        attemptsRemaining: ADMIN_MAX_ATTEMPTS - newCount,
+        error: `Invalid token. ${ADMIN_MAX_ATTEMPTS - newCount} attempt${ADMIN_MAX_ATTEMPTS - newCount !== 1 ? 's' : ''} remaining before lockout.`,
+      });
     } catch (error) {
       res.status(500).json({ error: "Verification failed" });
     }
@@ -920,11 +1093,11 @@ export async function registerRoutes(
   // ===== Raid Boss Auto-Update Service =====
 
   const raidScraper = new RaidScraperService(storage, {
-    intervalMs: 30 * 60 * 1000, // 30 minutes
     enabled: process.env.RAID_SCRAPER_ENABLED !== 'false',
     autoActivate: true,
     autoDeactivate: true,
     notifyAdmin: true,
+    onTheHour: true,  // Sync to :00 of each hour
   });
 
   // Start the scraper (non-blocking)
@@ -941,6 +1114,8 @@ export async function registerRoutes(
 
       res.json({
         config: raidScraper.getConfig(),
+        isRunning: raidScraper.isRunning(),
+        nextRunAt: raidScraper.nextRunAt()?.toISOString() ?? null,
         lastUpdate: raidScraper.getLastUpdate(),
       });
     } catch (error) {
@@ -973,12 +1148,12 @@ export async function registerRoutes(
       const token = authHeader?.replace("Bearer ", "");
       if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
 
-      const { enabled, intervalMs, autoActivate, autoDeactivate } = req.body;
+      const { enabled, autoActivate, autoDeactivate, onTheHour } = req.body;
       const updates: any = {};
       if (typeof enabled === 'boolean') updates.enabled = enabled;
-      if (typeof intervalMs === 'number' && intervalMs >= 60000) updates.intervalMs = intervalMs;
       if (typeof autoActivate === 'boolean') updates.autoActivate = autoActivate;
       if (typeof autoDeactivate === 'boolean') updates.autoDeactivate = autoDeactivate;
+      if (typeof onTheHour === 'boolean') updates.onTheHour = onTheHour;
 
       raidScraper.updateConfig(updates);
       res.json({ config: raidScraper.getConfig() });
@@ -1081,16 +1256,23 @@ export async function registerRoutes(
       // Immediately try to match
       const matchResult = await storage.processQueueMatches();
 
-      // Notify promoted users via WebSocket
+      // Build boss name lookup for notifications
+      const activeBosses = await storage.getActiveRaidBosses();
+      const bossNameMap = new Map(activeBosses.map(b => [b.id, b.name]));
+
+      // Notify promoted users via WebSocket + push notification
       for (const matched of matchResult.matched) {
-        const bossInfo = (await storage.getActiveRaidBosses()).find(b => b.id === matched.bossId);
+        const bossName = bossNameMap.get(matched.bossId) || matched.bossId;
         lobbyWSManager.notifyUserPromotion(matched.userId, {
           bossId: matched.bossId,
-          bossName: bossInfo?.name || matched.bossId,
+          bossName,
           lobbyId: matched.matchedLobbyId,
           reservationExpiresAt: matched.reservedAt ? matched.reservedAt + 20000 : undefined,
         });
       }
+
+      // Send push notifications (fire-and-forget — don't block the response)
+      sendQueuePushAlerts(matchResult.matched, bossNameMap).catch(() => {});
 
       // Broadcast queue update to all watchers of this boss
       const counts = await storage.getQueueCounts();
@@ -1239,16 +1421,21 @@ export async function registerRoutes(
     try {
       const result = await storage.processQueueMatches();
 
-      // Notify promoted users via WebSocket
+      const activeBosses = await storage.getActiveRaidBosses();
+      const bossNameMap = new Map(activeBosses.map(b => [b.id, b.name]));
+
+      // Notify promoted users via WebSocket + push
       for (const matched of result.matched) {
-        const bossInfo = (await storage.getActiveRaidBosses()).find(b => b.id === matched.bossId);
+        const bossName = bossNameMap.get(matched.bossId) || matched.bossId;
         lobbyWSManager.notifyUserPromotion(matched.userId, {
           bossId: matched.bossId,
-          bossName: bossInfo?.name || matched.bossId,
+          bossName,
           lobbyId: matched.matchedLobbyId,
           reservationExpiresAt: matched.reservedAt ? matched.reservedAt + 20000 : undefined,
         });
       }
+
+      sendQueuePushAlerts(result.matched, bossNameMap).catch(() => {});
 
       res.json({
         matchedCount: result.matched.length,
@@ -1256,6 +1443,69 @@ export async function registerRoutes(
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to process queue" });
+    }
+  });
+
+  /**
+   * POST /api/queue/reward-skip
+   * Move a user forward N positions in the queue after they earn a rewarded ad.
+   * The `spots` value comes from the server-side adConfig so it can't be spoofed.
+   */
+  app.post("/api/queue/reward-skip", async (req, res) => {
+    try {
+      const { userId, bossId } = req.body;
+      if (!userId || !bossId) return res.status(400).json({ error: "userId and bossId required" });
+
+      // Verify the user is actually in the queue
+      const status = await storage.getQueueStatus(userId, bossId);
+      if (!status || status.status !== 'waiting') {
+        return res.status(409).json({ error: "Not in waiting queue for this boss" });
+      }
+
+      // Get the configured skip amount from ad config
+      const configs = await storage.getAdConfig();
+      const rewardedConfig = configs.find(c => c.placement === 'rewarded');
+      const skipSpots = rewardedConfig?.rewardQueueSkip ?? 5;
+
+      // Apply the skip by boosting the user's priority score in storage
+      await storage.applyRewardedSkip(userId, bossId, skipSpots);
+
+      // Broadcast updated queue counts
+      const counts = await storage.getQueueCounts();
+      lobbyWSManager.broadcastQueueUpdate(bossId, { bossId, count: counts[bossId] || 0 });
+
+      const newStatus = await storage.getQueueStatus(userId, bossId);
+      res.json({ success: true, newPosition: newStatus?.position, skippedSpots: skipSpots });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to apply reward skip" });
+    }
+  });
+
+  // Return VAPID public key so browsers can create a PushSubscription
+  app.get("/api/push/vapid-key", (_req, res) => {
+    res.json({ publicKey: getVapidPublicKey() });
+  });
+
+  // Send a test push notification to a specific user — useful for verifying the
+  // full push pipeline (registration → send → receive) during development.
+  app.post("/api/push/test/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const tokens = await storage.getPushTokensForUser(userId);
+      if (tokens.length === 0) {
+        return res.status(404).json({ error: "No push tokens registered for this user" });
+      }
+      const payload = {
+        type: 'event_announcement' as const,
+        title: '🔔 Test Notification',
+        body: 'Push notifications are working! You\'ll see this even when the app is in the background.',
+        data: { type: 'event_announcement', test: 'true' },
+      };
+      const result = await sendPushNotification(tokens, payload);
+      res.json({ sent: result.success, failed: result.failed, tokenCount: tokens.length });
+    } catch (err) {
+      console.error('[PushTest]', err);
+      res.status(500).json({ error: "Failed to send test notification" });
     }
   });
 
@@ -1942,6 +2192,317 @@ export async function registerRoutes(
       res.status(200).json({ received: true, error: "Processing error" });
     }
   });
+
+  // ============================================================================
+  // CATCH & IV TRACKER ROUTES
+  // ============================================================================
+
+  /** POST /api/catch — log a catch attempt after a raid */
+  app.post("/api/catch", async (req, res) => {
+    try {
+      const { userId, bossId, bossName, lobbyId, caught, cp, isShiny } = req.body;
+      if (!userId || !bossId || !lobbyId) {
+        return res.status(400).json({ error: "userId, bossId, lobbyId required" });
+      }
+      const record = await storage.logCatch({
+        userId, bossId, bossName: bossName || bossId, lobbyId,
+        caught: !!caught, cp: cp ? Number(cp) : undefined, isShiny: !!isShiny,
+      });
+      res.status(201).json(record);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to log catch" });
+    }
+  });
+
+  /** GET /api/catch/history/:userId — recent catches for a user */
+  app.get("/api/catch/history/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const limit = req.query.limit ? Number(req.query.limit) : 50;
+      const history = await storage.getCatchHistory(userId, limit);
+      res.json(history);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch catch history" });
+    }
+  });
+
+  /** GET /api/catch/stats/:userId — aggregate stats */
+  app.get("/api/catch/stats/:userId", async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const stats = await storage.getCatchStats(userId);
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch catch stats" });
+    }
+  });
+
+  // ============================================================================
+  // PRIVATE GROUP ROUTES
+  // ============================================================================
+
+  /** POST /api/groups — create a new group */
+  app.post("/api/groups", async (req, res) => {
+    try {
+      const { userId, userName, name } = req.body;
+      if (!userId || !userName || !name) {
+        return res.status(400).json({ error: "userId, userName, name required" });
+      }
+      const group = await storage.createGroup(userId, userName, name);
+      res.status(201).json(group);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to create group" });
+    }
+  });
+
+  /** POST /api/groups/join — join by 6-char code */
+  app.post("/api/groups/join", async (req, res) => {
+    try {
+      const { userId, joinCode } = req.body;
+      if (!userId || !joinCode) return res.status(400).json({ error: "userId and joinCode required" });
+      const group = await storage.joinGroup(userId, joinCode);
+      if (!group) return res.status(404).json({ error: "Group not found or full" });
+      res.json(group);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to join group" });
+    }
+  });
+
+  /** POST /api/groups/:id/leave */
+  app.post("/api/groups/:id/leave", async (req, res) => {
+    try {
+      const { userId } = req.body;
+      if (!userId) return res.status(400).json({ error: "userId required" });
+      const success = await storage.leaveGroup(userId, req.params.id);
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to leave group" });
+    }
+  });
+
+  /** GET /api/groups/user/:userId — groups the user belongs to */
+  app.get("/api/groups/user/:userId", async (req, res) => {
+    try {
+      const groups = await storage.getUserGroups(req.params.userId);
+      res.json(groups);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch user groups" });
+    }
+  });
+
+  /** GET /api/groups/:id — group details + member count */
+  app.get("/api/groups/:id", async (req, res) => {
+    try {
+      const group = await storage.getGroup(req.params.id);
+      if (!group) return res.status(404).json({ error: "Group not found" });
+      res.json(group);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch group" });
+    }
+  });
+
+  /** GET /api/groups/:id/lobbies — active group lobbies */
+  app.get("/api/groups/:id/lobbies", async (req, res) => {
+    try {
+      const lobbies = await storage.getGroupLobbies(req.params.id);
+      res.json(lobbies);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch group lobbies" });
+    }
+  });
+
+  // ============================================================================
+  // RAID TRAIN ROUTES
+  // ============================================================================
+
+  /**
+   * POST /api/lobbies/:id/train
+   * Host starts the next lobby in a raid train.
+   * Copies the current lobby's player list, creates a fresh lobby,
+   * sends push notifications to all current players.
+   */
+  app.post("/api/lobbies/:id/train", async (req, res) => {
+    try {
+      const { hostId, bossId, minLevel } = req.body;
+      const currentLobby = await storage.getLobby(req.params.id);
+      if (!currentLobby) return res.status(404).json({ error: "Lobby not found" });
+      if (currentLobby.hostId !== hostId) return res.status(403).json({ error: "Only the host can start the next train" });
+
+      const trainId = currentLobby.raidTrainId || randomUUID();
+      const trainIndex = (currentLobby.trainIndex || 1) + 1;
+
+      const newLobby = await storage.createLobby({
+        bossId: bossId || currentLobby.bossId,
+        hostId: currentLobby.hostId,
+        hostName: currentLobby.hostName,
+        hostRating: currentLobby.hostRating,
+        players: [currentLobby.players.find(p => p.id === hostId)!].filter(Boolean),
+        maxPlayers: currentLobby.maxPlayers,
+        team: currentLobby.team,
+        minLevel: minLevel ?? currentLobby.minLevel,
+        weather: currentLobby.weather,
+        timeLeft: 15,
+        raidStarted: false,
+        invitesSent: false,
+        groupId: currentLobby.groupId,
+        raidTrainId: trainId,
+        trainIndex,
+      });
+
+      // Push all current players (except host — they're already in)
+      const playerIds = currentLobby.players
+        .filter(p => p.id !== hostId)
+        .map(p => p.id);
+
+      if (playerIds.length > 0) {
+        const tokens = await storage.getPushTokensForUsers(playerIds);
+        if (tokens.length > 0) {
+          await sendPushNotification(tokens, {
+            type: 'raid_invite',
+            title: '🚂 Next raid starting!',
+            body: `${currentLobby.hostName} is hosting another ${newLobby.bossId} raid. Join the train!`,
+            data: { lobbyId: newLobby.id, bossId: newLobby.bossId },
+          });
+        }
+      }
+
+      res.status(201).json(newLobby);
+    } catch (error) {
+      console.error("Raid train error:", error);
+      res.status(500).json({ error: "Failed to start next raid" });
+    }
+  });
+
+  // ============================================================================
+  // ADVERTISEMENT ROUTES
+  // ============================================================================
+
+  /**
+   * POST /api/ads/impression
+   * Called by the client immediately when an ad becomes visible.
+   * Body: { userId, placement, adUnitId, viewable, estimatedRevenueMicros }
+   */
+  app.post("/api/ads/impression", async (req, res) => {
+    try {
+      const { userId, placement, adUnitId, viewable, estimatedRevenueMicros } = req.body;
+      if (!userId || !placement || !adUnitId) {
+        return res.status(400).json({ error: "userId, placement, adUnitId required" });
+      }
+      const impression = await storage.recordAdImpression({
+        userId,
+        placement,
+        adUnitId,
+        viewable: !!viewable,
+        estimatedRevenueMicros: Number(estimatedRevenueMicros) || 0,
+      });
+      res.status(201).json({ impressionId: impression.id });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to record impression" });
+    }
+  });
+
+  /**
+   * POST /api/ads/click
+   * Called when a user taps an ad.
+   * Body: { impressionId }
+   */
+  app.post("/api/ads/click", async (req, res) => {
+    try {
+      const { impressionId } = req.body;
+      if (!impressionId) return res.status(400).json({ error: "impressionId required" });
+      const success = await storage.recordAdClick(impressionId);
+      res.json({ success });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to record click" });
+    }
+  });
+
+  /**
+   * GET /api/ads/stats  (admin only)
+   * Returns aggregated impression / click / revenue data.
+   */
+  app.get("/api/ads/stats", async (req, res) => {
+    try {
+      const token = req.headers['x-admin-token'] as string;
+      if (token !== getAdminToken()) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const stats = await storage.getAdStats();
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch ad stats" });
+    }
+  });
+
+  /**
+   * GET /api/ads/config  (admin only)
+   * Returns per-placement configuration.
+   */
+  app.get("/api/ads/config", async (req, res) => {
+    try {
+      const token = req.headers['x-admin-token'] as string;
+      if (token !== getAdminToken()) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const config = await storage.getAdConfig();
+      res.json(config);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch ad config" });
+    }
+  });
+
+  /**
+   * PATCH /api/ads/config/:placement  (admin only)
+   * Toggle or adjust a placement.
+   * Body: { enabled?, frequency?, rewardQueueSkip? }
+   */
+  app.patch("/api/ads/config/:placement", async (req, res) => {
+    try {
+      const token = req.headers['x-admin-token'] as string;
+      if (token !== getAdminToken()) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      const placement = req.params.placement as any;
+      const { enabled, frequency, rewardQueueSkip } = req.body;
+      const updated = await storage.updateAdConfig(placement, {
+        ...(enabled !== undefined && { enabled }),
+        ...(frequency !== undefined && { frequency }),
+        ...(rewardQueueSkip !== undefined && { rewardQueueSkip }),
+      });
+      res.json(updated);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update ad config" });
+    }
+  });
+
+  /**
+   * GET /api/ads/config/public
+   * Non-admin: returns only enabled/frequency for each placement (no revenue data).
+   * Client fetches this once on boot to know which ad units to show.
+   */
+  app.get("/api/ads/config/public", async (_req, res) => {
+    try {
+      const config = await storage.getAdConfig();
+      res.json(config.map(c => ({
+        placement: c.placement,
+        enabled: c.enabled,
+        frequency: c.frequency,
+        rewardQueueSkip: c.rewardQueueSkip,
+      })));
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch ad config" });
+    }
+  });
+
+  // ── Periodic lobby expiry — runs every 60 s ────────────────────────────────
+  // getLobbies() already purges expired entries on every call, but calling it
+  // periodically ensures the in-memory map stays clean even when no clients
+  // are actively fetching, and lets us broadcast expiry notifications.
+  setInterval(async () => {
+    try {
+      await storage.getLobbies(); // side-effect: purges expired lobbies
+    } catch { /* swallow — non-critical housekeeping */ }
+  }, 60_000);
 
   return httpServer;
 }

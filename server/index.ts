@@ -84,6 +84,21 @@ app.use((req, res, next) => {
   next();
 });
 
+// ── Process-level crash guards ─────────────────────────────────────────────
+// Prevents the server from dying on unhandled async rejections or uncaught
+// exceptions that escape all route try-catch blocks.
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UnhandledRejection]', reason, 'at:', promise);
+  // Don't exit — Railway will restart us automatically if we do crash,
+  // but staying alive is better for active connections.
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[UncaughtException]', err);
+  // Give active connections 2s to drain, then exit so the process manager restarts
+  setTimeout(() => process.exit(1), 2000);
+});
+
 (async () => {
   lobbyWSManager.initialize(httpServer);
   await registerRoutes(httpServer, app);
@@ -143,9 +158,10 @@ app.use((req, res, next) => {
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    console.error(`[Express Error ${status}]`, err);
+    if (!res.headersSent) {
+      res.status(status).json({ message });
+    }
   });
 
   // importantly only setup vite in development and after

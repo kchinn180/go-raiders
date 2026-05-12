@@ -9,6 +9,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
+import { getApiUrl } from './queryClient';
 
 export interface SubscriptionProduct {
   id: string;
@@ -56,7 +57,7 @@ function getStoreType(): 'apple' | 'google' {
  */
 export async function fetchProducts(): Promise<SubscriptionProduct[]> {
   try {
-    const response = await fetch('/api/subscription/products');
+    const response = await fetch(getApiUrl('/api/subscription/products'));
     if (!response.ok) throw new Error('Failed to fetch products');
     const data = await response.json();
     return data.products;
@@ -127,7 +128,7 @@ export async function purchaseSubscription(
 
     // Send receipt to backend for verification
     // CRITICAL: This is where premium access is actually granted
-    const verifyResponse = await fetch('/api/subscription/verify', {
+    const verifyResponse = await fetch(getApiUrl('/api/subscription/verify'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -187,7 +188,7 @@ export async function restorePurchases(userId: string): Promise<PurchaseResult> 
       receipt = `dev_restore_${Date.now()}`;
     }
 
-    const response = await fetch('/api/subscription/restore', {
+    const response = await fetch(getApiUrl('/api/subscription/restore'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -224,7 +225,7 @@ export async function getSubscriptionStatus(userId: string): Promise<{
   expiresAt: number | null;
 }> {
   try {
-    const response = await fetch(`/api/subscription/status/${userId}`);
+    const response = await fetch(getApiUrl(`/api/subscription/status/${userId}`));
     if (!response.ok) throw new Error('Failed to get status');
     return response.json();
   } catch (error) {

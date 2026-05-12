@@ -26,6 +26,8 @@ import {
   LogOut,
   Rocket,
   ExternalLink,
+  Train,
+  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -48,7 +50,9 @@ import { useLobbyWebSocket } from "@/lib/use-lobby-websocket";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { BOSSES, TEAMS } from "@shared/schema";
-import type { Lobby, Player, PokemonType } from "@shared/schema";
+import type { Lobby, PokemonType } from "@shared/schema";
+import { useSwipeBack } from "@/hooks/use-swipe-back";
+import { getApiUrl } from "@/lib/queryClient";
 
 const TYPE_COLORS: Record<PokemonType, { bg: string; text: string; border: string }> = {
   normal: { bg: 'bg-gray-400/20', text: 'text-gray-300', border: 'border-gray-400' },
@@ -110,10 +114,18 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const lastTimeLeftRef = useRef(lobby.timeLeft);
   const soundPlayedRef = useRef(false);
-  
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+
   // OPTIMISTIC STATE: Track local ready state for instant button feedback
   const [optimisticReady, setOptimisticReady] = useState<boolean | null>(null);
-  
+  const [raidTrainLoading, setRaidTrainLoading] = useState(false);
+
+  // Swipe-from-left-edge to open the leave confirmation dialog
+  useSwipeBack({
+    onBack: () => setLeaveDialogOpen(true),
+    threshold: 120, // Slightly higher threshold for destructive action
+  });
+
   // Scroll to top when entering lobby so friend codes are visible
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'instant' });
@@ -209,35 +221,8 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
     }
   };
 
-  const toggleReady = () => {
-    if (!myPlayer) return;
-    
-    // Regular players cannot unready - only hosts can toggle
-    if (myPlayer.isReady && !isHost) return;
-    
-    try {
-      if (hapticEnabled) triggerImpact('medium');
-      if (soundEnabled) playReadySound();
-    } catch {
-      // Ignore haptic/sound errors
-    }
-    
-    const updatedPlayers = lobby.players.map((p) =>
-      p.id === user.id ? { ...p, isReady: !p.isReady } : p
-    );
-    onUpdateLobby({ ...lobby, players: updatedPlayers });
-  };
-
-  const markSentRequest = (playerId: string) => {
-    const updatedPlayers = lobby.players.map((p) =>
-      p.id === playerId ? { ...p, hasSentRequest: true } : p
-    );
-    onUpdateLobby({ ...lobby, players: updatedPlayers });
-    toast({ title: "Marked as Sent", description: "Host has been notified" });
-  };
-
   return (
-    <div className="pb-28">
+    <div className="pb-nav">
       <div
         className={cn(
           "relative flex items-end p-4 bg-gradient-to-b",
@@ -276,57 +261,303 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
         </div>
       </div>
 
+      {/* Time remaining bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-card/80 border-b border-card-border">
-        <div className="flex items-center gap-1 text-muted-foreground">
+        <div className="flex items-center gap-1.5 text-muted-foreground">
           <Timer className="w-4 h-4" />
-          <span className="font-medium text-sm">{lobby.timeLeft}m left</span>
+          <span className="font-bold text-sm">{lobby.timeLeft}m remaining</span>
+        </div>
+        <div className={cn(
+          "px-2.5 py-0.5 rounded-full font-bold text-xs",
+          allReady ? "bg-green-600/20 text-green-400" : "bg-yellow-600/20 text-yellow-400"
+        )}>
+          {readyCount}/{lobby.players.length} Ready
         </div>
       </div>
 
       <div className="p-4 space-y-4">
-        {hostPlayer && !isHost && (
-          <div className={cn("p-4 rounded-2xl border-2", team.border, team.tint)}>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-yellow-400" />
-                <span className="font-bold">Host's Friend Code</span>
+
+        {/* ═══════════════════════════════════════════
+            JOINER FLOW
+            Step 1: Copy host code → Step 2: Add friend in GO →
+            Step 3: Tap Ready → Step 4: Accept invite
+            ═══════════════════════════════════════════ */}
+        {!isHost && (
+          <div className="space-y-3">
+
+            {/* Step 1 + 2: Copy host code */}
+            {hostPlayer && (
+              <div className={cn("rounded-2xl border-2 overflow-hidden", team.border)}>
+                {/* Step header */}
+                <div className={cn("px-4 py-2 flex items-center gap-2", team.tint)}>
+                  <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center">
+                    <span className="text-[10px] font-black text-white">1</span>
+                  </div>
+                  <span className="text-xs font-bold text-white/90 uppercase tracking-wide">
+                    Copy &amp; add host as a friend in Pokémon GO
+                  </span>
+                </div>
+
+                {/* Friend code */}
+                <div className="p-4 bg-background/60 backdrop-blur">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", TEAMS.find(t => t.id === hostPlayer.team)?.bg ?? 'bg-zinc-700')}>
+                      {(() => { const TI = teamIcons[hostPlayer.team] || Users; return <TI className="w-5 h-5 text-white" fill="currentColor" />; })()}
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">{hostPlayer.name}</p>
+                      <p className="text-xs text-muted-foreground">Lv. {hostPlayer.level} · Host</p>
+                    </div>
+                    {hostPlayer.isPremium && <Sparkles className="w-4 h-4 text-yellow-400 ml-auto" />}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 bg-card border border-card-border p-3 rounded-xl font-mono text-base tracking-widest text-center">
+                      {hostPlayer.friendCode || '— — —'}
+                    </code>
+                    <Button
+                      size="icon"
+                      className="h-12 w-12 rounded-xl bg-primary"
+                      onClick={() => copyCode(hostPlayer.friendCode || user.code, hostPlayer.name)}
+                      data-testid="button-copy-host-code"
+                    >
+                      {copiedCode === (hostPlayer.friendCode || user.code) ? (
+                        <Check className="w-5 h-5 text-white" />
+                      ) : (
+                        <Copy className="w-5 h-5 text-white" />
+                      )}
+                    </Button>
+                  </div>
+
+                  <p className="text-[10px] text-muted-foreground text-center mt-2">
+                    Open Pokémon GO → Friends → Add Friend → paste code
+                  </p>
+                </div>
               </div>
-              <span className="text-xs text-muted-foreground">
-                Add host first!
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <code className="flex-1 bg-background p-3 rounded-xl font-mono text-lg tracking-widest text-center">
-                {hostPlayer.friendCode || user.code}
-              </code>
-              <Button
-                size="icon"
-                variant="secondary"
-                onClick={() => copyCode(hostPlayer.friendCode || user.code, hostPlayer.name)}
-                data-testid="button-copy-host-code"
-              >
-                {copiedCode === (hostPlayer.friendCode || user.code) ? (
-                  <Check className="w-5 h-5 text-green-500" />
-                ) : (
-                  <Copy className="w-5 h-5" />
-                )}
-              </Button>
-            </div>
+            )}
+
+            {/* Step 2: Ready Up */}
+            {!lobby.raidStarted && (
+              <div className="rounded-2xl border-2 border-card-border overflow-hidden">
+                <div className="px-4 py-2 bg-card flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center">
+                    <span className="text-[10px] font-black text-muted-foreground">2</span>
+                  </div>
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
+                    Sent the friend request? Tap ready!
+                  </span>
+                </div>
+                <div className="p-3">
+                  <Button
+                    onClick={() => {
+                      if (!displayReady) {
+                        setOptimisticReady(true);
+                        try {
+                          if (hapticEnabled) triggerImpact('medium');
+                          if (soundEnabled) playReadySound();
+                        } catch {}
+                        const updatedPlayers = lobby.players.map((p) =>
+                          p.id === user.id
+                            ? { ...p, isReady: true, hasSentRequest: true }
+                            : p
+                        );
+                        onUpdateLobby({ ...lobby, players: updatedPlayers });
+                      }
+                    }}
+                    disabled={displayReady}
+                    className={cn(
+                      "w-full py-3 text-sm font-bold rounded-xl transition-all",
+                      displayReady
+                        ? "bg-green-600 hover:bg-green-700 cursor-not-allowed"
+                        : "bg-yellow-500 hover:bg-yellow-600 text-black"
+                    )}
+                    data-testid="button-joiner-ready"
+                  >
+                    {displayReady ? (
+                      <><CheckCircle2 className="w-4 h-4 mr-2" />Friend Request Sent — I'm Ready!</>
+                    ) : (
+                      <><Send className="w-4 h-4 mr-2" />Send Friend Request &amp; Ready Up</>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Wait for host invite / accept it */}
+            {lobby.raidStarted && (
+              <div className="rounded-2xl border-2 border-green-500/60 bg-green-500/5 overflow-hidden">
+                <div className="px-4 py-2 bg-green-600/20 flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-full bg-green-600/40 flex items-center justify-center">
+                    <span className="text-[10px] font-black text-green-300">3</span>
+                  </div>
+                  <span className="text-xs font-bold text-green-300 uppercase tracking-wide">
+                    Invites sent — accept &amp; join the raid!
+                  </span>
+                </div>
+                <div className="p-4 text-center space-y-1">
+                  <div className="flex items-center justify-center gap-2 text-green-400 font-bold">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>Host has sent raid invites</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Open Pokémon GO and accept the raid invite from your notifications
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide">
-              Raiders
-            </h3>
-            <div className={cn(
-              "px-2 py-0.5 rounded-full font-bold text-xs",
-              allReady ? "bg-green-600/20 text-green-400" : "bg-yellow-600/20 text-yellow-400"
-            )}>
-              {readyCount}/{lobby.players.length} Ready
-            </div>
+        {/* ═══════════════════════════════════════════
+            HOST FLOW
+            Step 1: Wait for players → Step 2: Send invites → Step 3: Start
+            ═══════════════════════════════════════════ */}
+        {isHost && (
+          <div className="space-y-3">
+            {!lobby.raidStarted ? (
+              <>
+                {/* Step 1: Wait for players / see status */}
+                <div className="rounded-2xl border-2 border-card-border overflow-hidden">
+                  <div className="px-4 py-2 bg-card flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center">
+                      <span className="text-[10px] font-black text-muted-foreground">1</span>
+                    </div>
+                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
+                      Wait for raiders to add you &amp; ready up
+                    </span>
+                  </div>
+                  <div className="p-3">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Raiders will copy your friend code and send you a friend request in Pokémon GO.
+                      Watch for pending friend requests in-game while you wait.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step 2: Send invites */}
+                <div className={cn(
+                  "rounded-2xl border-2 overflow-hidden transition-all",
+                  allReady && lobby.players.length >= 2
+                    ? "border-green-500/60 bg-green-500/5"
+                    : "border-card-border"
+                )}>
+                  <div className={cn(
+                    "px-4 py-2 flex items-center gap-2",
+                    allReady && lobby.players.length >= 2 ? "bg-green-600/20" : "bg-card"
+                  )}>
+                    <div className={cn(
+                      "w-5 h-5 rounded-full flex items-center justify-center",
+                      allReady && lobby.players.length >= 2 ? "bg-green-600/40" : "bg-muted"
+                    )}>
+                      <span className={cn(
+                        "text-[10px] font-black",
+                        allReady && lobby.players.length >= 2 ? "text-green-300" : "text-muted-foreground"
+                      )}>2</span>
+                    </div>
+                    <span className={cn(
+                      "text-xs font-bold uppercase tracking-wide",
+                      allReady && lobby.players.length >= 2 ? "text-green-300" : "text-muted-foreground"
+                    )}>
+                      Accept friend requests &amp; send raid invites in Pokémon GO
+                    </span>
+                  </div>
+                  <div className="p-3 space-y-2">
+                    <p className="text-xs text-muted-foreground text-center">
+                      Once raiders are ready, open Pokémon GO → enter the raid → tap "Battle" → invite friends.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        setOptimisticReady(true);
+                        try {
+                          if (hapticEnabled) triggerNotification('success');
+                          if (soundEnabled) playReadySound();
+                        } catch {}
+                        const updatedPlayers = lobby.players.map((p) =>
+                          p.id === user.id ? { ...p, isReady: true } : p
+                        );
+                        onUpdateLobby({ ...lobby, players: updatedPlayers });
+                        if (onStartRaid) onStartRaid();
+                      }}
+                      className="w-full py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-green-600 to-emerald-600"
+                      data-testid="button-send-invites"
+                    >
+                      <Rocket className="w-4 h-4 mr-2" />
+                      Invites Sent — Start Raid!
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              /* Post-invite state for host */
+              <div className="rounded-2xl border-2 border-green-500/60 bg-green-500/5 overflow-hidden">
+                <div className="px-4 py-2 bg-green-600/20 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-400" />
+                  <span className="text-xs font-bold text-green-300 uppercase tracking-wide">
+                    Raid invites sent!
+                  </span>
+                </div>
+                <div className="p-4 space-y-3">
+                  <p className="text-xs text-muted-foreground text-center">
+                    All players have been notified. Raid is underway — good luck!
+                  </p>
+                  <Button
+                    onClick={() => {
+                      try { if (hapticEnabled) triggerImpact('medium'); } catch {}
+                      toast({ title: "Backup invites sent!", description: "Resending invites to all players" });
+                    }}
+                    variant="outline"
+                    size="sm"
+                    className="w-full rounded-xl"
+                    data-testid="button-resend-invites"
+                  >
+                    <Send className="w-3 h-3 mr-2" />
+                    Resend Invites
+                  </Button>
+
+                  {/* Raid Train — chain the next raid with the same group */}
+                  <Button
+                    onClick={async () => {
+                      if (raidTrainLoading) return;
+                      setRaidTrainLoading(true);
+                      try {
+                        if (hapticEnabled) triggerImpact('heavy');
+                        const res = await fetch(`/api/lobbies/${lobby.id}/train`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ hostId: user?.id }),
+                        });
+                        if (!res.ok) throw new Error('train failed');
+                        const newLobby = await res.json() as { id: string };
+                        toast({ title: "🚂 Raid Train Started!", description: "All players notified — new lobby ready!" });
+                        // Navigate to the new lobby via the parent
+                        window.location.hash = `#lobby-${newLobby.id}`;
+                      } catch {
+                        toast({ title: "Couldn't start train", description: "Try again in a moment", variant: "destructive" });
+                      } finally {
+                        setRaidTrainLoading(false);
+                      }
+                    }}
+                    disabled={raidTrainLoading}
+                    size="sm"
+                    className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold border-0"
+                    data-testid="button-raid-train"
+                  >
+                    <Train className="w-3 h-3 mr-2" />
+                    {raidTrainLoading ? "Starting…" : "🚂 Start Next Raid"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
+        )}
+
+        {/* ═══════════════════════════════════════════
+            RAIDERS LIST — visible to everyone
+            ═══════════════════════════════════════════ */}
+        <div className="space-y-2">
+          <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide">
+            Raiders ({lobby.players.length})
+          </h3>
           <div className="grid grid-cols-2 gap-2">
             {lobby.players.map((player) => {
               const playerTeam = TEAMS.find((t) => t.id === player.team) || TEAMS[3];
@@ -338,205 +569,132 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
                   key={player.id}
                   className={cn(
                     "p-3 rounded-xl border-2 transition-all",
-                    player.isReady ? "border-green-500/50 bg-green-500/5" : "border-card-border bg-card",
-                    isMe && "ring-2 ring-offset-2 ring-offset-background ring-primary"
+                    player.isReady ? "border-green-500/60 bg-green-500/5" : "border-card-border bg-card",
+                    isMe && "ring-2 ring-offset-1 ring-offset-background ring-primary/60"
                   )}
                   data-testid={`player-card-${player.id}`}
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center", playerTeam.bg)}>
+                    <div className={cn("w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0", playerTeam.bg)}>
                       <TeamIcon className="w-4 h-4 text-white" fill="currentColor" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1">
                         <span className={cn(
                           "font-bold text-sm truncate",
-                          player.isPremium && "text-yellow-400 elite-name-glow"
-                        )}>{player.name}</span>
-                        {player.isPremium && <Sparkles className="w-3 h-3 text-yellow-400" />}
-                        {player.isHost && !player.isPremium && <span className="text-[10px] text-muted-foreground">(Host)</span>}
+                          player.isPremium && "text-yellow-400"
+                        )}>{player.name}{isMe && " (you)"}</span>
                       </div>
                       <span className="text-xs text-muted-foreground">Lv. {player.level}</span>
                     </div>
+                    {player.isPremium && <Sparkles className="w-3 h-3 text-yellow-400 flex-shrink-0" />}
                   </div>
 
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between gap-1">
                     {player.isReady ? (
                       <div className="flex items-center gap-1 text-green-500">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span className="text-xs font-bold">READY</span>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span className="text-[10px] font-bold">READY</span>
                       </div>
                     ) : (
-                      <span className="text-xs text-muted-foreground">Waiting...</span>
+                      <span className="text-[10px] text-muted-foreground">Waiting...</span>
                     )}
 
-                    {!player.isHost && isHost && player.hasSentRequest && (
-                      <span className="text-xs text-green-400 font-medium">Request sent</span>
+                    {/* Host-only: see which players sent friend request */}
+                    {isHost && !player.isHost && player.hasSentRequest && (
+                      <span className="text-[10px] text-blue-400 font-medium">Request sent</span>
+                    )}
+
+                    {player.isHost && (
+                      <span className="text-[10px] text-primary font-bold">HOST</span>
                     )}
                   </div>
+
+                  {/* Host sees each player's friend code for easy adding */}
+                  {isHost && !player.isHost && player.friendCode && (
+                    <button
+                      onClick={() => copyCode(player.friendCode!, player.name)}
+                      className="mt-2 w-full flex items-center gap-1.5 bg-background border border-card-border rounded-lg px-2 py-1 text-[10px] font-mono text-muted-foreground hover:text-foreground transition-colors"
+                      data-testid={`button-copy-player-code-${player.id}`}
+                    >
+                      <Copy className="w-2.5 h-2.5 flex-shrink-0" />
+                      <span className="truncate">{player.friendCode}</span>
+                      {copiedCode === player.friendCode && (
+                        <Check className="w-2.5 h-2.5 text-green-500 flex-shrink-0" />
+                      )}
+                    </button>
+                  )}
                 </div>
               );
             })}
           </div>
         </div>
 
-
-        {/* HOST: Combined Ready + Send Invites Button */}
-        {isHost && !lobby.raidStarted && (
-          <Button
-            onClick={() => {
-              // OPTIMISTIC: Update UI immediately
-              setOptimisticReady(true);
-              
-              try {
-                if (hapticEnabled) triggerNotification('success');
-                if (soundEnabled) playReadySound();
-              } catch {}
-              // Mark host as ready and send invites in one action
-              const updatedPlayers = lobby.players.map((p) =>
-                p.id === user.id ? { ...p, isReady: true } : p
-              );
-              onUpdateLobby({ ...lobby, players: updatedPlayers });
-              if (onStartRaid) onStartRaid();
-            }}
-            size="sm"
-            className="w-full py-3 text-sm font-bold rounded-xl bg-gradient-to-r from-green-600 to-emerald-600"
-            data-testid="button-send-invites"
-          >
-            <Rocket className="w-4 h-4 mr-1" />
-            Invites Sent - Start Raid
-          </Button>
-        )}
-
-        {/* INVITES SENT banner for everyone */}
-        {lobby.raidStarted && (
-          <div className="space-y-2">
-            <div className="bg-green-600/20 border border-green-500 rounded-xl p-3 text-center">
-              <div className="flex items-center justify-center gap-2 text-green-400 font-bold text-sm">
-                <Check className="w-4 h-4" />
-                <span>INVITES SENT!</span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Accept and join the raid!
-              </p>
-            </div>
-            {isHost && (
-              <Button
-                onClick={() => {
-                  try {
-                    if (hapticEnabled) triggerImpact('medium');
-                  } catch {}
-                  toast({ title: "Backup invites sent!", description: "Resending invites to all players" });
-                }}
-                variant="ghost"
-                size="sm"
-                className="w-full py-2 text-xs font-medium rounded-lg"
-                data-testid="button-resend-invites"
-              >
-                <Send className="w-3 h-3 mr-1" />
-                Resend Invites
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Action buttons for joiners: combined friend request + ready */}
-        {!isHost && !lobby.raidStarted && (
-          <Button
-            onClick={() => {
-              if (!displayReady) {
-                // OPTIMISTIC: Update UI immediately
-                setOptimisticReady(true);
-                
-                try {
-                  if (hapticEnabled) triggerImpact('medium');
-                  if (soundEnabled) playReadySound();
-                } catch {
-                  // Ignore haptic/sound errors
-                }
-                
-                // Combine both updates into a single onUpdateLobby call
-                const updatedPlayers = lobby.players.map((p) =>
-                  p.id === user.id 
-                    ? { ...p, isReady: true, hasSentRequest: true } 
-                    : p
-                );
-                onUpdateLobby({ ...lobby, players: updatedPlayers });
-              }
-            }}
-            disabled={displayReady}
-            size="sm"
-            className={cn(
-              "w-full py-3 text-sm font-bold rounded-xl transition-all",
-              displayReady
-                ? "bg-green-600 hover:bg-green-700"
-                : "bg-yellow-500 hover:bg-yellow-600 text-black",
-              displayReady && "opacity-90 cursor-not-allowed"
-            )}
-            data-testid="button-joiner-ready"
-          >
-            {displayReady ? (
-              <>
-                <Check className="w-4 h-4 mr-1" />
-                READY - Friend Request Sent
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4 mr-1" />
-                Send Friend Request & Ready Up
-              </>
-            )}
-          </Button>
-        )}
-
-        {/* Joiner: Show locked state after raid started */}
-        {!isHost && lobby.raidStarted && myPlayer?.isReady && (
-          <div className="bg-green-600/20 border border-green-500 rounded-xl p-3 text-center">
-            <div className="flex items-center justify-center gap-2 text-green-400 font-bold text-sm">
-              <Check className="w-4 h-4" />
-              <span>READY - Friend Request Sent</span>
-            </div>
-          </div>
-        )}
-
-        {/* GO TO GAME BUTTON - Blue color */}
+        {/* GO TO GAME button — always visible */}
         <Button
           onClick={() => {
-            try {
-              if (hapticEnabled) triggerImpact('medium');
-            } catch {}
+            try { if (hapticEnabled) triggerImpact('medium'); } catch {}
             window.location.href = 'pokemongo://';
           }}
-          size="sm"
           className="w-full py-3 text-sm font-bold rounded-xl bg-blue-600 hover:bg-blue-700"
           data-testid="button-go-to-game"
         >
-          <ExternalLink className="w-4 h-4 mr-1" />
-          GO TO GAME
+          <ExternalLink className="w-4 h-4 mr-2" />
+          Open Pokémon GO
         </Button>
 
-        <AlertDialog>
+        {/* Test push notification button — visible when in a test lobby */}
+        {lobby.id.startsWith('test-') && user && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full rounded-xl text-muted-foreground border-dashed"
+            data-testid="button-test-push"
+            onClick={async () => {
+              try {
+                const res = await fetch(getApiUrl(`/api/push/test/${user.id}`), { method: 'POST' });
+                const data = await res.json() as { sent?: number; failed?: number; error?: string; tokenCount?: number };
+                if (!res.ok || data.error) {
+                  toast({ title: data.error || "Push test failed", variant: "destructive" });
+                } else if ((data.tokenCount ?? 0) === 0) {
+                  toast({ title: "No push token registered yet", description: "Enable notifications in Settings first" });
+                } else {
+                  toast({ title: `🔔 Test sent to ${data.sent ?? 0} device(s)`, description: "Background notification should appear now" });
+                }
+              } catch {
+                toast({ title: "Couldn't reach server", variant: "destructive" });
+              }
+            }}
+          >
+            <Bell className="w-3 h-3 mr-2" />
+            Test Push Notification
+          </Button>
+        )}
+
+        {/* Leave lobby */}
+        <AlertDialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
           <AlertDialogTrigger asChild>
             <Button
               variant="ghost"
               className="w-full text-destructive hover:text-destructive hover:bg-destructive/10"
               data-testid="button-leave-room"
+              onClick={() => setLeaveDialogOpen(true)}
             >
               <LogOut className="w-4 h-4 mr-2" />
-              Leave Room
+              Leave Lobby
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Leave this raid?</AlertDialogTitle>
               <AlertDialogDescription>
-                Are you sure you want to leave this lobby? You'll need to rejoin if you want to participate in this raid.
+                Are you sure you want to leave? You'll need to rejoin if you want to participate in this raid.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Stay</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setLeaveDialogOpen(false)}>Stay</AlertDialogCancel>
               <AlertDialogAction
-                onClick={onLeave}
+                onClick={() => { setLeaveDialogOpen(false); onLeave(); }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 data-testid="button-confirm-leave"
               >

@@ -12,6 +12,7 @@ import { SettingsView } from "@/components/settings-view";
 import { PremiumModal } from "@/components/premium-modal";
 import { QueueStatusModal } from "@/components/queue-status-modal";
 import { FeedbackModal } from "@/components/feedback-modal";
+import { CatchLogModal } from "@/components/catch-log-modal";
 import { PrivacyPage } from "@/pages/privacy";
 import { TermsPage } from "@/pages/terms";
 import { AboutPage } from "@/pages/about";
@@ -20,10 +21,12 @@ import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
 import { triggerImpact } from "@/lib/haptics";
 import { playClickSound } from "@/lib/sounds";
-import { registerForPushNotifications, unregisterPushNotifications, setupNotificationListeners, showLocalNotification } from "@/lib/notifications";
+import { registerForPushNotifications, registerWebPush, unregisterPushNotifications, setupNotificationListeners, showLocalNotification } from "@/lib/notifications";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { BOSSES } from "@shared/schema";
 import type { Lobby, Player, FilterType } from "@shared/schema";
+import { isTestRaidsEnabled, generateTestLobbies } from "@/lib/test-raids";
+import { initAdMob, showBannerAd, hideBannerAd } from "@/lib/ad-service";
 
 type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
 type LegalPage = "privacy" | "terms" | "about" | "admin" | null;
@@ -40,6 +43,15 @@ export default function Home() {
   const [legalPage, setLegalPage] = useState<LegalPage>(null);
   const [showQueueStatus, setShowQueueStatus] = useState(false);
   const [queueBossId, setQueueBossId] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showCatchLog, setShowCatchLog] = useState(false);
+  const [catchLogLobbyId, setCatchLogLobbyId] = useState<string>("");
+  const [catchLogBossId, setCatchLogBossId] = useState<string>("");
+
+  // Test raids: re-generate whenever the admin toggles the flag
+  // We subscribe to localStorage changes via a version counter
+  const [testRaidsVersion, setTestRaidsVersion] = useState(0);
+  const testLobbies: Lobby[] = isTestRaidsEnabled() ? generateTestLobbies() : [];
   
   /**
    * SCROLL RESET BEHAVIOR
@@ -67,16 +79,17 @@ export default function Home() {
     }
   }, [view]);
 
-  const { data: lobbies = [], isLoading: lobbiesLoading, refetch } = useQuery<Lobby[]>({
+  const { data: lobbies = [], isLoading: lobbiesLoading, isFetching: lobbiesFetching, refetch } = useQuery<Lobby[]>({
     queryKey: ["/api/lobbies"],
-    refetchInterval: 5000,
+    refetchInterval: autoRefresh ? 15000 : false,
   });
 
   // Keep active lobby refreshed when user navigates around
-  const { data: refreshedLobby } = useQuery<Lobby>({
+  const { data: refreshedLobby, error: refreshedLobbyError } = useQuery<Lobby>({
     queryKey: ["/api/lobbies", activeLobby?.id],
     refetchInterval: 3000,
     enabled: !!activeLobby && view !== "lobby",
+    retry: 1,
   });
 
   // Update active lobby with refreshed data when navigating
@@ -85,6 +98,35 @@ export default function Home() {
       setActiveLobby(refreshedLobby);
     }
   }, [refreshedLobby, view]);
+
+  // Auto-eject: if the lobby query errors (404 = server deleted it), clear state
+  useEffect(() => {
+    if (refreshedLobbyError && activeLobby && view !== "lobby") {
+      setActiveLobby(null);
+      toast({ title: "Lobby Expired", description: "The raid lobby has ended" });
+    }
+  }, [refreshedLobbyError]);
+
+  // Time-based expiry: auto-eject if 15 minutes have passed since lobby creation
+  const LOBBY_LIFESPAN_MS = 15 * 60 * 1000;
+  useEffect(() => {
+    if (!activeLobby) return;
+    // Skip test lobbies
+    if (activeLobby.id.startsWith('test-')) return;
+
+    const checkExpiry = () => {
+      const age = Date.now() - activeLobby.createdAt;
+      if (age >= LOBBY_LIFESPAN_MS) {
+        setActiveLobby(null);
+        setView("join");
+        toast({ title: "Lobby Expired", description: "The 15-minute window has closed" });
+      }
+    };
+
+    checkExpiry(); // check immediately on mount
+    const interval = setInterval(checkExpiry, 5000);
+    return () => clearInterval(interval);
+  }, [activeLobby?.id, activeLobby?.createdAt]);
 
   const pushEnabled = user?.notifications?.pushEnabled !== false;
 
@@ -95,6 +137,9 @@ export default function Home() {
     const initPushNotifications = async () => {
       if (pushEnabled) {
         await registerForPushNotifications(user.id);
+        // Also register web push (browser service worker) so notifications
+        // appear even when the tab is closed / app is in the background.
+        await registerWebPush(user.id);
       } else {
         await unregisterPushNotifications();
       }
@@ -116,6 +161,19 @@ export default function Home() {
     
     return cleanup;
   }, [user, pushEnabled]);
+
+  // Boot AdMob and manage banner based on premium status
+  useEffect(() => {
+    if (!user) return;
+    initAdMob().then(() => {
+      if (!user.isPremium) {
+        showBannerAd(user.id);
+      } else {
+        hideBannerAd(); // remove if user upgrades mid-session
+      }
+    });
+    return () => { hideBannerAd(); };
+  }, [user?.id, user?.isPremium]);
 
   const joinLobbyMutation = useMutation({
     mutationFn: async ({ lobbyId, player }: { lobbyId: string; player: Player }) => {
@@ -143,16 +201,36 @@ export default function Home() {
       }
     },
     onError: () => {
-      toast({ title: "Failed to join", description: "The lobby may be full", variant: "destructive" });
+      toast({ title: "Couldn't join — lobby may be full", variant: "destructive" });
     },
   });
 
   const createLobbyMutation = useMutation({
     mutationFn: async (lobby: Omit<Lobby, "id" | "createdAt">) => {
-      const res = await apiRequest("POST", "/api/lobbies", lobby);
+      // Use raw fetch so we can handle both network errors and server errors
+      // with descriptive messages rather than the opaque "Load failed" from apiRequest.
+      const { getApiUrl } = await import("@/lib/queryClient");
+      const { Capacitor } = await import("@capacitor/core");
+      const url = getApiUrl("/api/lobbies");
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(lobby),
+          credentials: Capacitor.isNativePlatform() ? "omit" : "include",
+        });
+      } catch (networkErr: any) {
+        // Network-level failure (no connection, DNS, SSL, etc.)
+        throw new Error("Could not reach server — check your internet connection");
+      }
       if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.message || data.error || "Failed to create lobby");
+        let msg = "Failed to create lobby";
+        try {
+          const data = await res.json();
+          msg = data.message || data.error || msg;
+        } catch {}
+        throw new Error(msg);
       }
       return res.json();
     },
@@ -236,6 +314,14 @@ export default function Home() {
           playerCount: data.players.length,
         });
       }
+      // Show catch log modal for premium users after a short delay
+      if (user?.isPremium && data.bossId) {
+        setTimeout(() => {
+          setCatchLogBossId(data.bossId);
+          setCatchLogLobbyId(data.id);
+          setShowCatchLog(true);
+        }, 3000);
+      }
     },
   });
 
@@ -244,20 +330,41 @@ export default function Home() {
 
   const handleJoinLobby = useCallback((lobby: Lobby) => {
     if (!user) return;
-    
+
     // Prevent joining if already in a lobby
     if (activeLobby) {
-      toast({ 
-        title: "Already in a Lobby", 
-        description: "Leave your current lobby before joining another",
-        variant: "destructive"
-      });
+      toast({ title: "Already in a Lobby", variant: "destructive" });
       return;
     }
-    
+
     if (hapticEnabled) triggerImpact('medium');
     if (soundEnabled) playClickSound();
-    
+
+    // ── Test lobbies are local-only — bypass the server entirely ─────────────
+    if (lobby.id.startsWith('test-')) {
+      const myPlayer: Player = {
+        id: user.id,
+        name: user.name,
+        level: user.level,
+        team: user.team,
+        isReady: false,
+        isPremium: user.isPremium,
+        friendCode: user.code,
+        hasSentRequest: false,
+      };
+      // Add the real user into the fake player list so they appear in the view
+      const alreadyIn = lobby.players.some(p => p.id === user.id);
+      const testLobby: Lobby = {
+        ...lobby,
+        players: alreadyIn ? lobby.players : [...lobby.players, myPlayer],
+      };
+      setActiveLobby(testLobby);
+      setView("lobby");
+      const boss = BOSSES.find(b => b.id === lobby.bossId);
+      toast({ title: `Joined ${boss?.name || 'raid'} (test)` });
+      return;
+    }
+
     const myPlayer: Player = {
       id: user.id,
       name: user.name,
@@ -288,12 +395,19 @@ export default function Home() {
 
   const handleLeaveLobby = useCallback(() => {
     if (!user || !activeLobby) return;
-    
+
+    // Test lobbies are local-only — no server record to call
+    if (activeLobby.id.startsWith('test-')) {
+      setActiveLobby(null);
+      setView("join");
+      return;
+    }
+
     if (activeLobby.raidStarted && !activeLobby.players.find(p => p.id === user.id)?.isHost) {
       setFeedbackLobby(activeLobby);
       setShowFeedback(true);
     }
-    
+
     leaveLobbyMutation.mutate({ lobbyId: activeLobby.id, playerId: user.id });
   }, [user, activeLobby, leaveLobbyMutation]);
 
@@ -357,7 +471,7 @@ export default function Home() {
 
   if (userLoading) {
     return (
-      <div className="h-screen bg-background flex items-center justify-center">
+      <div className="h-dvh bg-background flex items-center justify-center">
         <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -382,14 +496,15 @@ export default function Home() {
   }
 
   return (
-    <div className="h-screen bg-background text-foreground flex flex-col overflow-hidden">
+    <div className="h-dvh bg-background text-foreground flex flex-col overflow-hidden">
       <Header onPremiumClick={() => setShowPremium(true)} />
-      
-      <main ref={mainContentRef} className="flex-1 overflow-y-auto overscroll-contain pb-24">
+
+      <main ref={mainContentRef} className="flex-1 overflow-y-auto overscroll-contain pb-nav">
         {view === "join" && (
           <JoinFeed
-            lobbies={lobbies}
+            lobbies={[...lobbies, ...testLobbies]}
             loading={lobbiesLoading}
+            isFetching={lobbiesFetching}
             filter={filter}
             setFilter={setFilter}
             isPremium={user.isPremium}
@@ -401,9 +516,12 @@ export default function Home() {
             userTeam={user.team}
             friendCode={user.code}
             onQueueJoined={handleQueueJoined}
+            autoRefresh={autoRefresh}
+            onToggleAutoRefresh={() => setAutoRefresh(p => !p)}
+            onHostClick={() => setView("host")}
           />
         )}
-        {view === "host" && <HostView onHost={handleHostLobby} />}
+        {view === "host" && <HostView onHost={handleHostLobby} isPending={createLobbyMutation.isPending} />}
         {view === "shop" && <ShopView onUpgrade={() => setShowPremium(true)} />}
         {view === "profile" && (
           <SettingsView 
@@ -425,6 +543,15 @@ export default function Home() {
       <BottomNav currentView={view} setView={setView} hasActiveLobby={!!activeLobby} />
 
       <PremiumModal isOpen={showPremium} onClose={() => setShowPremium(false)} />
+      {user && (
+        <CatchLogModal
+          isOpen={showCatchLog}
+          onClose={() => setShowCatchLog(false)}
+          userId={user.id}
+          bossId={catchLogBossId}
+          lobbyId={catchLogLobbyId}
+        />
+      )}
       <QueueStatusModal
         isOpen={showQueueStatus}
         onClose={() => {

@@ -1,5 +1,5 @@
 import { Capacitor } from '@capacitor/core';
-import { apiRequest } from './queryClient';
+import { apiRequest, getApiUrl } from './queryClient';
 
 type NotificationType = 'raid_invite' | 'raid_starting' | 'friend_request' | 'lobby_joined' | 'all_ready' | 'event_announcement';
 
@@ -239,4 +239,78 @@ export function showLocalNotification(title: string, body: string, data?: Record
 
 export function getCurrentToken(): string | null {
   return currentToken;
+}
+
+// ── Web Push (browser Service Worker) ────────────────────────────────────────
+// Registers a service worker and subscribes to Web Push so notifications appear
+// even when the browser tab is closed.
+
+let swRegistration: ServiceWorkerRegistration | null = null;
+
+async function getSwRegistration(): Promise<ServiceWorkerRegistration | null> {
+  if (swRegistration) return swRegistration;
+  if (!('serviceWorker' in navigator)) return null;
+
+  try {
+    swRegistration = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+    await navigator.serviceWorker.ready;
+    return swRegistration;
+  } catch (e) {
+    console.log('[WebPush] Service worker registration failed:', e);
+    return null;
+  }
+}
+
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  return Uint8Array.from(Array.from(rawData).map(c => c.charCodeAt(0)));
+}
+
+export async function registerWebPush(userId: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) return; // native uses APNs/FCM instead
+  if (!('PushManager' in window)) {
+    console.log('[WebPush] PushManager not supported in this browser');
+    return;
+  }
+
+  const permission = Notification.permission === 'granted'
+    ? 'granted'
+    : await Notification.requestPermission();
+
+  if (permission !== 'granted') {
+    console.log('[WebPush] Notification permission not granted');
+    return;
+  }
+
+  const sw = await getSwRegistration();
+  if (!sw) return;
+
+  try {
+    // Get VAPID public key from server
+    const keyRes = await fetch(getApiUrl('/api/push/vapid-key'));
+    if (!keyRes.ok) return;
+    const { publicKey } = await keyRes.json() as { publicKey: string };
+
+    // Check for existing subscription or create new one
+    let subscription = await sw.pushManager.getSubscription();
+    if (!subscription) {
+      subscription = await sw.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    }
+
+    // Register subscription with server (store as "token" for platform=web)
+    await apiRequest('POST', '/api/push/register', {
+      userId,
+      token: JSON.stringify(subscription),
+      platform: 'web',
+    });
+
+    console.log('[WebPush] Subscribed and registered with server');
+  } catch (e) {
+    console.log('[WebPush] Failed to subscribe:', e);
+  }
 }

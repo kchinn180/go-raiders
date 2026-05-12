@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/lib/theme-context";
 import { UserProvider } from "@/lib/user-context";
+import { ErrorBoundary } from "@/components/error-boundary";
 import Home from "@/pages/home";
 import NotFound from "@/pages/not-found";
 
@@ -19,16 +20,20 @@ function Router() {
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <UserProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Router />
-          </TooltipProvider>
-        </UserProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary name="App">
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <UserProvider>
+            <TooltipProvider>
+              <Toaster />
+              <ErrorBoundary name="Router">
+                <Router />
+              </ErrorBoundary>
+            </TooltipProvider>
+          </UserProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 

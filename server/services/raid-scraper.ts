@@ -5,18 +5,20 @@
  * community data sources and cross-references them for accuracy.
  *
  * Data Sources (in priority order):
- * 1. ScrapedDuck (GitHub) - Automated Leek Duck scraper, JSON format
- * 2. PoGoAPI.net - Community-maintained REST API
- * 3. Pokemon-GO-API (GitHub) - GameMaster-based data
+ * 1. ScrapedDuck (GitHub) — automated Leek Duck scraper, JSON format (highest accuracy)
+ * 2. PoGoAPI.net — community-maintained REST API
+ * 3. Pokemon-GO-API (GitHub) — GameMaster-based data
  *
- * The service runs on a configurable interval (default: every 30 minutes)
- * and updates the storage layer with new/removed raid bosses.
+ * SCHEDULE:
+ * Runs once immediately on startup, then on the hour every hour (:00 exactly).
+ * The scheduler aligns itself to wall-clock time regardless of when the
+ * server started, so updates always fire at a predictable time.
  *
  * CROSS-REFERENCE STRATEGY:
  * - A boss must appear in at least 1 source to be considered active
  * - If 2+ sources agree, confidence is "high"
  * - New bosses not in the master list are flagged for admin review
- * - Bosses removed from all sources are automatically deactivated
+ * - Bosses removed from ALL sources are automatically deactivated
  */
 
 import { log } from "../index";
@@ -304,26 +306,37 @@ function parseTier(tier: any): number {
 }
 
 export interface RaidScraperConfig {
-  intervalMs: number;       // How often to check (default: 30 min)
   enabled: boolean;         // Whether auto-update is active
   sources: ('ScrapedDuck' | 'PoGoAPI' | 'PokemonGoAPI')[];
   autoActivate: boolean;    // Auto-activate matched bosses
   autoDeactivate: boolean;  // Auto-deactivate bosses removed from all sources
   notifyAdmin: boolean;     // Log new discovered bosses for admin review
+  onTheHour: boolean;       // Sync runs to the top of each hour (default: true)
 }
 
 const DEFAULT_CONFIG: RaidScraperConfig = {
-  intervalMs: 30 * 60 * 1000,  // 30 minutes
   enabled: true,
   sources: ['ScrapedDuck', 'PoGoAPI', 'PokemonGoAPI'],
   autoActivate: true,
   autoDeactivate: true,
   notifyAdmin: true,
+  onTheHour: true,
 };
+
+const ONE_HOUR_MS = 60 * 60 * 1000;
+
+/** Returns milliseconds until the next :00:00 (top of the next hour) */
+function msUntilNextHour(): number {
+  const now = new Date();
+  const next = new Date(now);
+  next.setHours(now.getHours() + 1, 0, 0, 0);
+  return next.getTime() - now.getTime();
+}
 
 export class RaidScraperService {
   private config: RaidScraperConfig;
   private intervalId: NodeJS.Timeout | null = null;
+  private alignTimeoutId: NodeJS.Timeout | null = null;
   private lastUpdate: RaidRotationUpdate | null = null;
   private storage: any;  // IStorage - using any to avoid circular import issues
 
@@ -333,10 +346,14 @@ export class RaidScraperService {
   }
 
   /**
-   * Start the automatic raid boss update service
+   * Start the automatic raid boss update service.
+   * When onTheHour=true (default), the first scheduled run fires at the next
+   * :00 mark and every hour after that — so the roster always updates at
+   * the same wall-clock time regardless of when the server started.
+   * An immediate "warm-up" fetch always runs on start regardless.
    */
   start(): void {
-    if (this.intervalId) {
+    if (this.intervalId || this.alignTimeoutId) {
       log('Raid scraper already running', 'scraper');
       return;
     }
@@ -346,26 +363,51 @@ export class RaidScraperService {
       return;
     }
 
-    log(`Starting raid boss scraper (interval: ${this.config.intervalMs / 1000}s)`, 'scraper');
-
-    // Run immediately on start
+    // Always do an immediate fetch so bosses are current on startup
+    log('Raid scraper starting — running initial fetch now', 'scraper');
     this.update().catch(e => log(`Initial scrape failed: ${e}`, 'scraper'));
 
-    // Then run on interval
-    this.intervalId = setInterval(() => {
-      this.update().catch(e => log(`Scrape failed: ${e}`, 'scraper'));
-    }, this.config.intervalMs);
+    if (this.config.onTheHour) {
+      const wait = msUntilNextHour();
+      const nextHour = new Date(Date.now() + wait);
+      log(
+        `Raid scraper will sync on the hour — next run at ${nextHour.toLocaleTimeString()} (in ${Math.round(wait / 60000)} min)`,
+        'scraper'
+      );
+
+      // Sleep until the next :00, then tick every hour
+      this.alignTimeoutId = setTimeout(() => {
+        this.alignTimeoutId = null;
+        this.runHourlyTick();
+        this.intervalId = setInterval(() => this.runHourlyTick(), ONE_HOUR_MS);
+      }, wait);
+    } else {
+      // Legacy: just run every hour from now
+      this.intervalId = setInterval(() => {
+        this.update().catch(e => log(`Scrape failed: ${e}`, 'scraper'));
+      }, ONE_HOUR_MS);
+    }
+  }
+
+  private runHourlyTick(): void {
+    const hour = new Date().getHours();
+    log(`Hourly raid boss sync triggered (${hour}:00)`, 'scraper');
+    this.update().catch(e => log(`Hourly scrape failed: ${e}`, 'scraper'));
   }
 
   /**
    * Stop the automatic update service
    */
   stop(): void {
+    if (this.alignTimeoutId) {
+      clearTimeout(this.alignTimeoutId);
+      this.alignTimeoutId = null;
+    }
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
-      log('Raid scraper stopped', 'scraper');
     }
+    log('Raid scraper stopped', 'scraper');
   }
 
   /**
@@ -424,7 +466,7 @@ export class RaidScraperService {
     const newDiscovered: ScrapedBoss[] = [];
     const added: RaidBoss[] = [];
 
-    for (const [key, { boss, sources, masterBossId }] of merged.entries()) {
+    for (const [key, { boss, sources, masterBossId }] of Array.from(merged.entries())) {
       if (masterBossId) {
         scrapedActiveIds.add(masterBossId);
 
@@ -499,14 +541,27 @@ export class RaidScraperService {
   }
 
   /**
-   * Update config at runtime
+   * Update config at runtime (restarts the scheduler to apply changes)
    */
   updateConfig(updates: Partial<RaidScraperConfig>): void {
-    const wasRunning = this.intervalId !== null;
-
+    const wasRunning = this.intervalId !== null || this.alignTimeoutId !== null;
     if (wasRunning) this.stop();
     this.config = { ...this.config, ...updates };
     if (wasRunning && this.config.enabled) this.start();
+  }
+
+  /** Whether the scheduler is currently active */
+  isRunning(): boolean {
+    return this.intervalId !== null || this.alignTimeoutId !== null;
+  }
+
+  /** When the next scheduled run will fire (approximate) */
+  nextRunAt(): Date | null {
+    if (!this.config.onTheHour || !this.isRunning()) return null;
+    const now = new Date();
+    const next = new Date(now);
+    next.setHours(now.getHours() + 1, 0, 0, 0);
+    return next;
   }
 
   /**

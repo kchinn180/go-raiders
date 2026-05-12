@@ -6,9 +6,21 @@ const config: CapacitorConfig = {
   webDir: 'dist/public',
   server: {
     androidScheme: 'https',
-    url: 'https://web-production-cce91.up.railway.app',
   },
   plugins: {
+    /**
+     * AdMob — replace test IDs with your production IDs from the AdMob console.
+     * iOS App ID also goes in ios/App/App/Info.plist:
+     *   <key>GADApplicationIdentifier</key>
+     *   <string>ca-app-pub-XXXXXXXXXXXXXXXX~YYYYYYYYYY</string>
+     */
+    AdMob: {
+      appId: {
+        ios:     "ca-app-pub-3940256099942544~1458002511",  // ← replace with production iOS App ID
+        android: "ca-app-pub-3940256099942544~3347511713",  // ← replace with production Android App ID
+      },
+      requestTrackingAuthorization: true,
+    },
     SplashScreen: {
       launchShowDuration: 2000,
       launchAutoHide: true,

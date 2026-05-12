@@ -3,7 +3,7 @@ import { X, Users, Clock, Loader2, CheckCircle, XCircle, Crown, Zap, Info, Bell,
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/safe-image";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getApiUrl } from "@/lib/queryClient";
 import { BOSSES } from "@shared/schema";
 import type { QueueStatus } from "@shared/schema";
 import { triggerNotification, triggerImpact } from "@/lib/haptics";
@@ -11,6 +11,7 @@ import { playRewardSound } from "@/lib/sounds";
 import { useUser } from "@/lib/user-context";
 import { purchaseSubscription, fetchProducts } from "@/lib/subscription";
 import { PokemonDetailsModal } from "@/components/pokemon-details-modal";
+import { RewardedAdButton } from "@/components/rewarded-ad-button";
 
 interface QueueStatusModalProps {
   isOpen: boolean;
@@ -96,7 +97,7 @@ export function QueueStatusModal({
 
     const sendHeartbeat = async () => {
       try {
-        await fetch("/api/queue/heartbeat", {
+        await fetch(getApiUrl("/api/queue/heartbeat"), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ userId, bossId }),
@@ -178,7 +179,7 @@ export function QueueStatusModal({
   // ── Mutations ──
   const leaveMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/queue/leave", {
+      const response = await fetch(getApiUrl("/api/queue/leave"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, bossId }),
@@ -196,7 +197,7 @@ export function QueueStatusModal({
 
   const acceptMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/queue/accept", {
+      const response = await fetch(getApiUrl("/api/queue/accept"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, bossId }),
@@ -222,7 +223,7 @@ export function QueueStatusModal({
 
   const rejectMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/queue/reject", {
+      const response = await fetch(getApiUrl("/api/queue/reject"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, bossId }),
@@ -507,6 +508,24 @@ export function QueueStatusModal({
                   </div>
                 </div>
               </div>
+
+              {/* Rewarded ad skip — free users only, position > 1 */}
+              {!user?.isPremium && (status?.position || 1) > 1 && (
+                <RewardedAdButton
+                  userId={userId}
+                  queueSkip={5}
+                  onRewardEarned={async () => {
+                    try {
+                      await fetch(getApiUrl("/api/queue/reward-skip"), {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ userId, bossId }),
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["/api/queue/status", userId, bossId] });
+                    } catch {}
+                  }}
+                />
+              )}
 
               {/* Elite upsell for free users not at position 1 */}
               {!user?.isPremium && (status?.position || 1) > 1 && (

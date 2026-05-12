@@ -32,6 +32,7 @@ import { cn } from "@/lib/utils";
 import { TEAMS, BOSSES } from "@shared/schema";
 import { languages } from "@/i18n";
 import { SafeImage } from "@/components/safe-image";
+import { CatchHistoryView } from "@/components/catch-history-view";
 import type { TeamId } from "@shared/schema";
 
 interface SettingsViewProps {
@@ -54,6 +55,8 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
   
   const [isEditing, setIsEditing] = useState(false);
   const [showLanguageMenu, setShowLanguageMenu] = useState(false);
+  const [adminTapCount, setAdminTapCount] = useState(0);
+  const [adminTapTimer, setAdminTapTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [editForm, setEditForm] = useState({
     name: user?.name || "",
     level: user?.level || 1,
@@ -61,6 +64,19 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
   });
   
   const currentLanguage = languages.find(l => l.code === i18n.language) || languages[0];
+
+  const handleVersionTap = () => {
+    const newCount = adminTapCount + 1;
+    setAdminTapCount(newCount);
+    if (adminTapTimer) clearTimeout(adminTapTimer);
+    if (newCount >= 5) {
+      setAdminTapCount(0);
+      onNavigate('admin');
+    } else {
+      const timer = setTimeout(() => setAdminTapCount(0), 3000);
+      setAdminTapTimer(timer);
+    }
+  };
 
   const handleLanguageChange = (langCode: string) => {
     i18n.changeLanguage(langCode);
@@ -138,7 +154,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
   };
 
   return (
-    <div className="p-4 space-y-6 pb-28">
+    <div className="p-4 space-y-6 pb-nav">
       <h2 className="text-2xl font-black">Settings</h2>
 
       {/* Profile Section */}
@@ -362,6 +378,24 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         )}
       </Card>
 
+      {/* Catch & IV Tracker / Raid Log */}
+      <Card className="overflow-hidden p-0">
+        <div className="px-4 pt-4 pb-2 flex items-center gap-2">
+          <Sparkles className="w-4 h-4 text-amber-400" />
+          <h3 className="font-bold">Raid Log</h3>
+          {!user.isPremium && (
+            <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              Elite
+            </span>
+          )}
+        </div>
+        <CatchHistoryView
+          userId={user.id}
+          isPremium={user.isPremium}
+          onUpgrade={onPremiumClick}
+        />
+      </Card>
+
       {/* Notifications Section */}
       <Card className="p-4">
         <h3 className="font-bold flex items-center gap-2 mb-4">
@@ -520,17 +554,6 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </button>
-        <button
-          onClick={() => onNavigate('admin')}
-          className="w-full p-4 flex items-center justify-between hover-elevate text-left"
-          data-testid="button-admin"
-        >
-          <div className="flex items-center gap-3">
-            <Shield className="w-5 h-5 text-orange-500" />
-            <span className="font-medium">Admin Dashboard</span>
-          </div>
-          <ChevronRight className="w-4 h-4 text-muted-foreground" />
-        </button>
       </Card>
 
       {/* Sign Out */}
@@ -544,8 +567,12 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         Sign Out
       </Button>
 
-      {/* App Version */}
-      <p className="text-center text-xs text-muted-foreground">
+      {/* App Version — tap 5× to access admin */}
+      <p
+        className="text-center text-xs text-muted-foreground select-none"
+        onClick={handleVersionTap}
+        style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
+      >
         GO Raiders v1.0.0
       </p>
 

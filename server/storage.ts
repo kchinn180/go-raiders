@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus, Subscription, Report, InsertReport } from "@shared/schema";
+import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus, Subscription, Report, InsertReport, AdImpression, AdConfig, AdStats, AdPlacement, CatchRecord, CatchStats, RaidGroup } from "@shared/schema";
 import type { Player as PlayerType } from "@shared/schema";
 import { ALL_BOSSES, TEAMS } from "@shared/schema";
 
@@ -85,6 +85,7 @@ export interface IStorage {
   processQueueMatches(): Promise<{ matched: QueueEntry[]; lobbies: Lobby[] }>;
   processQueueHeartbeats(): Promise<{ removed: string[] }>;
   processReservationExpiry(): Promise<{ expired: string[] }>;
+  getAlmostUpUsers(): Promise<Array<{ userId: string; bossId: string; bossName: string; position: number }>>;
   
   // Report management
   createReport(report: InsertReport): Promise<Report>;
@@ -109,6 +110,28 @@ export interface IStorage {
 
   // Admin: Broadcast
   getAllPushTokens(): Promise<PushToken[]>;
+
+  // Catch & IV Tracker
+  logCatch(record: Omit<CatchRecord, 'id' | 'createdAt'>): Promise<CatchRecord>;
+  getCatchHistory(userId: string, limit?: number): Promise<CatchRecord[]>;
+  getCatchStats(userId: string): Promise<CatchStats>;
+
+  // Private Groups
+  createGroup(ownerId: string, ownerName: string, name: string): Promise<RaidGroup>;
+  joinGroup(userId: string, joinCode: string): Promise<RaidGroup | null>;
+  leaveGroup(userId: string, groupId: string): Promise<boolean>;
+  getGroup(groupId: string): Promise<RaidGroup | null>;
+  getGroupByCode(joinCode: string): Promise<RaidGroup | null>;
+  getUserGroups(userId: string): Promise<RaidGroup[]>;
+  getGroupLobbies(groupId: string): Promise<Lobby[]>;
+
+  // Advertisements
+  recordAdImpression(data: Omit<AdImpression, 'id' | 'createdAt'>): Promise<AdImpression>;
+  recordAdClick(impressionId: string): Promise<boolean>;
+  getAdStats(): Promise<AdStats>;
+  getAdConfig(): Promise<AdConfig[]>;
+  updateAdConfig(placement: AdPlacement, patch: Partial<Omit<AdConfig, 'placement'>>): Promise<AdConfig>;
+  applyRewardedSkip(userId: string, bossId: string, skipSpots: number): Promise<boolean>;
 }
 
 export interface AppAnalytics {
@@ -126,16 +149,18 @@ export interface AppAnalytics {
   serverUptime: number;
 }
 
-// Default active bosses (January 2026 Pokemon GO raid rotation)
+// Default active bosses — cross-referenced with live sources, accurate May 2026
 const DEFAULT_ACTIVE_BOSS_IDS = [
-  // 5-Star Legendary (April 15–21, 2026)
-  'groudon', 'shadow-latios',
-  // Mega Raids (April 15–21, 2026)
-  'mega-alakazam',
+  // 5-Star Legendary
+  'nihilego', 'tapu-bulu', 'tapu-fini',
+  // Shadow Raids
+  'shadow-cresselia',
+  // Mega Raids
+  'mega-camerupt', 'mega-glalie', 'mega-altaria', 'mega-medicham',
   // Tier 3
-  'vileplume', 'dugtrio', 'torterra',
+  'nidoqueen', 'starmie', 'druddigon',
   // Tier 1
-  'foongus', 'phantump', 'sandygast', 'gossifleur',
+  'hisuian-voltorb', 'bagon', 'shieldon', 'espurr', 'shadow-larvitar',
 ];
 
 function generateMockLobbies(): Lobby[] {
@@ -179,9 +204,9 @@ interface UserAbuseRecord {
   rejoinCooldownUntil: Record<string, number>; // bossId -> cooldown end timestamp
 }
 
-const RESERVATION_TIMEOUT_MS = 20_000;  // 20 seconds to accept promotion
-const DISCONNECT_FREE_MS = 30_000;       // 30s disconnect tolerance for free
-const DISCONNECT_PREMIUM_MS = 120_000;   // 2 min disconnect tolerance for premium
+const RESERVATION_TIMEOUT_MS = 20_000;       // 20 seconds to accept promotion
+const DISCONNECT_FREE_MS = 30 * 60_000;      // 30 min — waiting users keep their place
+const DISCONNECT_PREMIUM_MS = 4 * 60 * 60_000; // 4 hr for premium users
 const REJOIN_COOLDOWN_MS = 60_000;       // 60s cooldown after rapid leave
 const RAPID_LEAVE_THRESHOLD_MS = 30_000; // Leaving within 30s of joining is "rapid"
 
@@ -202,6 +227,16 @@ export class MemStorage implements IStorage {
   private raidBosses: Map<string, RaidBoss>;
   private queueEntries: Map<string, QueueEntry>;
   private userAbuseRecords: Map<string, UserAbuseRecord>;
+  private almostUpNotified: Map<string, number>; // `${userId}-${bossId}` → last notified timestamp
+  // Catch tracker
+  private catchRecords: CatchRecord[];
+  // Private groups
+  private raidGroups: Map<string, RaidGroup>;
+  private groupIdCounter: number;
+  // Advertisements
+  private adImpressions: AdImpression[];
+  private adClicks: Set<string>;          // impression IDs that were clicked
+  private adConfigs: Map<AdPlacement, AdConfig>;
   private reports: Map<number, Report>;
   private reportsIdCounter: number;
 
@@ -217,6 +252,21 @@ export class MemStorage implements IStorage {
     this.raidBosses = new Map();
     this.queueEntries = new Map();
     this.userAbuseRecords = new Map();
+    this.almostUpNotified = new Map();
+    // Catch tracker
+    this.catchRecords = [];
+    // Private groups
+    this.raidGroups = new Map();
+    this.groupIdCounter = 1;
+    // Advertisements
+    this.adImpressions = [];
+    this.adClicks = new Set();
+    this.adConfigs = new Map([
+      ['banner',       { placement: 'banner',       enabled: true,  frequency: undefined, rewardQueueSkip: undefined }],
+      ['native_card',  { placement: 'native_card',  enabled: true,  frequency: 5,         rewardQueueSkip: undefined }],
+      ['rewarded',     { placement: 'rewarded',     enabled: true,  frequency: undefined, rewardQueueSkip: 5         }],
+      ['interstitial', { placement: 'interstitial', enabled: false, frequency: undefined, rewardQueueSkip: undefined }],
+    ]);
     this.reports = new Map();
     this.reportsIdCounter = 1;
     
@@ -962,22 +1012,74 @@ export class MemStorage implements IStorage {
 
       const timeSinceHeartbeat = now - entry.lastHeartbeat;
 
-      // Mark as disconnected first
+      // Mark as disconnected if no heartbeat for 10s (UI state only)
       if (timeSinceHeartbeat > 10_000 && entry.connectionStatus === 'active') {
         entry.connectionStatus = 'disconnected';
         this.queueEntries.set(key, entry);
       }
 
-      // Remove if exceeds tolerance
-      const tolerance = entry.isPremium ? DISCONNECT_PREMIUM_MS : DISCONNECT_FREE_MS;
-      if (entry.connectionStatus === 'disconnected' && timeSinceHeartbeat > tolerance) {
-        entry.status = 'expired';
-        this.queueEntries.set(key, entry);
-        removed.push(entry.userId);
+      // ── Waiting users: NEVER expire due to heartbeat loss ──
+      // Their place in line is saved regardless of app state.
+      // They will only be removed if they explicitly leave, or if they
+      // fail to respond when reserved (20s window).
+      if (entry.status === 'waiting') continue;
+
+      // ── Reserved users: expire if they miss the 20s response window ──
+      // (handled by processReservationExpiry, but also guard here with
+      // a generous tolerance so we don't double-expire)
+      if (entry.status === 'reserved') {
+        const tolerance = entry.isPremium ? DISCONNECT_PREMIUM_MS : DISCONNECT_FREE_MS;
+        if (entry.connectionStatus === 'disconnected' && timeSinceHeartbeat > tolerance) {
+          entry.status = 'expired';
+          this.queueEntries.set(key, entry);
+          removed.push(entry.userId);
+        }
       }
     }
 
     return { removed };
+  }
+
+  /**
+   * Return users whose queue position just reached ≤ 2 and haven't received
+   * an "almost up" push notification in the last 5 minutes.
+   * Marks them so they don't get spammed on the next cycle.
+   */
+  async getAlmostUpUsers(): Promise<Array<{ userId: string; bossId: string; bossName: string; position: number }>> {
+    const now = Date.now();
+    const ALMOST_UP_COOLDOWN_MS = 5 * 60_000; // don't re-notify within 5 min
+    const result: Array<{ userId: string; bossId: string; bossName: string; position: number }> = [];
+
+    // Group waiting entries by boss and sort by priority
+    const byBoss = new Map<string, QueueEntry[]>();
+    for (const entry of Array.from(this.queueEntries.values())) {
+      if (entry.status !== 'waiting') continue;
+      const list = byBoss.get(entry.bossId) || [];
+      list.push(entry);
+      byBoss.set(entry.bossId, list);
+    }
+
+    const boss = (id: string) => ALL_BOSSES.find(b => b.id === id);
+
+    for (const [bossId, entries] of Array.from(byBoss.entries())) {
+      const sorted = this.sortQueue(entries);
+      sorted.forEach((entry, idx) => {
+        const position = idx + 1;
+        if (position > 2) return;
+        const notifKey = `${entry.userId}-${bossId}`;
+        const lastNotified = this.almostUpNotified.get(notifKey) || 0;
+        if (now - lastNotified < ALMOST_UP_COOLDOWN_MS) return;
+        this.almostUpNotified.set(notifKey, now);
+        result.push({
+          userId: entry.userId,
+          bossId,
+          bossName: boss(bossId)?.name || bossId,
+          position,
+        });
+      });
+    }
+
+    return result;
   }
 
   /**
@@ -1058,24 +1160,24 @@ export class MemStorage implements IStorage {
     if (!user) return false;
 
     // Remove from all lobbies
-    for (const [lobbyId, lobby] of this.lobbies.entries()) {
+    for (const [lobbyId, lobby] of Array.from(this.lobbies.entries())) {
       if (lobby.hostId === userId) {
         this.lobbies.delete(lobbyId);
-      } else if (lobby.players.some(p => p.id === userId)) {
+      } else if (lobby.players.some((p: { id: string }) => p.id === userId)) {
         this.lobbies.set(lobbyId, {
           ...lobby,
-          players: lobby.players.filter(p => p.id !== userId),
+          players: lobby.players.filter((p: { id: string }) => p.id !== userId),
         });
       }
     }
 
     // Remove push tokens
-    for (const [token, pt] of this.pushTokens.entries()) {
+    for (const [token, pt] of Array.from(this.pushTokens.entries())) {
       if (pt.userId === userId) this.pushTokens.delete(token);
     }
 
     // Remove queue entries
-    for (const [key, entry] of this.queueEntries.entries()) {
+    for (const [key, entry] of Array.from(this.queueEntries.entries())) {
       if (entry.userId === userId) this.queueEntries.delete(key);
     }
 
@@ -1207,6 +1309,228 @@ export class MemStorage implements IStorage {
 
   async getAllPushTokens(): Promise<PushToken[]> {
     return Array.from(this.pushTokens.values());
+  }
+
+  // ============================================================================
+  // CATCH & IV TRACKER
+  // ============================================================================
+
+  async logCatch(record: Omit<CatchRecord, 'id' | 'createdAt'>): Promise<CatchRecord> {
+    const entry: CatchRecord = { ...record, id: randomUUID(), createdAt: Date.now() };
+    this.catchRecords.push(entry);
+    if (this.catchRecords.length > 100_000) this.catchRecords = this.catchRecords.slice(-100_000);
+    return entry;
+  }
+
+  async getCatchHistory(userId: string, limit = 50): Promise<CatchRecord[]> {
+    return this.catchRecords
+      .filter(r => r.userId === userId)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit);
+  }
+
+  async getCatchStats(userId: string): Promise<CatchStats> {
+    const records = this.catchRecords.filter(r => r.userId === userId);
+    const caught = records.filter(r => r.caught);
+    const shiny = records.filter(r => r.isShiny);
+
+    const byBoss: CatchStats['byBoss'] = {};
+    for (const r of records) {
+      if (!byBoss[r.bossId]) byBoss[r.bossId] = { raids: 0, caught: 0, shiny: 0, bestCp: 0 };
+      byBoss[r.bossId].raids++;
+      if (r.caught) { byBoss[r.bossId].caught++; byBoss[r.bossId].bestCp = Math.max(byBoss[r.bossId].bestCp, r.cp ?? 0); }
+      if (r.isShiny) byBoss[r.bossId].shiny++;
+    }
+
+    return {
+      totalRaids: records.length,
+      totalCaught: caught.length,
+      totalShiny: shiny.length,
+      catchRate: records.length ? caught.length / records.length : 0,
+      shinyRate: records.length ? shiny.length / records.length : 0,
+      byBoss,
+      recentCatches: records.sort((a, b) => b.createdAt - a.createdAt).slice(0, 20),
+    };
+  }
+
+  // ============================================================================
+  // PRIVATE GROUPS
+  // ============================================================================
+
+  private generateJoinCode(): string {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous 0/O/I/1
+    let code = '';
+    for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+    // Ensure uniqueness
+    for (const g of Array.from(this.raidGroups.values())) {
+      if (g.joinCode === code) return this.generateJoinCode();
+    }
+    return code;
+  }
+
+  async createGroup(ownerId: string, ownerName: string, name: string): Promise<RaidGroup> {
+    const group: RaidGroup = {
+      id: randomUUID(),
+      name: name.trim().slice(0, 40),
+      joinCode: this.generateJoinCode(),
+      ownerId,
+      ownerName,
+      memberIds: [ownerId],
+      createdAt: Date.now(),
+      maxMembers: 50,
+    };
+    this.raidGroups.set(group.id, group);
+    return group;
+  }
+
+  async joinGroup(userId: string, joinCode: string): Promise<RaidGroup | null> {
+    const group = Array.from(this.raidGroups.values()).find(
+      g => g.joinCode === joinCode.toUpperCase().trim()
+    );
+    if (!group) return null;
+    if (group.memberIds.length >= group.maxMembers) return null;
+    if (!group.memberIds.includes(userId)) {
+      group.memberIds.push(userId);
+      this.raidGroups.set(group.id, group);
+    }
+    return group;
+  }
+
+  async leaveGroup(userId: string, groupId: string): Promise<boolean> {
+    const group = this.raidGroups.get(groupId);
+    if (!group) return false;
+    if (group.ownerId === userId) {
+      // Owner leaving dissolves the group
+      this.raidGroups.delete(groupId);
+      return true;
+    }
+    group.memberIds = group.memberIds.filter(id => id !== userId);
+    this.raidGroups.set(groupId, group);
+    return true;
+  }
+
+  async getGroup(groupId: string): Promise<RaidGroup | null> {
+    return this.raidGroups.get(groupId) ?? null;
+  }
+
+  async getGroupByCode(joinCode: string): Promise<RaidGroup | null> {
+    return Array.from(this.raidGroups.values()).find(
+      g => g.joinCode === joinCode.toUpperCase().trim()
+    ) ?? null;
+  }
+
+  async getUserGroups(userId: string): Promise<RaidGroup[]> {
+    return Array.from(this.raidGroups.values()).filter(g => g.memberIds.includes(userId));
+  }
+
+  async getGroupLobbies(groupId: string): Promise<Lobby[]> {
+    return Array.from(this.lobbies.values()).filter(
+      l => l.groupId === groupId && !l.raidStarted
+    );
+  }
+
+  // ============================================================================
+  // ADVERTISEMENT TRACKING
+  // ============================================================================
+
+  async recordAdImpression(
+    data: Omit<AdImpression, 'id' | 'createdAt'>
+  ): Promise<AdImpression> {
+    const impression: AdImpression = {
+      ...data,
+      id: randomUUID(),
+      createdAt: Date.now(),
+    };
+    this.adImpressions.push(impression);
+    // Keep rolling 30-day window in memory (max 50k impressions)
+    if (this.adImpressions.length > 50_000) {
+      this.adImpressions = this.adImpressions.slice(-50_000);
+    }
+    return impression;
+  }
+
+  async recordAdClick(impressionId: string): Promise<boolean> {
+    const exists = this.adImpressions.some(i => i.id === impressionId);
+    if (!exists) return false;
+    this.adClicks.add(impressionId);
+    return true;
+  }
+
+  async getAdStats(): Promise<AdStats> {
+    const placements: AdPlacement[] = ['banner', 'native_card', 'rewarded', 'interstitial'];
+    const byPlacement = {} as AdStats['byPlacement'];
+
+    for (const p of placements) {
+      const pImpressions = this.adImpressions.filter(i => i.placement === p);
+      const pClicks = pImpressions.filter(i => this.adClicks.has(i.id));
+      byPlacement[p] = {
+        impressions: pImpressions.length,
+        clicks: pClicks.length,
+        estimatedRevenueUsd: pImpressions.reduce((s, i) => s + i.estimatedRevenueMicros, 0) / 1_000_000,
+      };
+    }
+
+    // Daily revenue — last 7 days
+    const dailyMap = new Map<string, { impressions: number; micros: number }>();
+    const now = Date.now();
+    for (let d = 0; d < 7; d++) {
+      const date = new Date(now - d * 86_400_000).toISOString().slice(0, 10);
+      dailyMap.set(date, { impressions: 0, micros: 0 });
+    }
+    for (const imp of this.adImpressions) {
+      const date = new Date(imp.createdAt).toISOString().slice(0, 10);
+      if (dailyMap.has(date)) {
+        const entry = dailyMap.get(date)!;
+        entry.impressions++;
+        entry.micros += imp.estimatedRevenueMicros;
+      }
+    }
+    const dailyRevenue = Array.from(dailyMap.entries())
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([date, v]) => ({
+        date,
+        impressions: v.impressions,
+        estimatedRevenueUsd: v.micros / 1_000_000,
+      }));
+
+    return {
+      totalImpressions: this.adImpressions.length,
+      totalClicks: this.adClicks.size,
+      estimatedRevenueUsd: this.adImpressions.reduce((s, i) => s + i.estimatedRevenueMicros, 0) / 1_000_000,
+      byPlacement,
+      dailyRevenue,
+    };
+  }
+
+  async getAdConfig(): Promise<AdConfig[]> {
+    return Array.from(this.adConfigs.values());
+  }
+
+  async updateAdConfig(
+    placement: AdPlacement,
+    patch: Partial<Omit<AdConfig, 'placement'>>
+  ): Promise<AdConfig> {
+    const existing = this.adConfigs.get(placement) ?? { placement, enabled: true };
+    const updated: AdConfig = { ...existing, ...patch };
+    this.adConfigs.set(placement, updated);
+    return updated;
+  }
+
+  /**
+   * Move the user forward in the queue by reducing their priorityScore.
+   * A lower score means higher priority (front of queue sooner).
+   * We reduce by skipSpots * avg-score-delta so the jump is meaningful.
+   */
+  async applyRewardedSkip(userId: string, bossId: string, skipSpots: number): Promise<boolean> {
+    const key = `${userId}-${bossId}`;
+    const entry = this.queueEntries.get(key);
+    if (!entry || entry.status !== 'waiting') return false;
+    // Each spot costs ~1 priority unit. Pull forward by skipSpots.
+    entry.priorityScore = Math.max(entry.priorityScore - skipSpots, -skipSpots);
+    // Also nudge originalJoinedAt forward so tie-breaking favours them
+    entry.originalJoinedAt = Math.max(0, entry.originalJoinedAt - skipSpots * 45_000);
+    this.queueEntries.set(key, entry);
+    return true;
   }
 }
 

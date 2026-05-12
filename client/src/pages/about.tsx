@@ -1,7 +1,7 @@
 import { ArrowLeft, Flame, Users, Zap, Shield, Crown, Star } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import logoImage from "@assets/IMG_0027_1768190905765.png";
+import { SwipeBackWrapper } from "@/components/swipe-back-wrapper";
 
 interface AboutPageProps {
   onBack: () => void;
@@ -9,13 +9,15 @@ interface AboutPageProps {
 
 export function AboutPage({ onBack }: AboutPageProps) {
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-10 bg-card border-b border-card-border p-4 flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back">
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
+    <SwipeBackWrapper onBack={onBack}>
+    <div className="h-dvh flex flex-col bg-background overflow-hidden">
+      <header
+        className="sticky top-0 z-10 bg-card border-b border-card-border flex items-center justify-center px-4 pb-3 shrink-0"
+        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
+      >
         <h1 className="text-lg font-bold">About GO Raiders</h1>
       </header>
+      <div className="flex-1 overflow-y-auto pb-24">
 
       <div className="p-6 space-y-6 max-w-2xl mx-auto">
         {/* Hero Section */}
@@ -116,6 +118,23 @@ export function AboutPage({ onBack }: AboutPageProps) {
           © 2025 GO Raiders. All rights reserved.
         </p>
       </div>
+      </div>
+
+      {/* Floating back button — anchored above home indicator */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 flex justify-start px-5"
+        style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+      >
+        <button
+          onClick={onBack}
+          data-testid="button-back"
+          className="flex items-center gap-2 bg-card border border-card-border px-5 py-3 rounded-full font-bold text-sm shadow-xl active:scale-95 transition-transform"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
+      </div>
     </div>
+    </SwipeBackWrapper>
   );
 }

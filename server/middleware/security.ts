@@ -32,27 +32,16 @@ export const securityMiddleware = helmet({
 });
 
 export const corsMiddleware = cors({
-  origin: (origin, callback) => {
-    const allowedOrigins = [
-      process.env.RAILWAY_PUBLIC_DOMAIN ? `https://${process.env.RAILWAY_PUBLIC_DOMAIN}` : null,
-      process.env.APP_URL || null,
-      process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : null,
-      process.env.REPLIT_DEPLOYMENT_DOMAIN ? `https://${process.env.REPLIT_DEPLOYMENT_DOMAIN}` : null,
-      "https://goraiders.replit.app",
-    ].filter(Boolean);
-
-    // Allow same-origin requests (no origin header) and whitelisted origins
-    if (!origin || allowedOrigins.includes(origin) || origin?.includes('.replit.dev') || origin?.includes('.replit.app') || origin?.includes('.railway.app')) {
-      callback(null, true);
-    } else {
-      callback(null, true);
-    }
-  },
-  credentials: true,
+  // Use wildcard origin so that Capacitor iOS (capacitor://localhost) and
+  // all web origins can make cross-origin requests without WKWebView
+  // rejecting the preflight due to a non-http/https scheme in the
+  // Access-Control-Allow-Origin response header.
+  origin: "*",
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "X-CSRF-Token"],
   exposedHeaders: ["X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"],
   maxAge: 86400,
+  // credentials: false (default) — required when origin is "*"
 });
 
 export const apiRateLimiter = rateLimit({

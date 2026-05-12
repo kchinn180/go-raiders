@@ -1,4 +1,23 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { Capacitor } from "@capacitor/core";
+
+/**
+ * API Base URL - When running as a native Capacitor app (iOS/Android),
+ * relative URLs like /api/... resolve to capacitor://localhost/api/...
+ * which doesn't reach the backend. We need absolute URLs in native mode.
+ */
+const RAILWAY_URL = "https://web-production-cce91.up.railway.app";
+
+export function getApiUrl(path: string): string {
+  // Already absolute URL - return as-is
+  if (path.startsWith("http")) return path;
+  // In native Capacitor app, prefix with Railway URL
+  if (Capacitor.isNativePlatform()) {
+    return `${RAILWAY_URL}${path}`;
+  }
+  // In browser/web mode, use relative URL
+  return path;
+}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,11 +31,14 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  // Use credentials "include" for same-origin, "omit" for cross-origin (Railway)
+  const resolvedUrl = getApiUrl(url);
+  const isNative = Capacitor.isNativePlatform();
+  const res = await fetch(resolvedUrl, {
     method,
     headers: data ? { "Content-Type": "application/json" } : {},
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
+    credentials: isNative ? "omit" : "include",
   });
 
   await throwIfResNotOk(res);
@@ -29,8 +51,10 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
-      credentials: "include",
+    const url = getApiUrl(queryKey.join("/") as string);
+    const isNative = Capacitor.isNativePlatform();
+    const res = await fetch(url, {
+      credentials: isNative ? "omit" : "include",
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
@@ -47,8 +71,9 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      staleTime: 30000,
+      retry: 2,
+      retryDelay: 1000,
     },
     mutations: {
       retry: false,

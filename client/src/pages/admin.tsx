@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import {
   Shield, Star, AlertCircle, ThumbsUp, ThumbsDown, Lock, ArrowLeft,
   Search, Ban, UserX, Trash2, RefreshCw, Loader2, Users, Crown,
   XCircle, Eye, Send, Megaphone, Clock, Activity, Flame,
-  ChevronDown, ChevronUp, Copy, Edit3, Check, X,
+  ChevronDown, ChevronUp, Copy, Edit3, Check, X, DollarSign,
+  TrendingUp, BarChart2, ToggleLeft, ToggleRight,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,15 +15,18 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, getApiUrl } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
-import type { Feedback, BannedUser, RaidBoss, User, Lobby, Report } from "@shared/schema";
+import { SwipeBackWrapper } from "@/components/swipe-back-wrapper";
+import { BOSSES } from "@shared/schema";
+import type { Feedback, BannedUser, RaidBoss, User, Lobby, Report, AdStats, AdConfig, AdPlacement } from "@shared/schema";
+import { isTestRaidsEnabled, setTestRaidsEnabled, generateTestLobbies } from "@/lib/test-raids";
 
 // ============================================================================
 // HELPER: Authenticated fetch wrapper
 // ============================================================================
 function adminFetch(url: string, token: string, options?: RequestInit) {
-  return fetch(url, {
+  return fetch(getApiUrl(url), {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -36,73 +40,226 @@ function adminFetch(url: string, token: string, options?: RequestInit) {
 // MAIN ADMIN PAGE
 // ============================================================================
 
+const LOCKOUT_LS_KEY = "goraiders_admin_lockout";
+
+function getLockoutState(): { lockedUntil: number; attempts: number } {
+  try {
+    const raw = localStorage.getItem(LOCKOUT_LS_KEY);
+    if (!raw) return { lockedUntil: 0, attempts: 0 };
+    return JSON.parse(raw);
+  } catch {
+    return { lockedUntil: 0, attempts: 0 };
+  }
+}
+
+function saveLockoutState(state: { lockedUntil: number; attempts: number }) {
+  try {
+    localStorage.setItem(LOCKOUT_LS_KEY, JSON.stringify(state));
+  } catch {}
+}
+
+function clearLockoutState() {
+  try {
+    localStorage.removeItem(LOCKOUT_LS_KEY);
+  } catch {}
+}
+
 export function AdminPage({ onBack }: { onBack: () => void }) {
   const { toast } = useToast();
   const [adminToken, setAdminToken] = useState("");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const res = await fetch("/api/admin/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: adminToken }),
-      });
-      const data = await res.json();
-      if (data.valid) {
-        setIsAuthenticated(true);
-        setAuthError("");
-      } else {
-        setAuthError("Invalid admin token");
+  // Lockout state — persisted to localStorage so it survives page reloads
+  const [lockoutState, setLockoutState] = useState(getLockoutState);
+  const [lockoutCountdown, setLockoutCountdown] = useState("");
+
+  // Countdown timer while locked out
+  useEffect(() => {
+    if (lockoutState.lockedUntil <= Date.now()) return;
+    const tick = () => {
+      const remaining = lockoutState.lockedUntil - Date.now();
+      if (remaining <= 0) {
+        setLockoutCountdown("");
+        setLockoutState(s => ({ ...s, lockedUntil: 0, attempts: 0 }));
+        clearLockoutState();
+        return;
       }
-    } catch {
-      setAuthError("Verification failed");
+      const m = Math.floor(remaining / 60000);
+      const s = Math.floor((remaining % 60000) / 1000);
+      setLockoutCountdown(`${m}:${s.toString().padStart(2, "0")}`);
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lockoutState.lockedUntil]);
+
+  const isLockedOut = lockoutState.lockedUntil > Date.now();
+
+  // The password is verified client-side so the dashboard works even when
+  // the server is temporarily unreachable. The server is pinged in the
+  // background only to log/alert on failed attempts.
+  const ADMIN_KEY = "Kj03c08kjc0308$";
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isLockedOut || isSubmitting) return;
+
+    setIsSubmitting(true);
+    setAuthError("");
+
+    if (adminToken === ADMIN_KEY) {
+      // ✅ Correct password
+      clearLockoutState();
+      setLockoutState({ lockedUntil: 0, attempts: 0 });
+      setIsAuthenticated(true);
+      setIsSubmitting(false);
+      return;
     }
+
+    // ❌ Wrong password — update lockout counter
+    const newAttempts = lockoutState.attempts + 1;
+    const willLock = newAttempts >= 3;
+    const lockedUntil = willLock ? Date.now() + 60 * 60 * 1000 : 0;
+    const newState = { attempts: newAttempts, lockedUntil };
+    saveLockoutState(newState);
+    setLockoutState(newState);
+
+    setAuthError(
+      willLock
+        ? "Too many incorrect attempts. Access locked for 1 hour."
+        : `Incorrect password — ${3 - newAttempts} attempt${3 - newAttempts !== 1 ? "s" : ""} remaining`
+    );
+    setAdminToken("");
+    setIsSubmitting(false);
+
+    // Fire-and-forget: alert the server (for push notification logging)
+    // This runs in the background and never blocks the UI or shows errors
+    fetch(getApiUrl("/api/admin/verify"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: adminToken }),
+    }).catch(() => {/* server unreachable — that's fine, local lockout is already applied */});
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background p-4 flex flex-col">
-        <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground mb-8">
-          <ArrowLeft className="w-4 h-4" /> Back to App
-        </button>
+      <SwipeBackWrapper onBack={onBack}>
+      <div className="h-dvh bg-background flex flex-col overflow-hidden">
+        <div className="flex-1 overflow-y-auto flex items-center justify-center px-4 pb-8"
+          style={{ paddingTop: 'max(2rem, env(safe-area-inset-top))' }}
+        >
         <div className="flex-1 flex items-center justify-center">
           <Card className="p-8 w-full max-w-md">
             <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center mx-auto mb-4">
-                <Shield className="w-8 h-8 text-white" />
+              <div className={cn(
+                "w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4",
+                isLockedOut
+                  ? "bg-gradient-to-br from-red-700 to-red-900"
+                  : "bg-gradient-to-br from-orange-500 to-red-600"
+              )}>
+                {isLockedOut ? (
+                  <Clock className="w-8 h-8 text-white" />
+                ) : (
+                  <Shield className="w-8 h-8 text-white" />
+                )}
               </div>
               <h1 className="text-2xl font-black">Admin Access</h1>
-              <p className="text-sm text-muted-foreground mt-1">Enter your admin token</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                {isLockedOut ? "Access temporarily locked" : "Enter your admin token"}
+              </p>
             </div>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <Input type="password" placeholder="Admin Token" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} className="text-center" />
-              {authError && <p className="text-sm text-red-500 text-center">{authError}</p>}
-              <Button type="submit" className="w-full bg-gradient-to-r from-orange-500 to-red-600">
-                <Lock className="w-4 h-4 mr-2" /> Access Dashboard
-              </Button>
-            </form>
+
+            {isLockedOut ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-red-700/50 bg-red-900/20 p-4 text-center space-y-2">
+                  <p className="text-sm font-bold text-red-400">🔒 Locked for 1 hour</p>
+                  <p className="text-xs text-muted-foreground">
+                    Too many incorrect attempts detected. This device has been locked to protect admin access.
+                  </p>
+                  {lockoutCountdown && (
+                    <p className="text-2xl font-black text-red-400 tabular-nums">{lockoutCountdown}</p>
+                  )}
+                  <p className="text-[10px] text-muted-foreground">remaining</p>
+                </div>
+                <p className="text-[11px] text-muted-foreground text-center">
+                  A security alert has been sent to the admin.
+                </p>
+              </div>
+            ) : (
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-1">
+                  <Input
+                    type="password"
+                    placeholder="Admin Token"
+                    value={adminToken}
+                    onChange={(e) => setAdminToken(e.target.value)}
+                    className="text-center"
+                    autoComplete="current-password"
+                    disabled={isSubmitting}
+                  />
+                  {lockoutState.attempts > 0 && !isLockedOut && (
+                    <p className="text-[10px] text-amber-400 text-center">
+                      {3 - lockoutState.attempts} attempt{3 - lockoutState.attempts !== 1 ? "s" : ""} remaining before 1-hour lockout
+                    </p>
+                  )}
+                </div>
+                {authError && (
+                  <div className="rounded-lg bg-red-900/20 border border-red-700/50 p-2">
+                    <p className="text-sm text-red-400 text-center">{authError}</p>
+                  </div>
+                )}
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || !adminToken}
+                  className="w-full bg-gradient-to-r from-orange-500 to-red-600"
+                >
+                  {isSubmitting ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
+                  ) : (
+                    <><Lock className="w-4 h-4 mr-2" /> Access Dashboard</>
+                  )}
+                </Button>
+              </form>
+            )}
           </Card>
         </div>
+        </div>
+
+        {/* Floating back button */}
+        <div
+          className="fixed bottom-0 left-0 right-0 z-50 flex justify-start px-5"
+          style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+        >
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 bg-card border border-card-border px-5 py-3 rounded-full font-bold text-sm shadow-xl active:scale-95 transition-transform"
+          >
+            <ArrowLeft className="w-4 h-4" /> Back to App
+          </button>
+        </div>
       </div>
+      </SwipeBackWrapper>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground">
-            <ArrowLeft className="w-4 h-4" /> Back
-          </button>
-          <h1 className="text-xl font-black flex items-center gap-2">
-            <Shield className="w-5 h-5 text-orange-500" /> Admin Dashboard
-          </h1>
-          <div />
-        </div>
+    <SwipeBackWrapper onBack={onBack}>
+    <div className="h-dvh flex flex-col bg-background overflow-hidden">
+      {/* Dashboard sticky header */}
+      <div
+        className="px-4 pb-3 bg-background border-b border-card-border shrink-0"
+        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
+      >
+        <h1 className="text-xl font-black flex items-center justify-center gap-2">
+          <Shield className="w-5 h-5 text-orange-500" /> Admin Dashboard
+        </h1>
+      </div>{/* end header */}
 
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto">
+      <div className="max-w-5xl mx-auto p-4">
         <Tabs defaultValue="overview" className="space-y-4">
           <div className="overflow-x-auto -mx-4 px-4">
             <TabsList className="inline-flex w-auto min-w-full">
@@ -114,6 +271,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
               <TabsTrigger value="broadcast">Broadcast</TabsTrigger>
               <TabsTrigger value="feedback">Feedback</TabsTrigger>
               <TabsTrigger value="bans">Bans</TabsTrigger>
+              <TabsTrigger value="ads">💰 Ads</TabsTrigger>
+              <TabsTrigger value="testing">🧪 Testing</TabsTrigger>
             </TabsList>
           </div>
 
@@ -125,9 +284,26 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           <TabsContent value="broadcast"><BroadcastTab token={adminToken} /></TabsContent>
           <TabsContent value="feedback"><FeedbackTab token={adminToken} /></TabsContent>
           <TabsContent value="bans"><BansTab token={adminToken} /></TabsContent>
+          <TabsContent value="ads"><AdsTab token={adminToken} /></TabsContent>
+          <TabsContent value="testing"><TestingTab /></TabsContent>
         </Tabs>
+      </div>{/* end max-w-5xl */}
+      </div>{/* end flex-1 scrollable */}
+
+      {/* Floating back button */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 flex justify-start px-5"
+        style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+      >
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 bg-card border border-card-border px-5 py-3 rounded-full font-bold text-sm shadow-xl active:scale-95 transition-transform"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to App
+        </button>
       </div>
-    </div>
+    </div>{/* end h-dvh */}
+    </SwipeBackWrapper>
   );
 }
 
@@ -875,7 +1051,7 @@ function BansTab({ token }: { token: string }) {
 
   const unbanMut = useMutation({
     mutationFn: async (friendCode: string) => {
-      const res = await fetch(`/api/admin/ban/${encodeURIComponent(friendCode)}`, {
+      const res = await fetch(getApiUrl(`/api/admin/ban/${encodeURIComponent(friendCode)}`), {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -922,6 +1098,288 @@ function BansTab({ token }: { token: string }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================================
+// TAB: Ads — revenue dashboard + placement controls
+// ============================================================================
+const PLACEMENT_LABELS: Record<AdPlacement, string> = {
+  banner: "Banner (bottom of feed)",
+  native_card: "Native Card (in-feed, every N lobbies)",
+  rewarded: "Rewarded Video (queue skip)",
+  interstitial: "Interstitial (between screens)",
+};
+
+function AdsTab({ token }: { token: string }) {
+  const { data: stats, isLoading: loadingStats } = useQuery<AdStats>({
+    queryKey: ["/api/ads/stats"],
+    queryFn: async () => {
+      const r = await fetch(getApiUrl("/api/ads/stats"), { headers: { "x-admin-token": token } });
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    },
+    refetchInterval: 30_000,
+  });
+
+  const { data: configs, isLoading: loadingConfigs, refetch: refetchConfigs } = useQuery<AdConfig[]>({
+    queryKey: ["/api/ads/config"],
+    queryFn: async () => {
+      const r = await fetch(getApiUrl("/api/ads/config"), { headers: { "x-admin-token": token } });
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    },
+  });
+
+  const updateConfig = async (placement: AdPlacement, patch: Partial<AdConfig>) => {
+    try {
+      const r = await fetch(getApiUrl(`/api/ads/config/${placement}`), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify(patch),
+      });
+      if (!r.ok) throw new Error(`${r.status}`);
+    } catch (e) {
+      console.error("[AdsTab] updateConfig failed:", e);
+    }
+    refetchConfigs();
+  };
+
+  const fmt$ = (n: number) => `$${n.toFixed(4)}`;
+
+  if (loadingStats || loadingConfigs) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-1">
+      {/* Revenue summary */}
+      <div className="grid grid-cols-3 gap-3">
+        <Card className="p-4 text-center">
+          <DollarSign className="w-5 h-5 text-green-400 mx-auto mb-1" />
+          <p className="text-xs text-muted-foreground">Est. Revenue</p>
+          <p className="text-lg font-black text-green-400">
+            {fmt$(stats?.estimatedRevenueUsd ?? 0)}
+          </p>
+        </Card>
+        <Card className="p-4 text-center">
+          <TrendingUp className="w-5 h-5 text-blue-400 mx-auto mb-1" />
+          <p className="text-xs text-muted-foreground">Impressions</p>
+          <p className="text-lg font-black">{(stats?.totalImpressions ?? 0).toLocaleString()}</p>
+        </Card>
+        <Card className="p-4 text-center">
+          <BarChart2 className="w-5 h-5 text-amber-400 mx-auto mb-1" />
+          <p className="text-xs text-muted-foreground">Clicks</p>
+          <p className="text-lg font-black">{(stats?.totalClicks ?? 0).toLocaleString()}</p>
+        </Card>
+      </div>
+
+      {/* Per-placement breakdown */}
+      <Card className="p-4 space-y-3">
+        <p className="text-sm font-bold">By Placement</p>
+        {(["banner", "native_card", "rewarded", "interstitial"] as AdPlacement[]).map(p => {
+          const row = stats?.byPlacement?.[p];
+          return (
+            <div key={p} className="flex items-center justify-between text-xs py-1 border-t border-card-border">
+              <span className="text-muted-foreground capitalize">{p.replace("_", " ")}</span>
+              <div className="flex gap-3 text-right">
+                <span>{row?.impressions ?? 0} imp</span>
+                <span>{row?.clicks ?? 0} clicks</span>
+                <span className="text-green-400 font-bold">{fmt$(row?.estimatedRevenueUsd ?? 0)}</span>
+              </div>
+            </div>
+          );
+        })}
+      </Card>
+
+      {/* 7-day sparkline */}
+      {stats?.dailyRevenue && stats.dailyRevenue.length > 0 && (
+        <Card className="p-4">
+          <p className="text-sm font-bold mb-3">Last 7 Days</p>
+          <div className="flex items-end gap-1 h-16">
+            {stats.dailyRevenue.slice().reverse().map((day) => {
+              const maxRev = Math.max(...stats.dailyRevenue.map(d => d.estimatedRevenueUsd), 0.0001);
+              const pct = (day.estimatedRevenueUsd / maxRev) * 100;
+              return (
+                <div key={day.date} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className="w-full bg-green-500/60 rounded-t transition-all"
+                    style={{ height: `${Math.max(pct, 4)}%` }}
+                    title={`${day.date}: ${fmt$(day.estimatedRevenueUsd)}`}
+                  />
+                  <span className="text-[8px] text-muted-foreground">{day.date.slice(5)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Placement toggles */}
+      <Card className="p-4 space-y-4">
+        <p className="text-sm font-bold">Placement Controls</p>
+        {(configs ?? []).map(cfg => (
+          <div key={cfg.placement} className="space-y-2 border-t border-card-border pt-3 first:border-0 first:pt-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold capitalize">{cfg.placement.replace("_", " ")}</p>
+                <p className="text-[10px] text-muted-foreground">{PLACEMENT_LABELS[cfg.placement]}</p>
+              </div>
+              <button
+                onClick={() => updateConfig(cfg.placement, { enabled: !cfg.enabled })}
+                className={cn("transition-colors", cfg.enabled ? "text-green-400" : "text-muted-foreground")}
+                data-testid={`toggle-ad-${cfg.placement}`}
+              >
+                {cfg.enabled
+                  ? <ToggleRight className="w-8 h-8" />
+                  : <ToggleLeft className="w-8 h-8" />
+                }
+              </button>
+            </div>
+            {cfg.placement === "native_card" && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">Every</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  defaultValue={cfg.frequency ?? 5}
+                  onBlur={e => updateConfig(cfg.placement, { frequency: Number(e.target.value) })}
+                  className="w-14 text-center bg-muted border border-card-border rounded px-2 py-1 text-sm"
+                />
+                <span className="text-muted-foreground">lobbies</span>
+              </div>
+            )}
+            {cfg.placement === "rewarded" && (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-muted-foreground">Queue skip:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  defaultValue={cfg.rewardQueueSkip ?? 5}
+                  onBlur={e => updateConfig(cfg.placement, { rewardQueueSkip: Number(e.target.value) })}
+                  className="w-14 text-center bg-muted border border-card-border rounded px-2 py-1 text-sm"
+                />
+                <span className="text-muted-foreground">spots</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </Card>
+
+      <p className="text-[10px] text-muted-foreground text-center px-2">
+        Revenue figures are estimated from AdMob's paid impression callback. Actual payouts appear in your AdMob dashboard after Google's 30-day verification period.
+      </p>
+    </div>
+  );
+}
+
+// ============================================================================
+// TAB: Testing — inject fake lobbies for QA
+// ============================================================================
+
+function TestingTab() {
+  const { toast } = useToast();
+  const [enabled, setEnabled] = useState(isTestRaidsEnabled());
+  const preview = generateTestLobbies();
+
+  const toggle = () => {
+    const next = !enabled;
+    setTestRaidsEnabled(next);
+    setEnabled(next);
+    toast({
+      title: next ? "Test Raids ON" : "Test Raids OFF",
+      description: next
+        ? `${preview.length} fake lobbies injected into the Join Feed on this device.`
+        : "Fake lobbies removed from the Join Feed.",
+      duration: 3000,
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card className="p-4 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-bold text-base flex items-center gap-2">
+              🧪 Test Raid Lobbies
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Injects fake lobbies into the Join Feed on <span className="text-foreground font-semibold">this device only</span>.
+              Real users are not affected. Toggle off when done testing.
+            </p>
+          </div>
+          <Switch
+            checked={enabled}
+            onCheckedChange={toggle}
+            data-testid="switch-test-raids"
+          />
+        </div>
+
+        {enabled && (
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+            <p className="text-xs font-bold text-amber-400 mb-1">⚠️ Test mode active</p>
+            <p className="text-xs text-muted-foreground">
+              {preview.length} fake lobbies are currently visible in the Join Feed. Switch to the main app to interact with them.
+            </p>
+          </div>
+        )}
+      </Card>
+
+      {/* Preview of the fake lobbies that will be injected */}
+      <Card className="p-4 space-y-3">
+        <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">
+          Fake Lobby Preview ({preview.length})
+        </h4>
+        <div className="space-y-2 max-h-96 overflow-y-auto">
+          {preview.map((lobby) => {
+            const boss = BOSSES.find((b) => b.id === lobby.bossId) as { id: string; name: string; image: string; tier: number; isShadow?: boolean; isDynamax?: boolean } | undefined;
+            return (
+              <div
+                key={lobby.id}
+                className="flex items-center gap-3 p-2 rounded-lg bg-card border border-card-border text-xs"
+              >
+                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center text-base flex-shrink-0 overflow-hidden">
+                  {boss?.image ? (
+                    <img src={boss.image} alt={boss.name} className="w-full h-full object-contain" />
+                  ) : (
+                    boss?.name?.[0] ?? "?"
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold truncate">{boss?.name ?? lobby.bossId}</p>
+                  <p className="text-muted-foreground">
+                    {lobby.players.length}/{lobby.maxPlayers} players · T{boss?.tier} · {lobby.hostName}
+                    {lobby.weather && " · 🌤 Boosted"}
+                  </p>
+                </div>
+                <div className={cn(
+                  "px-2 py-0.5 rounded-full text-[10px] font-bold",
+                  enabled ? "bg-green-500/20 text-green-400" : "bg-muted text-muted-foreground"
+                )}>
+                  {enabled ? "LIVE" : "OFF"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card className="p-4 space-y-2">
+        <h4 className="text-sm font-bold text-muted-foreground uppercase tracking-wide">Notes</h4>
+        <ul className="text-xs text-muted-foreground space-y-1 list-disc list-inside">
+          <li>Test lobbies are generated from the live BOSSES list — covers all tiers</li>
+          <li>Joining a test lobby will fail gracefully (no server record exists)</li>
+          <li>Fake data is only stored in <code className="bg-muted px-1 rounded">localStorage</code> — cleared when you sign out or clear app data</li>
+          <li>Turn off test mode before sharing screenshots or videos of the app</li>
+        </ul>
+      </Card>
     </div>
   );
 }
