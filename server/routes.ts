@@ -224,18 +224,7 @@ export async function registerRoutes(
   app.post("/api/lobbies", async (req, res) => {
     try {
       const validated = insertLobbySchema.parse(req.body);
-      
-      // Server-side validation: boss must be active in storage OR be a known boss in ALL_BOSSES.
-      // Falling back to ALL_BOSSES keeps hosting working even when the Railway DB has a stale rotation.
-      const isActive = await storage.isRaidBossActive(validated.bossId);
-      const isKnownBoss = ALL_BOSSES.some(b => b.id === validated.bossId);
-      if (!isActive && !isKnownBoss) {
-        return res.status(400).json({
-          error: "Invalid raid boss",
-          message: "This Pokémon is not currently available for raids. Please select a boss from the active raid rotation."
-        });
-      }
-      
+
       // Auto-close any existing lobby this user owns, then create the new one.
       // getLobbies() already purges lobbies older than 15 minutes, so anything
       // still visible here is genuinely active.  We close it automatically —
