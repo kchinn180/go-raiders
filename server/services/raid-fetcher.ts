@@ -1,13 +1,13 @@
 /**
  * fetchCurrentRaidBosses()
  *
- * Fetches the CURRENT active raid boss rotation from community sources:
- *   1. pogoapi.net/api/v1/raid_bosses.json  — structured JSON, primary source
- *   2. leekduck.com/raids/                  — HTML fallback (Next.js __NEXT_DATA__)
- *   3. pokemongohub.net current raids page  — HTML fallback (text extraction)
+ * Priority chain — stops at the first source that returns clean results:
+ *   1. pogoapi.net/api/v1/raid_bosses.json  — structured JSON, no parsing noise
+ *   2. leekduck.com/raids/                  — Next.js __NEXT_DATA__ JSON
+ *   3. pokemongohub.net current raids page  — text extraction (last resort)
  *
+ * All results pass through sanitizeBossList() before being cached or returned.
  * Caches for 10 minutes. Falls back to stale cache if all sources fail.
- * Returns [] only when no cache AND all sources fail.
  */
 
 import { log } from "../index";
@@ -15,8 +15,7 @@ import type { CurrentBoss } from "@shared/schema";
 
 // ── Cache ─────────────────────────────────────────────────────────────────────
 
-const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
-
+const CACHE_TTL_MS = 10 * 60 * 1000;
 let cache: { bosses: CurrentBoss[]; fetchedAt: number } | null = null;
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -26,38 +25,27 @@ export async function fetchCurrentRaidBosses(): Promise<CurrentBoss[]> {
     return cache.bosses;
   }
 
-  log("Fetching current raid boss rotation from live sources…", "raid-fetch");
+  log("Fetching current raid boss rotation…", "raid-fetch");
 
-  const [pogoApiResult, leekResult, hubResult] = await Promise.allSettled([
-    scrapePoGoApi(),
-    scrapeLeekDuck(),
-    scrapePoGoHub(),
-  ]);
-
-  const all: CurrentBoss[] = [];
-
-  const sources: [string, typeof pogoApiResult][] = [
-    ["pogoapi.net",  pogoApiResult],
-    ["leekduck.com", leekResult],
-    ["pogohub.net",  hubResult],
+  const sources: Array<{ label: string; fn: () => Promise<CurrentBoss[]> }> = [
+    { label: "pogoapi.net",  fn: scrapePoGoApi   },
+    { label: "leekduck.com", fn: scrapeLeekDuck  },
+    { label: "pogohub.net",  fn: scrapePoGoHub   },
   ];
 
-  for (const [label, result] of sources) {
-    if (result.status === "fulfilled" && result.value.length > 0) {
-      log(`  [${label}] ${result.value.length} bosses`, "raid-fetch");
-      all.push(...result.value);
-    } else {
-      const err = result.status === "rejected" ? result.reason : "0 results";
-      log(`  [${label}] failed: ${err}`, "raid-fetch");
+  for (const { label, fn } of sources) {
+    try {
+      const raw = await fn();
+      const clean = sanitizeBossList(raw);
+      if (clean.length > 0) {
+        log(`[${label}] ${clean.length} valid bosses (${raw.length} raw)`, "raid-fetch");
+        cache = { bosses: clean, fetchedAt: Date.now() };
+        return clean;
+      }
+      log(`[${label}] 0 valid bosses after sanitization — trying next source`, "raid-fetch");
+    } catch (err) {
+      log(`[${label}] error: ${err}`, "raid-fetch");
     }
-  }
-
-  const deduped = deduplicate(all);
-
-  if (deduped.length > 0) {
-    log(`Rotation fetched: ${deduped.length} unique bosses`, "raid-fetch");
-    cache = { bosses: deduped, fetchedAt: Date.now() };
-    return deduped;
   }
 
   if (cache) {
@@ -65,41 +53,178 @@ export async function fetchCurrentRaidBosses(): Promise<CurrentBoss[]> {
     return cache.bosses;
   }
 
-  log("All sources failed — no cache available, returning empty list", "raid-fetch");
+  log("All sources failed and no cache — returning empty", "raid-fetch");
   return [];
 }
 
-export function invalidateBossCache(): void {
-  cache = null;
+export function invalidateBossCache(): void { cache = null; }
+
+export function getBossCacheInfo() {
+  if (!cache) return { fetchedAt: null, bossCount: 0, stale: true };
+  return { fetchedAt: cache.fetchedAt, bossCount: cache.bosses.length,
+           stale: Date.now() - cache.fetchedAt >= CACHE_TTL_MS };
 }
 
-export function getBossCacheInfo(): { fetchedAt: number | null; bossCount: number; stale: boolean } {
-  if (!cache) return { fetchedAt: null, bossCount: 0, stale: true };
-  return {
-    fetchedAt: cache.fetchedAt,
-    bossCount: cache.bosses.length,
-    stale: Date.now() - cache.fetchedAt >= CACHE_TTL_MS,
-  };
+// ── Sanitization pipeline ─────────────────────────────────────────────────────
+//
+// Applied to every boss list regardless of source.
+// Normalises names, strips labels, rejects non-boss strings, deduplicates.
+
+/** Words that can appear inside a boss name as part of an allowed prefix */
+const ALLOWED_PREFIXES = new Set(["mega","shadow","primal","dynamax","gigantamax","alolan","galarian","hisuian","paldean"]);
+
+/**
+ * Any word in this set causes the entire candidate to be rejected.
+ * Covers page copy, section headings, event labels, dates, game-concept words, etc.
+ */
+const REJECT_WORDS = new Set([
+  // Page / UI copy
+  "guides","guide","article","articles","post","posts","read","more","click","here",
+  "home","back","next","prev","previous","share","follow","subscribe","menu","nav",
+  "search","loading","error","login","logout","register","sign","account","profile",
+  "comment","comments","reply","replies","view","views","print","open","close","toggle",
+  "newsletter","advertisement","sponsored","partner","continue","skip","dismiss",
+  // Section / event labels
+  "raid","raids","boss","bosses","tier","tiers","star","stars","level","levels",
+  "event","events","season","week","month","day","days","list","type","types",
+  "form","forms","current","active","featured","upcoming","available","exclusive",
+  "special","limited","new","updated","latest","recent","today","now","live",
+  "official","announcement","release","update","patch","notes","changelog",
+  "starts","ends","beginning","ending","starting","ending","from","until","through",
+  "calendar","schedule","date","dates","time","times","hour","hours","minute","minutes",
+  "guide","guides","tip","tips","how","about","details","overview","summary",
+  // Common English function words
+  "the","and","for","with","from","but","not","this","that","when","where","how",
+  "what","why","use","can","all","are","has","its","our","in","order","to","of",
+  "is","was","be","been","will","would","could","should","may","might","must",
+  "do","does","did","get","got","set","let","put","run","see","say","go","make",
+  "take","come","give","know","think","look","want","need","find","feel","try",
+  "best","top","info","check","also","then","than","just","only","even","still",
+  "first","last","each","every","most","many","some","any","few","much","very",
+  "one","two","three","four","five","six","seven","eight","nine","ten",
+  // Calendar / month / day names
+  "january","february","march","april","may","june","july","august","september",
+  "october","november","december",
+  "monday","tuesday","wednesday","thursday","friday","saturday","sunday",
+  // Game concepts — never used as boss names
+  "pokemon","pokmon","pokémon","go","shiny","catch","rate","chance","spawn",
+  "weather","boost","boosted","counter","counters","attack","defense","defence",
+  "stats","moves","move","fast","charge","cp","hp","iv","ivs","dps","tdo",
+  "item","items","berry","berries","stardust","candy","dust","xp","exp",
+  "battle","league","pvp","pve","trainer","trainers","gym","gyms","arena",
+  "evolution","evolve","power","up","buddy","egg","hatch","walk","distance",
+  "remote","pass","ticket","premium","free","paid","store","shop","buy",
+  "shadow","purified","purify","transfer","trade","friend","friendship","gift",
+  "research","task","tasks","field","special","breakthrough","breakthrough",
+  "community","day","spotlight","hour","raid","boss",
+]);
+
+/** Strip symbols, normalise whitespace, title-case each word */
+function normalizeName(raw: string): string {
+  return raw
+    .replace(/[^\w\s\-'\.]/g, " ")   // keep letters, digits, hyphen, apostrophe, dot
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+/** Remove label words that sometimes get glued to a name ("Raid Cresselia" → "Cresselia") */
+const INLINE_LABELS = /\b(raid|raids|boss|bosses|event|events|guide|guides|calendar|starts|ends|tier\s*\d*|[1-6]\s*star)\b/gi;
+
+function stripInlineLabels(name: string): string {
+  return name.replace(INLINE_LABELS, " ").replace(/\s+/g, " ").trim();
+}
+
+/** Remove duplicate words: "Cresselia Cresselia" → "Cresselia" */
+function dedupeWords(name: string): string {
+  const words = name.split(" ");
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const w of words) {
+    const key = w.toLowerCase();
+    if (!seen.has(key)) { seen.add(key); out.push(w); }
+  }
+  return out.join(" ");
+}
+
+/**
+ * Returns true if the cleaned name looks like a real boss name.
+ * A valid boss name:
+ *  - 2–30 characters
+ *  - 1–3 words
+ *  - Starts with a capital letter
+ *  - No sentence punctuation that indicates prose (question marks, exclamation, ellipsis)
+ *  - No word in the REJECT_WORDS set (except allowed prefixes like "Mega", "Shadow")
+ *  - No word that is an all-caps abbreviation longer than 2 letters
+ *  - No word that is a pure number
+ */
+function looksLikeBossName(name: string): boolean {
+  if (!name || name.length < 2 || name.length > 30) return false;
+  if (/[?!…]/.test(name)) return false;
+  if (!/^[A-ZÀ-Ö]/.test(name)) return false;
+
+  const words = name.split(" ");
+  if (words.length > 3) return false;
+
+  for (const w of words) {
+    const lw = w.toLowerCase();
+    // Allow known prefixes (Mega, Shadow, etc.)
+    if (ALLOWED_PREFIXES.has(lw)) continue;
+    // Reject stop words
+    if (REJECT_WORDS.has(lw)) return false;
+    // Reject pure numbers
+    if (/^\d+$/.test(w)) return false;
+    // Reject all-caps abbreviations longer than 2 chars (CP, IV are ok; "TYPE" is not)
+    if (w.length > 2 && /^[A-Z]+$/.test(w)) return false;
+  }
+
+  return true;
+}
+
+/** Full sanitization pipeline: normalize → strip labels → dedupe words → validate → deduplicate list */
+function sanitizeBossList(bosses: CurrentBoss[]): CurrentBoss[] {
+  const seen = new Map<string, CurrentBoss>();
+
+  for (const boss of bosses) {
+    // Step 1: normalize
+    let name = normalizeName(boss.name);
+    // Step 2: strip inline labels
+    name = stripInlineLabels(name);
+    // Step 3: remove duplicate words
+    name = dedupeWords(name);
+    // Step 4: validate
+    if (!looksLikeBossName(name)) {
+      log(`  [sanitize] rejected: "${boss.name}" → "${name}"`, "raid-fetch");
+      continue;
+    }
+    // Step 5: deduplicate by normalized id
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    if (!seen.has(id)) {
+      seen.set(id, { ...boss, name, id });
+    }
+  }
+
+  return Array.from(seen.values());
 }
 
 // ── HTTP helper ───────────────────────────────────────────────────────────────
 
-const HEADERS = {
-  "User-Agent": "Mozilla/5.0 (compatible; RaidCoordinator/2.0)",
-  "Accept": "text/html,application/json,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
-};
-
 async function fetchText(url: string): Promise<string> {
-  const res = await fetch(url, { signal: AbortSignal.timeout(12000), headers: HEADERS });
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(12000),
+    headers: {
+      "User-Agent": "Mozilla/5.0 (compatible; RaidCoordinator/2.0)",
+      "Accept": "text/html,application/json,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.text();
 }
 
-// ── Source 1: pogoapi.net (structured JSON) ───────────────────────────────────
-//
-// Returns JSON shaped like:
-//   { "1": [{pokemon_name:"Stufful",...}], "3":[...], "5":[...], "mega":[...], "shadow":[...] }
+// ── Source 1: pogoapi.net ─────────────────────────────────────────────────────
 
 async function scrapePoGoApi(): Promise<CurrentBoss[]> {
   const text = await fetchText("https://pogoapi.net/api/v1/raid_bosses.json");
@@ -107,8 +232,7 @@ async function scrapePoGoApi(): Promise<CurrentBoss[]> {
   const bosses: CurrentBoss[] = [];
 
   const tierMap: Record<string, number> = {
-    "1": 1, "2": 1, "3": 3, "4": 4, "5": 5, "6": 6,
-    "mega": 4, "shadow": 5, "elite": 6,
+    "1":1,"2":1,"3":3,"4":4,"5":5,"6":6,"mega":4,"shadow":5,"elite":6,
   };
 
   for (const [key, entries] of Object.entries(data)) {
@@ -117,31 +241,22 @@ async function scrapePoGoApi(): Promise<CurrentBoss[]> {
 
     for (const entry of entries as any[]) {
       const rawName = (entry.pokemon_name || entry.name || entry.pokemon || "").trim();
-      if (!rawName || rawName.length < 2) continue;
+      if (!rawName) continue;
 
-      // Build display name: add prefix for shadow/mega tiers if not already present
       let name = rawName;
       const lk = key.toLowerCase();
-      if (lk === "shadow" && !name.toLowerCase().startsWith("shadow ")) {
-        name = `Shadow ${name}`;
-      } else if (lk === "mega" && !name.toLowerCase().startsWith("mega ") && !name.toLowerCase().startsWith("primal ")) {
-        name = `Mega ${name}`;
-      }
-
-      // Validate: name must look like a real boss (no sentence fragments)
-      if (!isValidBossName(name)) continue;
+      if (lk === "shadow" && !name.toLowerCase().startsWith("shadow ")) name = `Shadow ${name}`;
+      else if (lk === "mega" && !/^(mega|primal)\s/i.test(name)) name = `Mega ${name}`;
 
       bosses.push(makeBoss(name, tier));
     }
   }
-
   return bosses;
 }
 
-// ── Source 2: LeekDuck (Next.js __NEXT_DATA__ JSON) ──────────────────────────
+// ── Source 2: LeekDuck ────────────────────────────────────────────────────────
 
 async function scrapeLeekDuck(): Promise<CurrentBoss[]> {
-  // Try /raids/ first, then /events/ as fallback
   for (const path of ["/raids/", "/events/"]) {
     try {
       const html = await fetchText(`https://leekduck.com${path}`);
@@ -155,41 +270,32 @@ async function scrapeLeekDuck(): Promise<CurrentBoss[]> {
 function extractFromNextData(html: string): CurrentBoss[] {
   const m = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
   if (!m) return [];
-  try {
-    return walkJson(JSON.parse(m[1]));
-  } catch {
-    return [];
-  }
+  try { return walkJson(JSON.parse(m[1])); } catch { return []; }
 }
 
 function walkJson(obj: any, depth = 0): CurrentBoss[] {
   if (depth > 8 || !obj || typeof obj !== "object") return [];
-
   if (Array.isArray(obj)) {
-    if (obj.length > 0 && obj[0] && (obj[0].name || obj[0].title || obj[0].boss || obj[0].pokemon_name)) {
+    if (obj.length > 0 && obj[0] && (obj[0].name || obj[0].pokemon_name || obj[0].boss)) {
       const parsed = obj.flatMap((e: any) => parseBossEntry(e) ?? []);
       if (parsed.length > 0) return parsed;
     }
     return obj.flatMap((e: any) => walkJson(e, depth + 1));
   }
-
-  for (const key of ["raids", "raidBosses", "bosses", "currentRaids", "raidList"]) {
-    if (obj[key]) {
-      const found = walkJson(obj[key], depth + 1);
-      if (found.length > 0) return found;
-    }
+  for (const key of ["raids","raidBosses","bosses","currentRaids","raidList"]) {
+    if (obj[key]) { const f = walkJson(obj[key], depth + 1); if (f.length > 0) return f; }
   }
   return Object.values(obj).flatMap((v: any) => walkJson(v, depth + 1));
 }
 
 function parseBossEntry(e: any): CurrentBoss | null {
   const name = ((e.name || e.title || e.boss || e.pokemon || e.pokemon_name) ?? "").trim();
-  if (!name || !isValidBossName(name)) return null;
+  if (!name || name.length < 2) return null;
   const tier = parseTier(e.tier ?? e.level ?? e.raidTier ?? e.stars, name);
   return makeBoss(name, tier);
 }
 
-// ── Source 3: PoGoHub (text extraction, tightened) ────────────────────────────
+// ── Source 3: PoGoHub (text extraction, last resort) ─────────────────────────
 
 async function scrapePoGoHub(): Promise<CurrentBoss[]> {
   const html = await fetchText("https://pokemongohub.net/post/guide/current-go-raids/");
@@ -197,15 +303,13 @@ async function scrapePoGoHub(): Promise<CurrentBoss[]> {
 }
 
 function extractFromTierSections(html: string): CurrentBoss[] {
-  // Strip scripts/styles, convert block tags to newlines
   const text = html
     .replace(/<script[\s\S]*?<\/script>/gi, "\n")
     .replace(/<style[\s\S]*?<\/style>/gi, "\n")
-    .replace(/<noscript[\s\S]*?<\/noscript>/gi, "\n")
     .replace(/<\/?(p|div|li|tr|td|th|h[1-6]|section|article|br)[^>]*>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-    .replace(/&nbsp;|&#160;/g, " ").replace(/&[a-z]+;|&#\d+;/g, " ");
+    .replace(/&amp;/g,"&").replace(/&lt;/g,"<").replace(/&gt;/g,">")
+    .replace(/&nbsp;|&#160;/g," ").replace(/&[a-z]+;|&#\d+;/g," ");
 
   const lines = text.split(/\n/).map(l => l.trim()).filter(l => l.length > 0);
   const bosses: CurrentBoss[] = [];
@@ -217,20 +321,27 @@ function extractFromTierSections(html: string): CurrentBoss[] {
     if (tierInfo) {
       currentTier = tierInfo.tier;
       inSection = true;
-      // Extract inline names after colon: "Tier 5: Cresselia, Dialga"
       const colon = line.indexOf(":");
       if (colon !== -1) {
-        bosses.push(...extractValidNames(line.slice(colon + 1), currentTier));
+        for (const seg of splitSegments(line.slice(colon + 1))) {
+          bosses.push(makeBoss(seg, inferTierFromName(seg, currentTier)));
+        }
       }
       continue;
     }
     if (!inSection) continue;
-    // Stop ingesting if line looks like article prose (long sentence)
-    if (line.length > 80 && line.includes(" ")) continue;
-    bosses.push(...extractValidNames(line, currentTier));
+    if (line.length > 60) continue; // prose lines — skip
+    for (const seg of splitSegments(line)) {
+      bosses.push(makeBoss(seg, inferTierFromName(seg, currentTier)));
+    }
   }
-
   return bosses;
+}
+
+function splitSegments(text: string): string[] {
+  return text.split(/[,|•·\t]+/).map(s =>
+    s.replace(/^\d+[\.\)]\s*/,"").replace(/\([^)]*\)/g,"").replace(/\s+/g," ").trim()
+  ).filter(s => s.length >= 2);
 }
 
 function detectTierLine(line: string): { tier: number } | null {
@@ -247,76 +358,6 @@ function detectTierLine(line: string): { tier: number } | null {
   return null;
 }
 
-function extractValidNames(text: string, tier: number): CurrentBoss[] {
-  return text
-    .split(/[,|•·\t]+/)
-    .map(s => s.replace(/^\d+[\.\)]\s*/, "").replace(/\([^)]*\)/g, "").replace(/\s+/g, " ").trim())
-    .filter(s => isValidBossName(s))
-    .map(s => makeBoss(s, inferTierFromName(s, tier)));
-}
-
-// ── Boss name validation ───────────────────────────────────────────────────────
-//
-// A valid boss name:
-//   - 2–30 characters
-//   - 1–3 words
-//   - Starts with a capital letter
-//   - No sentence punctuation (periods mid-word, question marks, etc.)
-//   - Does not contain common stop words
-//   - Is not pure numbers or single characters
-
-const STOP_WORDS = new Set([
-  // Page structure
-  "Guides","Guide","Article","Articles","Post","Posts","Read","More","Click","Here",
-  "Home","Back","Next","Prev","Previous","Share","Follow","Subscribe","Menu","Nav",
-  "Search","Loading","Error","Login","Logout","Register","Sign","Account","Profile",
-  "Comment","Comments","Reply","Replies","Like","Likes","View","Views","Print",
-  // Raid/game terms that appear as section headings (not boss names)
-  "Raids","Raid","Boss","Bosses","Tier","Tiers","Star","Stars","Level","Levels",
-  "Event","Events","Season","Week","Month","Day","List","Type","Types","Form","Forms",
-  "Current","Active","Featured","Upcoming","Available","Exclusive","Special","Limited",
-  "New","Updated","Latest","Recent","Today","Now","Live","Official",
-  // Common English words
-  "The","And","For","With","From","But","Not","This","That","When","Where","How",
-  "What","Why","Use","Can","All","Are","Has","Its","Our","In","Order","To",
-  "Best","Top","Info","About","Details","Check","Find","Get","Set","Take","Make",
-  "One","Two","Three","Four","Five","Six","Seven","Eight","Nine","Ten",
-  // Calendar / time
-  "January","February","March","April","May","June","July","August","September",
-  "October","November","December",
-  "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday",
-  // Game concepts (not boss names)
-  "Pokemon","Pokmon","Pokémon","Go","Shiny","Catch","Rate","Chance",
-  "Weather","Boost","Boosted","Counter","Counters","Attack","Defense",
-  "Stats","Moves","Move","Fast","Charge","CP","HP","IV","IVs","DPS",
-  "Item","Items","Berry","Berries","Stardust","Candy","Dust",
-]);
-
-function isValidBossName(name: string): boolean {
-  if (!name || name.length < 3 || name.length > 35) return false;
-
-  // No sentence fragments: reject if contains ". " mid-string or "…" or "?"
-  if (/\. |\.{2,}|\?|!|:/.test(name)) return false;
-
-  // Must start with a capital letter
-  if (!/^[A-ZÀ-Ö]/.test(name)) return false;
-
-  // Max 3 words (boss names are never full sentences)
-  const words = name.trim().split(/\s+/);
-  if (words.length > 3) return false;
-
-  // Reject if any word is a stop word
-  if (words.some(w => STOP_WORDS.has(w))) return false;
-
-  // Each word must look like a proper noun or hyphenated name (not a number, not all-caps abbreviation > 2 chars)
-  for (const w of words) {
-    if (/^\d+$/.test(w)) return false;          // pure number
-    if (w.length > 3 && /^[A-Z]+$/.test(w)) return false; // ALL-CAPS abbreviation like "TYPE"
-  }
-
-  return true;
-}
-
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
 function inferTierFromName(name: string, fallback: number): number {
@@ -331,7 +372,7 @@ function parseTier(raw: any, name: string): number {
   if (typeof raw === "string") {
     const l = raw.toLowerCase().trim();
     if (l === "mega" || l === "primal") return 4;
-    if (l === "elite" || l === "6") return 6;
+    if (l === "elite") return 6;
     const n = parseInt(l);
     if (!isNaN(n)) return n;
   }
@@ -351,12 +392,9 @@ function makeBoss(name: string, tier: number): CurrentBoss {
   else if (isMega)   { category = "Mega";    variant = "Mega";   tier = 4; }
   else               { category = `Tier ${tier}`; variant = "Normal"; }
 
-  const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-
-  const baseName = name
-    .replace(/^(Mega|Shadow|Primal|Dynamax|Gigantamax)\s+/i, "")
-    .replace(/\s+/g, "-")
-    .toLowerCase();
+  const id = name.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  const baseName = name.replace(/^(Mega|Shadow|Primal|Dynamax|Gigantamax)\s+/i,"")
+    .replace(/\s+/g,"-").toLowerCase();
 
   return { id, name, tier, category, variant, isShadow, isDynamax,
     image: `https://img.pokemondb.net/sprites/home/normal/${baseName}.png` };
@@ -364,8 +402,6 @@ function makeBoss(name: string, tier: number): CurrentBoss {
 
 function deduplicate(bosses: CurrentBoss[]): CurrentBoss[] {
   const seen = new Map<string, CurrentBoss>();
-  for (const boss of bosses) {
-    if (!seen.has(boss.id)) seen.set(boss.id, boss);
-  }
+  for (const b of bosses) { if (!seen.has(b.id)) seen.set(b.id, b); }
   return Array.from(seen.values());
 }
