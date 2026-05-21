@@ -405,6 +405,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
       {/* Boss Details Modal - shows comprehensive boss information */}
       <BossDetailsModal
         bossId={detailsBossId || ""}
+        boss={activeBosses.find(b => b.id === detailsBossId) ?? null}
         isOpen={!!detailsBossId}
         onClose={() => setDetailsBossId(null)}
       />
