@@ -204,16 +204,34 @@ function tryEmbeddedJson(html: string): CurrentBoss[] {
 // ── Strategy 3: Text extraction from structured HTML ─────────────────────────
 
 const STOP_WORDS = new Set([
+  // Raid/game generic
   "Raid","Raids","Boss","Bosses","Tier","Star","Stars","Level","Event","Guide",
   "Current","Active","Season","Week","Month","Day","List","Type","Form","Forms",
+  // Common English
   "The","And","For","With","From","But","Not","This","That","When","Where","How",
   "What","Why","Use","Can","All","Are","Has","Its","Our","New","See","Read",
   "Best","Top","More","Info","View","Next","Back","Home","Click","Here","Open",
+  "Get","Got","Set","Put","Let","Take","Make","Give","Keep","Find","Show","Tell",
+  // Months / days
   "January","February","March","April","May","June","July","August","September",
   "October","November","December",
   "Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday",
+  // PoGo generic
   "Pokemon","Pokmon","Pokémon","Go","Shiny","Catch","Rate","Weather","Boost","Boosted",
   "Counter","Attack","Defense","Stats","Details","Available","Exclusive","Loading",
+  "Trainer","Trainers","Buddy","Egg","Eggs","Candy","Stardust","Gym","Gyms",
+  "Item","Items","Battle","Battles","Update","Updates","News","Release","Patch",
+  // Social / navigation / tech
+  "Facebook","Instagram","Twitter","YouTube","TikTok","Reddit","Discord","Twitch",
+  "Pinterest","Snapchat","LinkedIn","Telegram","WhatsApp","Signal",
+  "Mail","Email","Newsletter","Subscribe","Follow","Share","Like","Comment",
+  "RSS","Feed","Search","Categories","Category","Tags","Tag","Archive","Archives",
+  "About","Contact","Privacy","Terms","Policy","Legal","Copyright","Rights",
+  "Login","Logout","Register","Account","Profile","Settings","Dashboard",
+  "Database","Rocket","Server","Cloud","Web","App","Store","Shop","Buy","Free",
+  "Menu","Header","Footer","Sidebar","Widget","Banner","Popup","Modal","Toast",
+  "Previous","Random","Related","Popular","Featured","Latest","Recent","Trending",
+  "Advertisement","Sponsored","Partner","Affiliate","Promo","Offer","Deal","Sale",
 ]);
 
 function tryTextExtraction(html: string): CurrentBoss[] {
@@ -232,6 +250,12 @@ function tryTextExtraction(html: string): CurrentBoss[] {
   const bosses: CurrentBoss[] = [];
   let currentTier = 5;
   let sectionStarted = false;
+  let linesSinceTierHeader = 0;
+  let bossesInCurrentTier = 0;
+
+  const MAX_LINES_PER_SECTION = 20; // reset if no new tier header within this many lines
+  const MAX_BOSSES_PER_TIER   = 8;  // raids never have more than ~8 bosses per tier
+  const MAX_TOTAL_BOSSES      = 40; // sanity cap — if we exceed this, scraper has gone off the rails
 
   for (const line of lines) {
     // Is this line a tier section header?
@@ -239,18 +263,39 @@ function tryTextExtraction(html: string): CurrentBoss[] {
     if (tierInfo) {
       currentTier = tierInfo.tier;
       sectionStarted = true;
+      linesSinceTierHeader = 0;
+      bossesInCurrentTier = 0;
 
       // Also extract any names inline after a colon: "Tier 5: Cresselia, Dialga"
       const colonIdx = line.indexOf(":");
       if (colonIdx !== -1) {
         const inline = line.slice(colonIdx + 1);
-        bosses.push(...extractNamesFromSegment(inline, currentTier));
+        const found = extractNamesFromSegment(inline, currentTier);
+        bosses.push(...found);
+        bossesInCurrentTier += found.length;
       }
       continue;
     }
 
     if (!sectionStarted) continue;
-    bosses.push(...extractNamesFromSegment(line, currentTier));
+
+    linesSinceTierHeader++;
+
+    // If we haven't seen a new tier header in a while, we've drifted into nav/footer
+    if (linesSinceTierHeader > MAX_LINES_PER_SECTION) {
+      sectionStarted = false;
+      continue;
+    }
+
+    // Don't over-collect per tier
+    if (bossesInCurrentTier >= MAX_BOSSES_PER_TIER) continue;
+
+    const found = extractNamesFromSegment(line, currentTier);
+    bosses.push(...found);
+    bossesInCurrentTier += found.length;
+
+    // Global sanity cap
+    if (bosses.length >= MAX_TOTAL_BOSSES) break;
   }
 
   return bosses;
