@@ -162,7 +162,7 @@ export function LobbyCard({ lobby, isLocked, onJoin, onShowDetails }: LobbyCardP
           >
             {spotsLeft} spots
           </span>
-          {/* Details button - shows Pokemon info modal */}
+          {/* Details button - shows boss info modal */}
           {onShowDetails && (
             <Button
               size="sm"

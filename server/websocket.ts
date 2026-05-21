@@ -168,6 +168,26 @@ class LobbyWebSocketManager {
     });
   }
 
+  /**
+   * Broadcast an event to ALL connected clients regardless of lobby/queue.
+   * Used for global events like raid boss roster updates.
+   */
+  broadcastAll(eventType: string, data: unknown) {
+    const message = JSON.stringify({ type: eventType, data });
+    let count = 0;
+
+    this.clients.forEach((client) => {
+      if (client.ws.readyState === WebSocket.OPEN) {
+        client.ws.send(message);
+        count++;
+      }
+    });
+
+    if (count > 0) {
+      log(`Broadcast ${eventType} to all ${count} connected clients`, "ws");
+    }
+  }
+
   private lobbies: Map<string, Set<WebSocket>> = new Map();
 }
 

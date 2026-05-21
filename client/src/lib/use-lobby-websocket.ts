@@ -33,6 +33,28 @@ export function useLobbyWebSocket({
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
 
+  // Store all callbacks in refs so connect() never needs to be recreated
+  // when parent re-renders pass new inline function references.
+  // This prevents the WebSocket from reconnecting on every render.
+  const onLobbyUpdateRef = useRef(onLobbyUpdate);
+  const onPlayerReadyRef = useRef(onPlayerReady);
+  const onInvitesSentRef = useRef(onInvitesSent);
+  const onPlayerJoinedRef = useRef(onPlayerJoined);
+  const onPlayerLeftRef = useRef(onPlayerLeft);
+  const onLobbyClosedRef = useRef(onLobbyClosed);
+  const hapticEnabledRef = useRef(hapticEnabled);
+
+  // Keep refs in sync with latest props on every render (no re-connection needed)
+  useEffect(() => { onLobbyUpdateRef.current = onLobbyUpdate; }, [onLobbyUpdate]);
+  useEffect(() => { onPlayerReadyRef.current = onPlayerReady; }, [onPlayerReady]);
+  useEffect(() => { onInvitesSentRef.current = onInvitesSent; }, [onInvitesSent]);
+  useEffect(() => { onPlayerJoinedRef.current = onPlayerJoined; }, [onPlayerJoined]);
+  useEffect(() => { onPlayerLeftRef.current = onPlayerLeft; }, [onPlayerLeft]);
+  useEffect(() => { onLobbyClosedRef.current = onLobbyClosed; }, [onLobbyClosed]);
+  useEffect(() => { hapticEnabledRef.current = hapticEnabled; }, [hapticEnabled]);
+
+  // connect() only depends on lobbyId and userId — true connection identifiers.
+  // Callback changes never cause a reconnect.
   const connect = useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
@@ -51,12 +73,10 @@ export function useLobbyWebSocket({
       ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          
+
           switch (message.type) {
             case "lobby_update":
-              if (onLobbyUpdate) {
-                onLobbyUpdate(message.data as Lobby);
-              }
+              onLobbyUpdateRef.current?.(message.data as Lobby);
               break;
 
             case "player_ready": {
@@ -66,49 +86,39 @@ export function useLobbyWebSocket({
                 isReady: boolean;
               };
               if (playerId !== userId) {
-                if (hapticEnabled && isReady) {
+                if (hapticEnabledRef.current && isReady) {
                   triggerNotification("success");
                 }
-                if (onPlayerReady) {
-                  onPlayerReady(playerId, playerName, isReady);
-                }
+                onPlayerReadyRef.current?.(playerId, playerName, isReady);
               }
               break;
             }
 
             case "invites_sent":
-              if (hapticEnabled) {
+              if (hapticEnabledRef.current) {
                 triggerNotification("success");
               }
-              if (onInvitesSent) {
-                onInvitesSent();
-              }
+              onInvitesSentRef.current?.();
               break;
 
             case "player_joined": {
               const { playerName } = message.data as { playerName: string };
-              if (hapticEnabled) {
+              if (hapticEnabledRef.current) {
                 triggerNotification("success");
               }
-              if (onPlayerJoined) {
-                onPlayerJoined(playerName);
-              }
+              onPlayerJoinedRef.current?.(playerName);
               break;
             }
 
             case "player_left": {
               const { playerName } = message.data as { playerName: string };
-              if (onPlayerLeft) {
-                onPlayerLeft(playerName);
-              }
+              onPlayerLeftRef.current?.(playerName);
               break;
             }
 
             case "lobby_closed": {
               const { reason } = message.data as { reason: string };
-              if (onLobbyClosed) {
-                onLobbyClosed(reason);
-              }
+              onLobbyClosedRef.current?.(reason);
               break;
             }
           }
@@ -130,7 +140,7 @@ export function useLobbyWebSocket({
       console.error("[WS] Failed to connect:", e);
       reconnectTimeoutRef.current = setTimeout(connect, 3000);
     }
-  }, [lobbyId, userId, onLobbyUpdate, onPlayerReady, onInvitesSent, onPlayerJoined, onPlayerLeft, onLobbyClosed, hapticEnabled]);
+  }, [lobbyId, userId]); // ← only reconnect when the actual lobby/user changes
 
   useEffect(() => {
     connect();

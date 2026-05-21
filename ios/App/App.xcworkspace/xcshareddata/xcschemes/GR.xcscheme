@@ -25,6 +25,10 @@
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES"
       queueDebuggingEnableBacktraceRecording = "Yes">
+      <PathRunnable
+         runnableDebuggingMode = "0"
+         FilePath = "/Users/kcmacmini/Library/Developer/Xcode/DerivedData/App-gngcuykgoqufdqdhmievnwiyfuwl/Build/Products/Debug-iphonesimulator/App.app">
+      </PathRunnable>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"

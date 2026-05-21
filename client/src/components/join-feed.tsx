@@ -20,20 +20,23 @@ import { useState, useEffect, useRef, useCallback, useMemo, memo } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { RefreshCw, Radar, Filter, X, ChevronDown, ChevronUp, Pause, Shield } from "lucide-react";
 import { LobbyCard } from "@/components/lobby-card";
-import { PokemonDetailsModal } from "@/components/pokemon-details-modal";
+import { BossDetailsModal } from "@/components/pokemon-details-modal";
 import { QueueBossBar } from "@/components/queue-boss-bar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SafeImage } from "@/components/safe-image";
 import { cn } from "@/lib/utils";
-import { FILTERS, BOSSES } from "@shared/schema";
-import type { Lobby, FilterType } from "@shared/schema";
+import { FILTERS } from "@shared/schema";
+import type { Lobby, FilterType, CurrentBoss } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
+import { getApiUrl } from "@/lib/queryClient";
 import { AdNativeCard } from "@/components/ad-native-card";
 import { getCurrentWeather, WEATHER_ICONS, WEATHER_LABELS } from "@/lib/weather-service";
 import type { CurrentWeather } from "@/lib/weather-service";
 import { GroupModal } from "@/components/group-modal";
 import type { RaidGroup } from "@shared/schema";
+
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +58,7 @@ interface JoinFeedProps {
   autoRefresh?: boolean;
   onToggleAutoRefresh?: () => void;
   onHostClick?: () => void;
+  isDemoMode?: boolean;
 }
 
 // ─── Static header: QueueBossBar + pills ─────────────────────────────────────
@@ -197,12 +201,15 @@ interface FilterSectionProps {
   toggleBossFilter: (id: string) => void;
   clearBossFilter: () => void;
   availableBossIds: Set<string>;
+  /** Only verified active raid bosses — shown in the boss filter picker */
+  activeBosses: CurrentBoss[];
 }
 
 const FilterSection = memo(function FilterSection({
   filter, setFilter,
   selectedBosses, isBossFilterOpen, setIsBossFilterOpen,
   toggleBossFilter, clearBossFilter, availableBossIds,
+  activeBosses,
 }: FilterSectionProps) {
   return (
     <div className="space-y-3">
@@ -263,41 +270,45 @@ const FilterSection = memo(function FilterSection({
         {isBossFilterOpen && (
           <div className="px-3 pb-3 border-t border-card-border">
             <p className="text-xs text-muted-foreground py-2">
-              Select bosses to filter raids. Only lobbies with selected bosses will appear.
+              {activeBosses.length > 0
+                ? "Filter by current active raid bosses."
+                : "No active raid bosses in current rotation."}
             </p>
-            <div className="grid grid-cols-4 gap-2">
-              {BOSSES.map((boss) => {
-                const isSelected = selectedBosses.has(boss.id);
-                const hasActiveLobbies = availableBossIds.has(boss.id);
-                return (
-                  <button
-                    key={boss.id}
-                    onClick={() => toggleBossFilter(boss.id)}
-                    className={cn(
-                      "p-2 rounded-lg flex flex-col items-center transition-all border",
-                      isSelected
-                        ? "bg-primary/20 border-primary ring-1 ring-primary/30"
-                        : "bg-card border-card-border",
-                      !hasActiveLobbies && "opacity-50"
-                    )}
-                    data-testid={`boss-filter-${boss.id}`}
-                  >
-                    <SafeImage
-                      src={boss.image}
-                      alt={boss.name}
-                      className="w-8 h-8"
-                      fallbackChar={boss.name[0]}
-                    />
-                    <span className="text-[9px] font-medium truncate w-full text-center mt-1 leading-tight">
-                      {boss.name.length > 10 ? boss.name.slice(0, 10) + '…' : boss.name}
-                    </span>
-                    {hasActiveLobbies && (
-                      <span className="text-[8px] text-green-500 font-bold">LIVE</span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
+            {activeBosses.length > 0 && (
+              <div className="grid grid-cols-4 gap-2">
+                {activeBosses.map((boss) => {
+                  const isSelected = selectedBosses.has(boss.id);
+                  const hasActiveLobbies = availableBossIds.has(boss.id);
+                  return (
+                    <button
+                      key={boss.id}
+                      onClick={() => toggleBossFilter(boss.id)}
+                      className={cn(
+                        "p-2 rounded-lg flex flex-col items-center transition-all border",
+                        isSelected
+                          ? "bg-primary/20 border-primary ring-1 ring-primary/30"
+                          : "bg-card border-card-border",
+                        !hasActiveLobbies && "opacity-50"
+                      )}
+                      data-testid={`boss-filter-${boss.id}`}
+                    >
+                      <SafeImage
+                        src={boss.image ?? ''}
+                        alt={boss.name}
+                        className="w-8 h-8"
+                        fallbackChar={boss.name[0]}
+                      />
+                      <span className="text-[9px] font-medium truncate w-full text-center mt-1 leading-tight">
+                        {boss.name.length > 10 ? boss.name.slice(0, 10) + '…' : boss.name}
+                      </span>
+                      {hasActiveLobbies && (
+                        <span className="text-[8px] text-green-500 font-bold">LIVE</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -428,12 +439,25 @@ export function JoinFeed({
   autoRefresh = true,
   onToggleAutoRefresh,
   onHostClick,
+  isDemoMode = false,
 }: JoinFeedProps) {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pullDistance, setPullDistance] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const touchStartY = useRef(0);
   const isPulling = useRef(false);
+
+  // Live active boss list — used for boss filter picker (never falls back to full list)
+  const { data: activeBosses = [] } = useQuery<CurrentBoss[]>({
+    queryKey: ['/api/bosses/active'],
+    queryFn: async () => {
+      const r = await fetch(getApiUrl('/api/bosses/active'));
+      if (!r.ok) return [];
+      return r.json();
+    },
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+  });
 
   // Modal state
   const [detailsInfo, setDetailsInfo] = useState<{ bossId: string; endTime: number } | null>(null);
@@ -498,15 +522,10 @@ export function JoinFeed({
   // Filtered lobby list — only recomputed when lobbies or filter state changes
   const filteredLobbies = useMemo(() => {
     return lobbies.filter((lobby) => {
-      const boss = BOSSES.find((b) => b.id === lobby.bossId);
+      const boss = activeBosses.find((b) => b.id === lobby.bossId);
       if (!boss) return false;
 
       if (selectedBosses.size > 0 && !selectedBosses.has(lobby.bossId)) return false;
-
-      if (weatherBoostOnly && isPremium && currentWeather) {
-        const bossTypes = (boss as any).types as string[] | undefined;
-        if (bossTypes && !currentWeather.isBoosted(bossTypes)) return false;
-      }
 
       if (groupFilterOnly && activeGroup && lobby.groupId !== activeGroup.id) return false;
 
@@ -516,7 +535,7 @@ export function JoinFeed({
       if (filter === "max") return boss.isDynamax;
       return boss.tier.toString() === filter;
     });
-  }, [lobbies, filter, selectedBosses, weatherBoostOnly, isPremium, currentWeather, groupFilterOnly, activeGroup]);
+  }, [lobbies, filter, selectedBosses, groupFilterOnly, activeGroup, activeBosses]);
 
   // Boss IDs with live lobbies — passed to FilterSection so LIVE dots update
   const availableBossIds = useMemo(
@@ -550,6 +569,17 @@ export function JoinFeed({
             <RefreshCw className={cn("w-5 h-5 text-muted-foreground", isRefreshing && "animate-spin")} />
           </div>
         </div>
+      )}
+
+      {/* Demo mode banner + Counter Guide — shown when no live raids are available yet */}
+      {isDemoMode && (
+        <>
+          <div className="mx-4 mt-4 mb-3 px-4 py-2.5 bg-blue-500/10 border border-blue-500/30 rounded-2xl flex items-center gap-2">
+            <span className="text-blue-400 text-xs font-bold uppercase tracking-wider">Demo Mode</span>
+            <span className="text-muted-foreground text-xs">· Showing sample raids. Real raids appear as trainers post them.</span>
+          </div>
+
+        </>
       )}
 
       {/* ══ STATIC ZONE — always visible, NEVER replaced by skeletons ══ */}
@@ -586,6 +616,7 @@ export function JoinFeed({
           toggleBossFilter={toggleBossFilter}
           clearBossFilter={clearBossFilter}
           availableBossIds={availableBossIds}
+          activeBosses={activeBosses}
         />
       </div>
 
@@ -612,8 +643,8 @@ export function JoinFeed({
       </div>
 
       {/* Modals */}
-      <PokemonDetailsModal
-        pokemonId={detailsInfo?.bossId || ""}
+      <BossDetailsModal
+        bossId={detailsInfo?.bossId || ""}
         raidEndTime={detailsInfo?.endTime}
         isOpen={!!detailsInfo}
         onClose={() => setDetailsInfo(null)}

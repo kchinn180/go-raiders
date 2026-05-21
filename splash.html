@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GO Raiders – The #1 Raid Coordination Tool</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --orange: #f97316;
+      --orange-dark: #ea6c0a;
+      --red: #dc2626;
+      --red-dark: #b91c1c;
+      --valor: #dc2626;
+      --mystic: #2563eb;
+      --instinct: #eab308;
+      --bg: #09090b;
+      --surface: #18181b;
+      --border: #27272a;
+      --text: #fafafa;
+      --muted: #a1a1aa;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── HERO ─────────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem 1.5rem 4rem;
+      overflow: hidden;
+    }
+
+    /* radial glow blobs */
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 900px;
+      background: radial-gradient(circle, rgba(234,107,10,0.18) 0%, transparent 65%);
+      pointer-events: none;
+      animation: pulse-blob 6s ease-in-out infinite;
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      bottom: -10%;
+      right: -10%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(220,38,38,0.1) 0%, transparent 65%);
+      pointer-events: none;
+      animation: pulse-blob 8s ease-in-out infinite reverse;
+    }
+
+    @keyframes pulse-blob {
+      0%, 100% { transform: translateX(-50%) scale(1); opacity: 1; }
+      50% { transform: translateX(-50%) scale(1.1); opacity: 0.7; }
+    }
+
+    /* floating rings behind logo */
+    .rings {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -60%);
+      pointer-events: none;
+    }
+    .ring {
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(249,115,22,0.12);
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      animation: expand-ring 4s ease-out infinite;
+    }
+    .ring:nth-child(1) { width: 260px; height: 260px; animation-delay: 0s; }
+    .ring:nth-child(2) { width: 380px; height: 380px; animation-delay: 1s; }
+    .ring:nth-child(3) { width: 500px; height: 500px; animation-delay: 2s; }
+
+    @keyframes expand-ring {
+      0% { opacity: 0.6; transform: translate(-50%, -50%) scale(0.8); }
+      100% { opacity: 0; transform: translate(-50%, -50%) scale(1.2); }
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.75rem;
+      animation: fade-up 0.9s cubic-bezier(0.22,1,0.36,1) both;
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(32px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .logo-wrap {
+      position: relative;
+      width: 140px;
+      height: 140px;
+    }
+    .logo-glow {
+      position: absolute;
+      inset: -12px;
+      border-radius: 2.4rem;
+      background: radial-gradient(circle, rgba(249,115,22,0.35) 0%, transparent 70%);
+      filter: blur(12px);
+      animation: glow-pulse 3s ease-in-out infinite;
+    }
+    @keyframes glow-pulse {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 0.4; }
+    }
+    .logo-img {
+      position: relative;
+      width: 140px;
+      height: 140px;
+      border-radius: 2rem;
+      overflow: hidden;
+      box-shadow: 0 0 0 3px rgba(249,115,22,0.5), 0 24px 64px rgba(0,0,0,0.6);
+    }
+    .logo-img img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    /* fallback if image fails */
+    .logo-fallback {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, #ea580c, #b91c1c);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: white;
+      letter-spacing: -0.05em;
+    }
+
+    .hero-eyebrow {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--orange);
+      background: rgba(249,115,22,0.12);
+      border: 1px solid rgba(249,115,22,0.25);
+      padding: 0.3rem 0.9rem;
+      border-radius: 100px;
+    }
+
+    .hero-title {
+      font-size: clamp(3rem, 10vw, 5.5rem);
+      font-weight: 900;
+      line-height: 1;
+      letter-spacing: -0.04em;
+      background: linear-gradient(135deg, #ffffff 30%, #f97316 70%, #dc2626 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-sub {
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--muted);
+      max-width: 480px;
+      line-height: 1.6;
+    }
+
+    .hero-cta-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      margin-top: 0.5rem;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.875rem 2rem;
+      border-radius: 1rem;
+      background: linear-gradient(135deg, var(--orange), var(--red));
+      color: #fff;
+      font-weight: 800;
+      font-size: 0.95rem;
+      text-decoration: none;
+      letter-spacing: 0.02em;
+      box-shadow: 0 8px 32px rgba(249,115,22,0.4);
+      transition: transform 0.15s, box-shadow 0.15s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(249,115,22,0.55);
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.875rem 1.75rem;
+      border-radius: 1rem;
+      background: transparent;
+      color: var(--text);
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      transition: background 0.15s, border-color 0.15s, transform 0.15s;
+      cursor: pointer;
+    }
+    .btn-secondary:hover {
+      background: var(--surface);
+      border-color: rgba(249,115,22,0.4);
+      transform: translateY(-2px);
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 2rem;
+      margin-top: 0.5rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stat {
+      text-align: center;
+      animation: fade-up 0.9s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .stat:nth-child(1) { animation-delay: 0.15s; }
+    .stat:nth-child(2) { animation-delay: 0.25s; }
+    .stat:nth-child(3) { animation-delay: 0.35s; }
+    .stat-num {
+      font-size: 1.6rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--orange), var(--red));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-top: 0.1rem;
+    }
+
+    /* scroll indicator */
+    .scroll-hint {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--muted);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      animation: bounce 2s ease-in-out infinite;
+    }
+    .scroll-hint svg { opacity: 0.5; }
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(8px); }
+    }
+
+    /* ── FEATURES ─────────────────────────────────────────────── */
+    .section {
+      padding: 5rem 1.5rem;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--orange);
+      margin-bottom: 0.75rem;
+    }
+    .section-title {
+      text-align: center;
+      font-size: clamp(1.8rem, 5vw, 3rem);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      margin-bottom: 0.75rem;
+    }
+    .section-sub {
+      text-align: center;
+      color: var(--muted);
+      max-width: 520px;
+      margin: 0 auto 3.5rem;
+      line-height: 1.6;
+      font-size: 0.95rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1.25rem;
+      padding: 1.75rem;
+      transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, var(--orange), var(--red));
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(249,115,22,0.3);
+      box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+    }
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 0.875rem;
+      background: rgba(249,115,22,0.12);
+      border: 1px solid rgba(249,115,22,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+    }
+    .feature-title {
+      font-weight: 800;
+      font-size: 1rem;
+      margin-bottom: 0.4rem;
+    }
+    .feature-desc {
+      color: var(--muted);
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    /* ── TEAMS ────────────────────────────────────────────────── */
+    .teams-section {
+      padding: 5rem 1.5rem;
+      background: linear-gradient(180deg, transparent, rgba(249,115,22,0.03), transparent);
+    }
+    .teams-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .teams-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.25rem;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    .team-card {
+      border-radius: 1.25rem;
+      padding: 2rem 1.25rem;
+      text-align: center;
+      border: 1px solid;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .team-card:hover { transform: translateY(-4px); }
+
+    .team-card.valor {
+      background: rgba(220,38,38,0.08);
+      border-color: rgba(220,38,38,0.25);
+      box-shadow: 0 0 32px rgba(220,38,38,0.08);
+    }
+    .team-card.valor:hover { box-shadow: 0 16px 48px rgba(220,38,38,0.2); }
+
+    .team-card.mystic {
+      background: rgba(37,99,235,0.08);
+      border-color: rgba(37,99,235,0.25);
+      box-shadow: 0 0 32px rgba(37,99,235,0.08);
+    }
+    .team-card.mystic:hover { box-shadow: 0 16px 48px rgba(37,99,235,0.2); }
+
+    .team-card.instinct {
+      background: rgba(234,179,8,0.08);
+      border-color: rgba(234,179,8,0.25);
+      box-shadow: 0 0 32px rgba(234,179,8,0.08);
+    }
+    .team-card.instinct:hover { box-shadow: 0 16px 48px rgba(234,179,8,0.2); }
+
+    .team-emoji { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .team-name { font-weight: 900; font-size: 1.1rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    .team-name.valor  { color: #f87171; }
+    .team-name.mystic { color: #60a5fa; }
+    .team-name.instinct { color: #fbbf24; }
+    .team-tag { font-size: 0.7rem; color: var(--muted); margin-top: 0.25rem; }
+
+    /* ── HOW IT WORKS ─────────────────────────────────────────── */
+    .steps-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      position: relative;
+    }
+
+    .step {
+      text-align: center;
+      padding: 1.5rem;
+    }
+    .step-num {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--orange), var(--red));
+      color: #fff;
+      font-weight: 900;
+      font-size: 1.2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1rem;
+      box-shadow: 0 8px 24px rgba(249,115,22,0.4);
+    }
+    .step-title { font-weight: 800; margin-bottom: 0.4rem; }
+    .step-desc { color: var(--muted); font-size: 0.875rem; line-height: 1.5; }
+
+    /* ── PREMIUM ──────────────────────────────────────────────── */
+    .premium-card {
+      background: linear-gradient(135deg, rgba(249,115,22,0.12), rgba(220,38,38,0.08));
+      border: 1px solid rgba(249,115,22,0.3);
+      border-radius: 1.5rem;
+      padding: 3rem 2.5rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .premium-card::before {
+      content: '';
+      position: absolute;
+      top: -40px; right: -40px;
+      width: 180px; height: 180px;
+      background: radial-gradient(circle, rgba(249,115,22,0.15) 0%, transparent 70%);
+    }
+    .premium-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: linear-gradient(135deg, var(--orange), var(--red));
+      color: white;
+      font-weight: 800;
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 0.3rem 0.9rem;
+      border-radius: 100px;
+      margin-bottom: 1.25rem;
+    }
+    .premium-title { font-size: 2rem; font-weight: 900; margin-bottom: 0.75rem; }
+    .premium-desc { color: var(--muted); line-height: 1.6; margin-bottom: 2rem; font-size: 0.95rem; }
+    .premium-perks {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      text-align: left;
+      max-width: 340px;
+      margin: 0 auto 2rem;
+    }
+    .perk {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      font-size: 0.875rem;
+    }
+    .perk-icon {
+      width: 22px; height: 22px;
+      background: rgba(249,115,22,0.15);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 0.65rem;
+    }
+
+    /* ── FOOTER ───────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 1.5rem;
+      text-align: center;
+    }
+    .footer-logo {
+      font-size: 1.5rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, var(--orange), var(--red));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 0.5rem;
+    }
+    .footer-text {
+      color: var(--muted);
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+    .footer-note {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: #52525b;
+    }
+
+    /* ── NAVBAR ───────────────────────────────────────────────── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 2rem;
+      background: rgba(9,9,11,0.8);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(39,39,42,0.5);
+    }
+    .nav-brand {
+      font-weight: 900;
+      font-size: 1.1rem;
+      background: linear-gradient(135deg, var(--orange), var(--red));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -0.02em;
+    }
+    .nav-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.15s;
+    }
+    .nav-links a:hover { color: var(--text); }
+    .nav-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1.25rem;
+      border-radius: 0.6rem;
+      background: linear-gradient(135deg, var(--orange), var(--red));
+      color: white;
+      font-weight: 700;
+      font-size: 0.825rem;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+      box-shadow: 0 4px 16px rgba(249,115,22,0.35);
+    }
+    .nav-cta:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(249,115,22,0.5);
+    }
+    @media (max-width: 600px) {
+      .nav-links { display: none; }
+      nav { padding: 0.875rem 1.25rem; }
+    }
+
+    /* ── DIVIDER ──────────────────────────────────────────────── */
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+      margin: 0;
+    }
+
+    /* ── APP STORE BADGE ─────────────────────────────────────── */
+    .store-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.875rem;
+      color: var(--text);
+      text-decoration: none;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .store-badge:hover {
+      transform: translateY(-2px);
+      border-color: rgba(249,115,22,0.3);
+    }
+    .store-badge-text { text-align: left; }
+    .store-badge-sub { font-size: 0.6rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+    .store-badge-name { font-size: 0.9rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <!-- ── NAVBAR ───────────────────────────────────────── -->
+  <nav>
+    <div class="nav-brand">⚡ GO Raiders</div>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">How It Works</a></li>
+      <li><a href="#teams">Teams</a></li>
+      <li><a href="#premium">Elite</a></li>
+    </ul>
+    <a href="#" class="nav-cta">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.37c1.33.07 2.23.73 3.02.79 1.14-.24 2.24-.93 3.45-.84 1.46.12 2.56.68 3.28 1.73-2.99 1.8-2.28 5.76.51 6.87-.6 1.5-1.39 2.98-2.26 4.36zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+      Download
+    </a>
+  </nav>
+
+  <!-- ── HERO ─────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="rings">
+      <div class="ring"></div>
+      <div class="ring"></div>
+      <div class="ring"></div>
+    </div>
+
+    <div class="hero-content">
+      <span class="hero-eyebrow">🏆 Raid Coordination Reimagined</span>
+
+      <div class="logo-wrap">
+        <div class="logo-glow"></div>
+        <div class="logo-img">
+          <img src="go-raiders-logo.png" alt="GO Raiders" onerror="this.parentElement.innerHTML='<div class=logo-fallback>GR</div>'" />
+        </div>
+      </div>
+
+      <h1 class="hero-title">GO Raiders</h1>
+      <p class="hero-sub">
+        The #1 raid coordination tool for Pokémon GO trainers. Find lobbies, host raids, and battle alongside your team — all in real time.
+      </p>
+
+      <div class="hero-cta-group">
+        <a href="#" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.05 20.28c-.98.95-2.05.8-3.08.35-1.09-.46-2.09-.48-3.24 0-1.44.62-2.2.44-3.06-.35C2.79 15.25 3.51 7.7 9.05 7.37c1.33.07 2.23.73 3.02.79 1.14-.24 2.24-.93 3.45-.84 1.46.12 2.56.68 3.28 1.73-2.99 1.8-2.28 5.76.51 6.87-.6 1.5-1.39 2.98-2.26 4.36zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/></svg>
+          Download on the App Store
+        </a>
+        <a href="#features" class="btn-secondary">
+          See Features
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+        </a>
+      </div>
+
+      <div class="hero-stats">
+        <div class="stat">
+          <div class="stat-num">Real-Time</div>
+          <div class="stat-label">Lobby Updates</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">6-Star</div>
+          <div class="stat-label">All Raid Tiers</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">Free</div>
+          <div class="stat-label">Core Features</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scroll-hint">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+      Scroll to explore
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── FEATURES ─────────────────────────────────────── -->
+  <section class="section" id="features">
+    <p class="section-label">Everything you need</p>
+    <h2 class="section-title">Built for Serious Raiders</h2>
+    <p class="section-sub">From live lobby feeds to boss counters, GO Raiders gives you every advantage before the battle starts.</p>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📡</div>
+        <div class="feature-title">Live Lobby Feed</div>
+        <div class="feature-desc">Browse open raid lobbies in real time. Filter by tier, boss type, or team. Pull to refresh or let it auto-update.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎯</div>
+        <div class="feature-title">Boss Counters & Stats</div>
+        <div class="feature-desc">Tap Details on any boss to see its weaknesses, best counters, moveset, and weather-boosted CP — right in the app.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">Instant Hosting</div>
+        <div class="feature-desc">Create a lobby in seconds. Set raid tier, weather boost, gym team, and capacity. Your lobby goes live immediately.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🏅</div>
+        <div class="feature-title">Boss Filter</div>
+        <div class="feature-desc">Multi-select filter lets you pin specific bosses. Only see lobbies for the Pokémon you actually want to catch.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👤</div>
+        <div class="feature-title">Trainer Profiles</div>
+        <div class="feature-desc">Scan your Pokémon GO profile or enter manually. Your friend code, level, and team are shared when you join lobbies.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <div class="feature-title">Queue & Auto-Join</div>
+        <div class="feature-desc">Join a boss queue and get notified the moment a matching lobby opens. Never miss a legendary raid again.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── HOW IT WORKS ──────────────────────────────────── -->
+  <section class="section" id="how">
+    <p class="section-label">Simple by design</p>
+    <h2 class="section-title">Start Raiding in 3 Steps</h2>
+    <p class="section-sub">No complicated setup. Open the app, create your trainer profile, and you're in the feed within 60 seconds.</p>
+
+    <div class="steps-grid">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-title">Create Your Profile</div>
+        <div class="step-desc">Scan your trainer card or enter your name, team, level, and 12-digit friend code manually.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-title">Browse or Host</div>
+        <div class="step-desc">Jump into the live lobby feed to find raids, or tap Host to open your own lobby in under 10 seconds.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-title">Add & Battle</div>
+        <div class="step-desc">Share friend codes, add each other in-game, and start the raid together. Rate your host when you're done.</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── TEAMS ─────────────────────────────────────────── -->
+  <section class="teams-section" id="teams">
+    <div class="teams-inner">
+      <p class="section-label">Choose your side</p>
+      <h2 class="section-title">All Teams Welcome</h2>
+      <p class="section-sub">Whether you're Valor, Mystic, or Instinct, GO Raiders connects every trainer — because some raids need all three.</p>
+
+      <div class="teams-grid">
+        <div class="team-card valor">
+          <div class="team-emoji">🔥</div>
+          <div class="team-name valor">Valor</div>
+          <div class="team-tag">Power through passion</div>
+        </div>
+        <div class="team-card mystic">
+          <div class="team-emoji">❄️</div>
+          <div class="team-name mystic">Mystic</div>
+          <div class="team-tag">Wisdom leads the way</div>
+        </div>
+        <div class="team-card instinct">
+          <div class="team-emoji">⚡</div>
+          <div class="team-name instinct">Instinct</div>
+          <div class="team-tag">Trust your gut</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── PREMIUM ───────────────────────────────────────── -->
+  <section class="section" id="premium">
+    <div class="premium-card">
+      <span class="premium-badge">⭐ GO Raiders Elite</span>
+      <h2 class="premium-title">Unlock the Full Arsenal</h2>
+      <p class="premium-desc">Elite members get priority access to every lobby and powerful tools that make every raid more efficient.</p>
+      <div class="premium-perks">
+        <div class="perk">
+          <div class="perk-icon">✓</div>
+          Instant lobby access — no 10-second delay
+        </div>
+        <div class="perk">
+          <div class="perk-icon">✓</div>
+          Auto-Join — queue for your boss and get notified
+        </div>
+        <div class="perk">
+          <div class="perk-icon">✓</div>
+          Minimum level filter when hosting lobbies
+        </div>
+        <div class="perk">
+          <div class="perk-icon">✓</div>
+          Elite badge visible to all lobby members
+        </div>
+        <div class="perk">
+          <div class="perk-icon">✓</div>
+          Priority queue placement
+        </div>
+      </div>
+      <a href="#" class="btn-primary">
+        ⭐ Upgrade to Elite
+      </a>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- ── FOOTER ───────────────────────────────────────── -->
+  <footer>
+    <div class="footer-logo">⚡ GO Raiders</div>
+    <p class="footer-text">The #1 Raid Coordination Tool for Pokémon GO Trainers</p>
+    <p class="footer-note">
+      GO Raiders is an independent third-party app and is not affiliated with, endorsed by, or connected to Niantic or The Pokémon Company.
+      Pokémon and Pokémon GO are trademarks of Nintendo, Game Freak, and Creatures Inc.
+    </p>
+  </footer>
+
+</body>
+</html>

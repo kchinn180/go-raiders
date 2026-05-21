@@ -139,7 +139,8 @@ process.on('uncaughtException', (err) => {
       if (result.matched.length > 0) {
         log(`Queue match: ${result.matched.length} user(s) reserved`, "queue");
         // Notify each promoted user via WebSocket
-        const activeBosses = await storage.getActiveRaidBosses();
+        const { fetchCurrentRaidBosses } = await import("./services/raid-fetcher");
+        const activeBosses = await fetchCurrentRaidBosses().catch(() => []);
         for (const matched of result.matched) {
           const boss = activeBosses.find(b => b.id === matched.bossId);
           lobbyWSManager.notifyUserPromotion(matched.userId, {
@@ -179,12 +180,11 @@ process.on('uncaughtException', (err) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "5000", 10);
+  // Use 127.0.0.1 in dev so macOS doesn't reject the 0.0.0.0 bind.
+  // In production (Railway/Linux) PORT is always set, so this branch never runs.
+  const host = process.env.NODE_ENV === "development" ? "127.0.0.1" : "0.0.0.0";
   httpServer.listen(
-    {
-      port,
-      host: "0.0.0.0",
-      reusePort: true,
-    },
+    { port, host },
     () => {
       log(`serving on port ${port}`);
     },

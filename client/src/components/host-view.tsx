@@ -14,11 +14,11 @@ import { Switch } from "@/components/ui/switch";
 import { SafeImage } from "@/components/safe-image";
 import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
-import { TEAMS, ALL_BOSSES } from "@shared/schema";
-import type { Lobby, Player, TeamId, RaidBoss, RaidGroup } from "@shared/schema";
+import { TEAMS } from "@shared/schema";
+import type { Lobby, Player, TeamId, CurrentBoss, RaidGroup } from "@shared/schema";
 import { useQuery } from "@tanstack/react-query";
 import { getApiUrl } from "@/lib/queryClient";
-import { PokemonDetailsModal } from "./pokemon-details-modal";
+import { BossDetailsModal } from "./pokemon-details-modal";
 
 interface HostViewProps {
   onHost: (lobby: Lobby) => void;
@@ -41,7 +41,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
   const [maxPlayers, setMaxPlayers] = useState(6); // Raid capacity (2-6)
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
-  // State for Pokemon details modal
+  // State for boss details modal
   const [detailsBossId, setDetailsBossId] = useState<string | null>(null);
 
   // Fetch user's groups for private lobby option
@@ -52,17 +52,14 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
     staleTime: 60000,
   });
 
-  // Fetch active bosses from server; fall back to local ALL_BOSSES if API unreachable
-  const { data: serverBosses, isLoading, refetch } = useQuery<RaidBoss[]>({
+  // Fetch live active bosses from server — no static fallback.
+  // Only verified current-rotation bosses are shown.
+  const { data: activeBosses = [], isLoading, refetch } = useQuery<CurrentBoss[]>({
     queryKey: ["/api/bosses/active"],
-    retry: 2,
+    retry: 3,
     staleTime: 60000,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
   });
-
-  // Use server data when available, otherwise fall back to the local boss list
-  const activeBosses: RaidBoss[] = (serverBosses && serverBosses.length > 0)
-    ? serverBosses
-    : ALL_BOSSES.map(b => ({ ...b, isActive: true, types: [...b.types] as string[] })) as unknown as RaidBoss[];
 
   // Set default selected boss when bosses load
   useEffect(() => {
@@ -104,7 +101,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
       minLevel: user.isPremium ? safeLevel : 1,
       weather,
       createdAt: Date.now(),
-      timeLeft: 900,  // 15 minutes in seconds
+      timeLeft: 600,  // 10 minutes in seconds (hard cap matches server LOBBY_MAX_AGE_MS)
       raidStarted: false,
       invitesSent: false,
       ...(selectedGroupId ? { groupId: selectedGroupId } : {}),
@@ -125,20 +122,41 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
     );
   }
 
-  // No empty-state block needed — activeBosses always has at least the local fallback
+  // Empty state — scraper hasn't populated rotation yet or all sources failed
+  if (!isLoading && activeBosses.length === 0) {
+    return (
+      <div className="p-4 flex flex-col items-center justify-center min-h-[400px] gap-4 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+          <CloudLightning className="w-8 h-8 text-muted-foreground" />
+        </div>
+        <div>
+          <h3 className="font-bold text-lg mb-1">No Active Raids Right Now</h3>
+          <p className="text-muted-foreground text-sm max-w-xs">
+            The raid rotation is being synced from live sources. Check back shortly.
+          </p>
+        </div>
+        <button
+          onClick={() => refetch()}
+          className="text-sm font-semibold text-primary underline"
+        >
+          Refresh
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-6 pb-nav">
       <div className="text-center">
         <h2 className="text-2xl font-black">Host a Raid</h2>
         <p className="text-muted-foreground text-sm">
-          Select from {activeBosses.length} current raid bosses
+          {activeBosses.length} boss{activeBosses.length !== 1 ? 'es' : ''} in current rotation
         </p>
       </div>
 
       <div className="space-y-4">
         <label className="text-xs font-bold text-muted-foreground uppercase block">
-          Current Raid Bosses ({activeBosses.length})
+          Current Rotation — {activeBosses.length} Active Boss{activeBosses.length !== 1 ? 'es' : ''}
         </label>
         {/* 3-column scrollable grid of active raid bosses */}
         <div className="grid grid-cols-3 gap-2 max-h-[320px] overflow-y-auto overflow-x-visible p-1">
@@ -155,7 +173,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
               data-testid={`boss-${boss.id}`}
             >
               <SafeImage
-                src={boss.image}
+                src={boss.image ?? ''}
                 alt={boss.name}
                 className="w-10 h-10 mb-1"
                 fallbackChar={boss.name[0]}
@@ -165,7 +183,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
               </span>
               <span className="text-[9px] font-bold text-primary">T{boss.tier}</span>
               
-              {/* Details button - opens Pokemon details modal */}
+              {/* Details button - opens boss details modal */}
               <div
                 className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-muted/80 flex items-center justify-center"
                 onClick={(e) => {
@@ -186,7 +204,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
         <div className={cn("p-4 rounded-2xl border-2", selectedTeamData.border, selectedTeamData.tint)}>
           <div className="flex items-center gap-4">
             <SafeImage
-              src={selectedBossData.image}
+              src={selectedBossData.image ?? ''}
               alt={selectedBossData.name}
               className="w-20 h-20 rounded-xl bg-card"
               fallbackChar={selectedBossData.name[0]}
@@ -194,7 +212,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
             <div className="flex-1">
               <h3 className="font-black text-xl">{selectedBossData.name}</h3>
               <p className="text-muted-foreground text-sm">
-                Tier {selectedBossData.tier} • CP {selectedBossData.cp.toLocaleString()}
+                {selectedBossData.category}
               </p>
               <div className="flex gap-2 mt-2 flex-wrap">
                 {selectedBossData.isShadow && (
@@ -384,9 +402,9 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
         )}
       </Button>
 
-      {/* Pokemon Details Modal - shows comprehensive boss information */}
-      <PokemonDetailsModal
-        pokemonId={detailsBossId || ""}
+      {/* Boss Details Modal - shows comprehensive boss information */}
+      <BossDetailsModal
+        bossId={detailsBossId || ""}
         isOpen={!!detailsBossId}
         onClose={() => setDetailsBossId(null)}
       />

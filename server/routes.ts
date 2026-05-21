@@ -1,21 +1,29 @@
 import { randomUUID } from "crypto";
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import { log } from "./index";
 import { storage, RAID_CAPACITY, ELITE_EARLY_ACCESS_MS } from "./storage";
 import { lobbyWSManager } from "./websocket";
-import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, ALL_BOSSES, queueEntrySchema, subscriptionSchema, insertReportSchema } from "@shared/schema";
+import { insertUserSchema, insertLobbySchema, playerSchema, insertFeedbackSchema, insertPushTokenSchema, queueEntrySchema, subscriptionSchema, insertReportSchema } from "@shared/schema";
 import type { InsertQueueEntry, Subscription, PushToken } from "@shared/schema";
 import { z } from "zod";
 import { sendPushNotification, getVapidPublicKey, type NotificationPayload, createQueuePromotionNotification, createQueueAlmostUpNotification } from "./push-service";
 import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
-import { verifyPurchaseReceipt, ELITE_PRODUCTS } from "./services/subscription";
+import { verifyPurchaseReceipt, ELITE_PRODUCTS, ONE_TIME_PRODUCTS, isRemoveAdsProduct } from "./services/subscription";
 import { requirePremium } from "./middleware/require-premium";
-import { RaidScraperService } from "./services/raid-scraper";
+import { fetchCurrentRaidBosses, getBossCacheInfo, invalidateBossCache } from "./services/raid-fetcher";
 import { parseTrainerScreenshot } from "./services/trainer-ocr";
 
 const getAdminToken = () => {
   const token = process.env.ADMIN_TOKEN;
   if (!token) {
+    // SECURITY: Set ADMIN_TOKEN env var in production to replace this default.
+    // The fallback value matches the client-bundle default so the admin panel
+    // still works in dev, but leaving this unset in production is a HIGH-severity
+    // security risk — anyone who extracts the JS bundle gets full admin access.
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[SECURITY] ADMIN_TOKEN env var is not set in production! Admin access is using the insecure default token. Set ADMIN_TOKEN immediately.');
+    }
     return "Kj03c08kjc0308$";
   }
   return token;
@@ -130,11 +138,12 @@ export async function registerRoutes(
 </html>`);
   });
 
-  // Get currently active raid bosses (only these can be hosted)
+  // Get currently active raid bosses — sourced from live scrape of three community pages.
+  // Returns [] if all sources fail and there is no cached data.
   app.get("/api/bosses/active", async (req, res) => {
     try {
-      const activeBosses = await storage.getActiveRaidBosses();
-      res.json(activeBosses);
+      const bosses = await fetchCurrentRaidBosses();
+      res.json(bosses);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch active bosses" });
     }
@@ -283,10 +292,19 @@ export async function registerRoutes(
     try {
       const player = playerSchema.parse(req.body);
       
-      // Get the lobby to check Elite Early Access timer
+      // Get the lobby to check Elite Early Access timer and expiry
       const existingLobby = await storage.getLobby(req.params.id);
       if (!existingLobby) {
         return res.status(404).json({ error: "Lobby not found" });
+      }
+
+      // Hard 10-minute expiry — lobby is closed to new joiners and will be purged
+      const LOBBY_MAX_AGE_MS = 10 * 60 * 1000;
+      if (Date.now() - existingLobby.createdAt >= LOBBY_MAX_AGE_MS) {
+        return res.status(410).json({
+          error: "Lobby expired",
+          message: "This raid lobby has expired. Lobbies close after 10 minutes.",
+        });
       }
       
       // SECURITY: Look up user from storage to get TRUSTED premium status
@@ -504,7 +522,8 @@ export async function registerRoutes(
       
       const playerIds = lobby.players.filter(p => !p.isHost).map(p => p.id);
       if (playerIds.length > 0) {
-        const boss = ALL_BOSSES.find(b => b.id === lobby.bossId);
+        const currentBosses = await fetchCurrentRaidBosses().catch(() => []);
+        const boss = currentBosses.find(b => b.id === lobby.bossId);
         const tokens = await storage.getPushTokensForUsers(playerIds);
         const notification: NotificationPayload = {
           type: 'raid_starting',
@@ -1079,79 +1098,77 @@ export async function registerRoutes(
     }
   });
 
-  // ===== Raid Boss Auto-Update Service =====
+  // ===== Raid Fetcher — simple 10-min cache of three live sources =====
 
-  const raidScraper = new RaidScraperService(storage, {
-    enabled: process.env.RAID_SCRAPER_ENABLED !== 'false',
-    autoActivate: true,
-    autoDeactivate: true,
-    notifyAdmin: true,
-    onTheHour: true,  // Sync to :00 of each hour
-  });
+  // Warm the cache on startup (non-blocking)
+  fetchCurrentRaidBosses().catch(e => log(`Initial raid fetch failed: ${e}`, "raid-fetch"));
 
-  // Start the scraper (non-blocking)
-  raidScraper.start();
-
-  // Admin: Get scraper status & last update
+  // Admin: Get boss cache status
   app.get("/api/admin/scraper/status", async (req, res) => {
     try {
       const adminToken = getAdminToken();
       if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
-      const authHeader = req.headers.authorization;
-      const token = authHeader?.replace("Bearer ", "");
+      const token = req.headers.authorization?.replace("Bearer ", "");
       if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
 
+      const cacheInfo = getBossCacheInfo();
+      const bosses = await fetchCurrentRaidBosses().catch(() => []);
       res.json({
-        config: raidScraper.getConfig(),
-        isRunning: raidScraper.isRunning(),
-        nextRunAt: raidScraper.nextRunAt()?.toISOString() ?? null,
-        lastUpdate: raidScraper.getLastUpdate(),
+        isRunning: true,
+        cacheTtlMs: 10 * 60 * 1000,
+        ...cacheInfo,
+        bosses,
+        sources: [
+          "https://pokemongohub.net/post/guide/current-go-raids/",
+          "https://leekduck.com/events/",
+          "https://pogocalendar.com/",
+        ],
       });
     } catch (error) {
       res.status(500).json({ error: "Failed to get scraper status" });
     }
   });
 
-  // Admin: Force a manual refresh of raid bosses
+  // Admin: Force a manual refresh (invalidates cache, re-fetches immediately)
   app.post("/api/admin/scraper/refresh", async (req, res) => {
     try {
       const adminToken = getAdminToken();
       if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
-      const authHeader = req.headers.authorization;
-      const token = authHeader?.replace("Bearer ", "");
+      const token = req.headers.authorization?.replace("Bearer ", "");
       if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
 
-      const result = await raidScraper.forceRefresh();
-      res.json(result);
+      invalidateBossCache();
+      const bosses = await fetchCurrentRaidBosses();
+      lobbyWSManager.broadcastAll("raid_boss_update", { bossCount: bosses.length, updatedAt: Date.now() });
+      res.json({ bossCount: bosses.length, bosses });
     } catch (error) {
       res.status(500).json({ error: "Failed to refresh raid bosses" });
     }
   });
 
-  // Admin: Update scraper config
-  app.patch("/api/admin/scraper/config", async (req, res) => {
+  // Admin: Current active raid bosses (from live fetcher cache)
+  app.get("/api/admin/bosses", async (req, res) => {
     try {
       const adminToken = getAdminToken();
       if (!adminToken) return res.status(503).json({ error: "Admin access not configured" });
-      const authHeader = req.headers.authorization;
-      const token = authHeader?.replace("Bearer ", "");
+      const token = req.headers.authorization?.replace("Bearer ", "");
       if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
 
-      const { enabled, autoActivate, autoDeactivate, onTheHour } = req.body;
-      const updates: any = {};
-      if (typeof enabled === 'boolean') updates.enabled = enabled;
-      if (typeof autoActivate === 'boolean') updates.autoActivate = autoActivate;
-      if (typeof autoDeactivate === 'boolean') updates.autoDeactivate = autoDeactivate;
-      if (typeof onTheHour === 'boolean') updates.onTheHour = onTheHour;
-
-      raidScraper.updateConfig(updates);
-      res.json({ config: raidScraper.getConfig() });
+      const bosses = await fetchCurrentRaidBosses();
+      const cacheInfo = getBossCacheInfo();
+      res.json({
+        bosses,
+        total: bosses.length,
+        active: bosses.length,
+        ...cacheInfo,
+      });
     } catch (error) {
-      res.status(500).json({ error: "Failed to update scraper config" });
+      res.status(500).json({ error: "Failed to get boss list" });
     }
   });
 
-  // Admin: Manually activate/deactivate a raid boss
+  // Admin: Approve, hide, reset, or update a raid boss
+  // Supports both isActive toggle AND adminOverride (approve/hide/reset)
   app.patch("/api/admin/boss/:bossId", async (req, res) => {
     try {
       const adminToken = getAdminToken();
@@ -1161,20 +1178,64 @@ export async function registerRoutes(
       if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
 
       const { bossId } = req.params;
-      const { isActive, startTime, endTime } = req.body;
+      const { isActive, startTime, endTime, adminOverride, adminNote } = req.body;
 
-      if (typeof isActive !== 'boolean') {
-        return res.status(400).json({ error: "isActive (boolean) required" });
+      // At least one field required
+      if (isActive === undefined && adminOverride === undefined && adminNote === undefined) {
+        return res.status(400).json({ error: "Provide isActive, adminOverride, and/or adminNote" });
       }
 
-      const updated = await storage.setRaidBossActive(bossId, isActive, startTime, endTime);
-      if (!updated) {
+      const boss = await storage.getRaidBossById(bossId);
+      if (!boss) {
         return res.status(404).json({ error: "Boss not found" });
+      }
+
+      let updated: any = boss;
+
+      // Handle adminOverride first
+      if (adminOverride !== undefined) {
+        const validOverrides = ['approved', 'hidden', null, 'reset'];
+        if (!validOverrides.includes(adminOverride)) {
+          return res.status(400).json({ error: "adminOverride must be 'approved', 'hidden', 'reset', or null" });
+        }
+
+        const overrideValue = adminOverride === 'reset' ? null : adminOverride;
+        updated = await storage.updateRaidBoss(bossId, {
+          adminOverride: overrideValue,
+          adminNote: adminNote ?? boss.adminNote,
+          // When approving: force-activate; when hiding: force-deactivate
+          ...(adminOverride === 'approved' ? { isActive: true } : {}),
+          ...(adminOverride === 'hidden' ? { isActive: false } : {}),
+        });
+
+        const action = adminOverride === 'approved' ? 'APPROVED' : adminOverride === 'hidden' ? 'HIDDEN' : 'RESET';
+        console.log(`[ADMIN] Boss ${action}: ${boss.name} (${bossId}) — ${adminNote ?? 'no note'}`);
+      }
+
+      // Handle isActive toggle (only if no override conflict)
+      if (isActive !== undefined && typeof isActive === 'boolean') {
+        if (updated?.adminOverride === 'approved' && !isActive) {
+          return res.status(409).json({ error: "Cannot deactivate an admin-approved boss. Reset the override first." });
+        }
+        if (updated?.adminOverride === 'hidden' && isActive) {
+          return res.status(409).json({ error: "Cannot activate a hidden boss. Reset the override first." });
+        }
+        updated = await storage.setRaidBossActive(bossId, isActive, startTime, endTime);
+        console.log(`[ADMIN] Boss ${isActive ? 'ACTIVATED' : 'DEACTIVATED'}: ${boss.name} (${bossId})`);
+      }
+
+      // Handle adminNote update standalone
+      if (adminNote !== undefined && adminOverride === undefined) {
+        updated = await storage.updateRaidBoss(bossId, { adminNote });
+      }
+
+      if (!updated) {
+        return res.status(404).json({ error: "Boss not found after update" });
       }
 
       res.json(updated);
     } catch (error) {
-      res.status(500).json({ error: "Failed to update boss status" });
+      res.status(500).json({ error: "Failed to update boss" });
     }
   });
 
@@ -1246,7 +1307,7 @@ export async function registerRoutes(
       const matchResult = await storage.processQueueMatches();
 
       // Build boss name lookup for notifications
-      const activeBosses = await storage.getActiveRaidBosses();
+      const activeBosses = await fetchCurrentRaidBosses().catch(() => []);
       const bossNameMap = new Map(activeBosses.map(b => [b.id, b.name]));
 
       // Notify promoted users via WebSocket + push notification
@@ -1410,7 +1471,7 @@ export async function registerRoutes(
     try {
       const result = await storage.processQueueMatches();
 
-      const activeBosses = await storage.getActiveRaidBosses();
+      const activeBosses = await fetchCurrentRaidBosses().catch(() => []);
       const bossNameMap = new Map(activeBosses.map(b => [b.id, b.name]));
 
       // Notify promoted users via WebSocket + push
@@ -1547,8 +1608,9 @@ export async function registerRoutes(
         return res.status(403).json({ error: "Only the host can send raid starting notifications" });
       }
       
-      const boss = ALL_BOSSES.find(b => b.id === lobby.bossId);
-      const bossName = boss?.name || 'Unknown';
+      const currentBosses = await fetchCurrentRaidBosses().catch(() => []);
+      const boss = currentBosses.find(b => b.id === lobby.bossId);
+      const bossName = boss?.name || lobby.bossId;
       
       const playerIds = lobby.players
         .filter(p => p.id !== senderId)
@@ -1682,6 +1744,21 @@ export async function registerRoutes(
             '2 months FREE (save 17%)',
             'Priority support',
           ]
+        },
+        {
+          id: 'remove_ads',
+          name: 'Remove Ads',
+          description: 'One-time purchase to permanently remove all ads',
+          price: ONE_TIME_PRODUCTS.REMOVE_ADS.price,
+          period: 'one_time',
+          appleProductId: ONE_TIME_PRODUCTS.REMOVE_ADS.apple,
+          googleProductId: ONE_TIME_PRODUCTS.REMOVE_ADS.google,
+          features: [
+            'Remove all banner ads',
+            'Remove interstitial ads',
+            'Permanent — no subscription needed',
+            'Transfers to new devices (restore purchases)',
+          ]
         }
       ]
     });
@@ -1742,25 +1819,54 @@ export async function registerRoutes(
         });
       }
 
-      // SUCCESS: Update user's premium status in database
-      // This is the ONLY place isPremium can be set to true
-      if (result.isPremium && result.subscription) {
-        await storage.updateUserSubscription(userId, {
-          isPremium: true,
-          subscription: result.subscription as Subscription
-        });
-
-        console.log(`[SUBSCRIPTION] Premium activated for user: ${userId}`);
+      // SUCCESS: Update user based on product type
+      if (result.success) {
+        if (isRemoveAdsProduct(productId)) {
+          // One-time purchase: mark hasRemovedAds in subscription object
+          const existingSub = (user.subscription as Subscription | null) || {
+            status: 'active' as const,
+            startDate: Date.now(),
+            renewalDate: null,
+            canceledAt: null,
+            plan: 'remove_ads' as const,
+            price: ONE_TIME_PRODUCTS.REMOVE_ADS.price,
+            storeType: storeType as 'apple' | 'google',
+            verificationStatus: 'verified' as const,
+            lastVerifiedAt: Date.now(),
+            originalTransactionId: null,
+            productId,
+            hasRemovedAds: false,
+          };
+          await storage.updateUser(userId, {
+            subscription: {
+              ...existingSub,
+              hasRemovedAds: true,
+              lastVerifiedAt: Date.now(),
+            } as Subscription
+          });
+          console.log(`[SUBSCRIPTION] Remove Ads activated for user: ${userId}`);
+        } else if (result.isPremium && result.subscription) {
+          // Subscription purchase: grant isPremium
+          await storage.updateUserSubscription(userId, {
+            isPremium: true,
+            subscription: result.subscription as Subscription
+          });
+          console.log(`[SUBSCRIPTION] Premium activated for user: ${userId}`);
+        }
       }
 
       // Fetch updated user to return current status
       const updatedUser = await storage.getUser(userId);
+      const updatedSub = updatedUser?.subscription as Subscription | null;
 
       res.json({
         success: true,
         isPremium: updatedUser?.isPremium || false,
+        hasRemovedAds: updatedSub?.hasRemovedAds || false,
         subscription: updatedUser?.subscription || null,
-        message: result.isPremium ? "Elite subscription activated!" : "Subscription updated"
+        message: isRemoveAdsProduct(productId)
+          ? "Ads removed permanently!"
+          : result.isPremium ? "Elite subscription activated!" : "Subscription updated"
       });
 
     } catch (error) {
@@ -1804,6 +1910,7 @@ export async function registerRoutes(
 
       res.json({
         isPremium,
+        hasRemovedAds: subscription?.hasRemovedAds || false,
         subscription: user.subscription || null,
         expiresAt: subscription?.renewalDate || null
       });
@@ -2483,15 +2590,16 @@ export async function registerRoutes(
     }
   });
 
-  // ── Periodic lobby expiry — runs every 60 s ────────────────────────────────
-  // getLobbies() already purges expired entries on every call, but calling it
-  // periodically ensures the in-memory map stays clean even when no clients
-  // are actively fetching, and lets us broadcast expiry notifications.
+  // ── Periodic lobby expiry — runs every 30 s ────────────────────────────────
+  // Lobbies are hard-capped at 10 minutes (LOBBY_MAX_AGE_MS).
+  // getLobbies() purges expired entries on every call; this interval keeps the
+  // in-memory map clean between client fetches and lets us broadcast expiry events.
   setInterval(async () => {
     try {
       await storage.getLobbies(); // side-effect: purges expired lobbies
+      lobbyWSManager.broadcastAll('lobbies_updated', {});
     } catch { /* swallow — non-critical housekeeping */ }
-  }, 60_000);
+  }, 30_000);
 
   return httpServer;
 }

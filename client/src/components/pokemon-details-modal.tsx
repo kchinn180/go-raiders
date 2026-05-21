@@ -1,7 +1,7 @@
 /**
- * Pokemon Details Modal Component
- * 
- * Displays comprehensive information about a raid Pokémon including:
+ * Boss Details Modal Component
+ *
+ * Displays comprehensive information about a raid boss including:
  * - Name, image, tier, and CP
  * - Types with colored badges
  * - Weaknesses and resistances calculated from type effectiveness
@@ -10,7 +10,7 @@
  * - Base stats (Attack, Defense, Stamina)
  * - Countdown timer for when the raid ends
  * 
- * Counter Pokémon can also be clicked to show their own details modal,
+ * Counters can also be clicked to show their own details modal,
  * enabling a nested modal experience for full exploration.
  */
 
@@ -28,10 +28,10 @@ import type {
 } from "@shared/schema";
 
 /**
- * Props for the PokemonDetailsModal component
+ * Props for the BossDetailsModal component
  */
 interface PokemonDetailsModalProps {
-  pokemonId: string;
+  bossId: string;
   raidEndTime?: number;
   isOpen: boolean;
   onClose: () => void;
@@ -65,7 +65,7 @@ const TYPE_COLORS: Record<PokemonType, { bg: string; text: string; border: strin
 
 /**
  * Type Badge Component
- * Displays a Pokémon type with appropriate coloring
+ * Displays a type badge with appropriate coloring
  */
 function TypeBadge({ type, small = false }: { type: PokemonType; small?: boolean }) {
   const colors = TYPE_COLORS[type];
@@ -164,7 +164,7 @@ function MoveDisplay({ move, isFast }: { move: { name: string; type: PokemonType
 }
 
 /**
- * Counter Pokemon Card Component
+ * Counter Card Component
  * Displays a recommended counter with click handler to show its details
  */
 function CounterCard({ 
@@ -264,13 +264,13 @@ function StatsDisplay({ stats }: { stats: { attack: number; defense: number; sta
 }
 
 /**
- * Main Pokemon Details Modal Component
- * 
- * Fetches and displays comprehensive Pokémon data from the API.
- * Supports both raid bosses and counter Pokémon with nested modals.
+ * Main Boss Details Modal Component
+ *
+ * Fetches and displays comprehensive boss data from the API.
+ * Supports both raid bosses and counter entries with nested modals.
  */
-export function PokemonDetailsModal({
-  pokemonId,
+export function BossDetailsModal({
+  bossId,
   raidEndTime,
   isOpen,
   onClose,
@@ -281,20 +281,20 @@ export function PokemonDetailsModal({
 
   // All data is computed client-side — no network request needed
   const bossDetails = useMemo(
-    () => (isOpen && !isCounter && pokemonId) ? getRaidBossDetailsClient(pokemonId, raidEndTime) : null,
-    [isOpen, isCounter, pokemonId, raidEndTime],
+    () => (isOpen && !isCounter && bossId) ? getRaidBossDetailsClient(bossId, raidEndTime) : null,
+    [isOpen, isCounter, bossId, raidEndTime],
   );
 
   const counterDetails = useMemo(
-    () => (isOpen && isCounter && pokemonId) ? getCounterDetailsClient(pokemonId) : null,
-    [isOpen, isCounter, pokemonId],
+    () => (isOpen && isCounter && bossId) ? getCounterDetailsClient(bossId) : null,
+    [isOpen, isCounter, bossId],
   );
 
   const pokemon = isCounter ? counterDetails : bossDetails?.pokemon;
   const counters = bossDetails?.counters;
   const estimatedPlayers = bossDetails?.estimatedPlayers;
   const isLoading = false;
-  const isError = isOpen && !!pokemonId && !pokemon;
+  const isError = isOpen && !!bossId && !pokemon;
 
   const handleShowCounterDetails = useCallback((counterId: string) => {
     setSelectedCounterId(counterId);
@@ -313,8 +313,8 @@ export function PokemonDetailsModal({
     }
   }, [isOpen]);
 
-  // Don't render if not open or no valid pokemonId
-  if (!isOpen || !pokemonId || pokemonId.length === 0) return null;
+  // Don't render if not open or no valid bossId
+  if (!isOpen || !bossId || bossId.length === 0) return null;
 
   return (
     <>
@@ -322,7 +322,7 @@ export function PokemonDetailsModal({
       {/* z-[200] ensures it renders above the GO Raiders app header (z-10) */}
       <div
         className="fixed inset-0 z-[200] bg-background overflow-y-auto"
-        data-testid="modal-pokemon-details"
+        data-testid="modal-boss-details"
       >
         {/* Modal Header - Sticky at top, with safe-area-inset-top so close button
             clears the device notch/dynamic island AND the app header */}
@@ -338,7 +338,7 @@ export function PokemonDetailsModal({
               size="icon" 
               variant="ghost" 
               onClick={onClose}
-              data-testid="button-close-pokemon-details"
+              data-testid="button-close-boss-details"
             >
               <X className="w-5 h-5" />
             </Button>
@@ -359,15 +359,15 @@ export function PokemonDetailsModal({
             {isError && (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <AlertTriangle className="w-8 h-8 text-destructive" />
-                <p className="text-destructive font-medium">No details available for this Pokémon</p>
+                <p className="text-destructive font-medium">No details available for this Raid Boss</p>
                 <p className="text-xs text-muted-foreground text-center px-6">This boss may not be in the current rotation database.</p>
               </div>
             )}
 
-            {/* Pokemon Data */}
+            {/* Boss Data */}
             {pokemon && (
               <>
-                {/* Pokemon Header with Image and Basic Info */}
+                {/* Boss Header with Image and Basic Info */}
                 <div className="flex items-center gap-4">
                   <SafeImage 
                     src={pokemon.image} 
@@ -523,8 +523,8 @@ export function PokemonDetailsModal({
 
       {/* Nested Counter Details Modal */}
       {selectedCounterId !== null && (
-        <PokemonDetailsModal
-          pokemonId={selectedCounterId}
+        <BossDetailsModal
+          bossId={selectedCounterId}
           isOpen={true}
           onClose={handleCloseCounterDetails}
           isCounter={true}
@@ -534,4 +534,6 @@ export function PokemonDetailsModal({
   );
 }
 
-export default PokemonDetailsModal;
+// Keep PokemonDetailsModal as alias for backward compat during migration
+export const PokemonDetailsModal = BossDetailsModal;
+export default BossDetailsModal;

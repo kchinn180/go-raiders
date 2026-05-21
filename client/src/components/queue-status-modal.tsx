@@ -10,7 +10,7 @@ import { triggerNotification, triggerImpact } from "@/lib/haptics";
 import { playRewardSound } from "@/lib/sounds";
 import { useUser } from "@/lib/user-context";
 import { purchaseSubscription, fetchProducts } from "@/lib/subscription";
-import { PokemonDetailsModal } from "@/components/pokemon-details-modal";
+import { BossDetailsModal } from "@/components/pokemon-details-modal";
 import { RewardedAdButton } from "@/components/rewarded-ad-button";
 
 interface QueueStatusModalProps {
@@ -361,8 +361,8 @@ export function QueueStatusModal({
           </div>
         </div>
 
-        <PokemonDetailsModal
-          pokemonId={bossId}
+        <BossDetailsModal
+          bossId={bossId}
           isOpen={showBossInfo}
           onClose={() => setShowBossInfo(false)}
         />
@@ -572,8 +572,8 @@ export function QueueStatusModal({
         )}
       </div>
 
-      <PokemonDetailsModal
-        pokemonId={bossId}
+      <BossDetailsModal
+        bossId={bossId}
         isOpen={showBossInfo}
         onClose={() => setShowBossInfo(false)}
       />

@@ -16,12 +16,13 @@
  * - All verification happens through /api/subscription/verify
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Sparkles, Zap, Radar, Users, Star, Clock, ShieldCheck, Check, Loader2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
-import { purchaseSubscription, restorePurchases, type SubscriptionProduct } from "@/lib/subscription";
+import { purchaseSubscription, restorePurchases, loadNativeProductPrices, type SubscriptionProduct } from "@/lib/subscription";
+import { PurchaseThankYouModal } from "@/components/purchase-thank-you-modal";
 import { cn } from "@/lib/utils";
 
 interface PremiumModalProps {
@@ -73,8 +74,23 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
-  
-  if (!isOpen) return null;
+  const [showThankYou, setShowThankYou] = useState(false);
+
+  // Load real prices from native StoreKit 2 / Play Billing
+  const [nativePrices, setNativePrices] = useState<Map<string, { price: string }>>(new Map());
+  useEffect(() => {
+    if (!isOpen) return;
+    loadNativeProductPrices([
+      ELITE_MONTHLY.appleProductId,
+      ELITE_YEARLY.appleProductId,
+    ]).then(setNativePrices).catch(() => {});
+  }, [isOpen]);
+
+  // Helper: get the display price for a product (native if available, hardcoded fallback)
+  const displayPrice = (product: SubscriptionProduct): string =>
+    nativePrices.get(product.appleProductId)?.price ?? `$${product.price.toFixed(2)}`;
+
+  if (!isOpen && !showThankYou) return null;
 
   const currentProduct = selectedPlan === 'yearly' ? ELITE_YEARLY : ELITE_MONTHLY;
   const monthlyEquivalent = selectedPlan === 'yearly' ? (129.90 / 12).toFixed(2) : '12.99';
@@ -98,10 +114,10 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
       const result = await purchaseSubscription(user.id, currentProduct);
       
       if (result.success && result.isPremium) {
-        const renewalMs = selectedPlan === 'yearly' 
-          ? 365 * 24 * 60 * 60 * 1000 
+        const renewalMs = selectedPlan === 'yearly'
+          ? 365 * 24 * 60 * 60 * 1000
           : 30 * 24 * 60 * 60 * 1000;
-        
+
         syncPremiumFromServer(true, {
           status: 'active',
           startDate: Date.now(),
@@ -112,8 +128,9 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
           storeType: 'apple',
           verificationStatus: 'verified'
         });
-        toast({ title: "Welcome to Elite!", description: "You now have access to all premium features" });
+        // Close the purchase modal and show the verified thank-you screen
         onClose();
+        setShowThankYou(true);
       } else {
         toast({ 
           title: "Purchase failed", 
@@ -161,8 +178,8 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
           storeType: 'apple',
           verificationStatus: 'verified'
         });
-        toast({ title: "Purchases Restored!", description: "Your Elite access has been restored" });
         onClose();
+        setShowThankYou(true);
       } else {
         toast({ 
           title: "No purchases found", 
@@ -181,7 +198,7 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
     }
   };
 
-  return (
+  const modal = (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
       <div
         className="absolute inset-0 bg-background/80 backdrop-blur-sm"
@@ -247,7 +264,7 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
                 data-testid="button-plan-monthly"
               >
                 <div className="text-xs text-muted-foreground uppercase font-bold mb-1">Monthly</div>
-                <div className="text-2xl font-black">${ELITE_MONTHLY.price}</div>
+                <div className="text-2xl font-black">{displayPrice(ELITE_MONTHLY)}</div>
                 <div className="text-xs text-muted-foreground">/month</div>
               </button>
 
@@ -267,8 +284,8 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
                   SAVE ${savings}
                 </div>
                 <div className="text-xs text-muted-foreground uppercase font-bold mb-1">Annual</div>
-                <div className="text-2xl font-black">${ELITE_YEARLY.price}</div>
-                <div className="text-xs text-muted-foreground">${monthlyEquivalent}/mo</div>
+                <div className="text-2xl font-black">{displayPrice(ELITE_YEARLY)}</div>
+                <div className="text-xs text-muted-foreground">{displayPrice(ELITE_MONTHLY) === `$${ELITE_MONTHLY.price.toFixed(2)}` ? `$${monthlyEquivalent}/mo` : `${displayPrice(ELITE_MONTHLY)}/mo equiv.`}</div>
               </button>
             </div>
 
@@ -330,5 +347,17 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
         )}
       </div>
     </div>
+  );
+
+  return (
+    <>
+      {isOpen && modal}
+      {/* Thank-you popup — shown after verified purchase, independent of purchase modal state */}
+      <PurchaseThankYouModal
+        isOpen={showThankYou}
+        variant="elite"
+        onClose={() => setShowThankYou(false)}
+      />
+    </>
   );
 }

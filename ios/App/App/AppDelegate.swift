@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import AppTrackingTransparency
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -27,6 +28,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+
+        // Request App Tracking Transparency permission (iOS 14+).
+        // This must be called before AdMob can collect the IDFA for targeted ads.
+        // NSUserTrackingUsageDescription in Info.plist provides the prompt text.
+        if #available(iOS 14, *) {
+            ATTrackingManager.requestTrackingAuthorization { _ in
+                // AdMob reads the authorization status automatically.
+                // No further action needed here.
+            }
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

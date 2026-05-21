@@ -95,9 +95,18 @@ export async function registerForPushNotifications(userId: string): Promise<stri
     }
     
     await PushNotifications.register();
-    
+
+    // 10-second timeout: simulator often never fires registration/registrationError
     return new Promise((resolve) => {
+      const timeoutId = setTimeout(() => {
+        console.log('[Push] Registration timed out (simulator?)');
+        if (registrationListenerHandle) { registrationListenerHandle.remove(); registrationListenerHandle = null; }
+        if (registrationErrorListenerHandle) { registrationErrorListenerHandle.remove(); registrationErrorListenerHandle = null; }
+        resolve(null);
+      }, 10_000);
+
       const handleRegistration = async (token: { value: string }) => {
+        clearTimeout(timeoutId);
         if (registrationListenerHandle) {
           registrationListenerHandle.remove();
           registrationListenerHandle = null;
@@ -130,6 +139,7 @@ export async function registerForPushNotifications(userId: string): Promise<stri
       };
       
       const handleError = (error: any) => {
+        clearTimeout(timeoutId);
         if (registrationListenerHandle) {
           registrationListenerHandle.remove();
           registrationListenerHandle = null;

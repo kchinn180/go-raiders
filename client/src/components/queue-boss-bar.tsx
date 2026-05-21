@@ -13,30 +13,19 @@
  * Users can only be in one queue at a time.
  */
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, DoorOpen, Users } from "lucide-react";
 import { SafeImage } from "@/components/safe-image";
 import { cn } from "@/lib/utils";
 import { triggerImpact } from "@/lib/haptics";
 import { getApiUrl } from "@/lib/queryClient";
-import { ALL_BOSSES } from "@shared/schema";
-import type { RaidBoss, QueueStatus, Lobby } from "@shared/schema";
+import type { CurrentBoss, QueueStatus, Lobby } from "@shared/schema";
 
-// Mirror of server/storage.ts DEFAULT_ACTIVE_BOSS_IDS — used as client-side fallback
-// when the /api/bosses/active endpoint is unreachable or returns an empty array.
-const FALLBACK_BOSS_IDS = [
-  'nihilego', 'tapu-bulu', 'tapu-fini',
-  'shadow-cresselia',
-  'mega-camerupt', 'mega-glalie', 'mega-altaria', 'mega-medicham',
-  'nidoqueen', 'starmie', 'druddigon',
-  'hisuian-voltorb', 'bagon', 'shieldon', 'espurr', 'shadow-larvitar',
-];
-
-const now = Date.now();
-const FALLBACK_BOSSES: RaidBoss[] = ALL_BOSSES
-  .filter(b => FALLBACK_BOSS_IDS.includes(b.id))
-  .map(b => ({ ...b, isActive: true, startTime: now, endTime: now + 7 * 24 * 60 * 60 * 1000 }));
+// No hardcoded fallback bosses — the scraper owns what's active.
+// If the server is unreachable, the bar renders empty which is honest.
+// (The scraper runs on the production server and populates live data.)
+const FALLBACK_BOSSES: CurrentBoss[] = [];
 
 interface QueueBossBarProps {
   userId: string;
@@ -49,7 +38,7 @@ interface QueueBossBarProps {
 }
 
 /** Gradient ring colour based on boss tier / type */
-function tierRingStyle(boss: RaidBoss): string {
+function tierRingStyle(boss: CurrentBoss): string {
   if (boss.isDynamax) return "from-red-500 via-red-400 to-rose-600";
   if (boss.isShadow)  return "from-purple-700 via-indigo-500 to-purple-900";
   if (boss.name.toLowerCase().includes("mega")) return "from-orange-400 via-yellow-400 to-orange-600";
@@ -78,18 +67,60 @@ export function QueueBossBar({
 }: QueueBossBarProps) {
   const queryClient = useQueryClient();
   const [joiningBossId, setJoiningBossId] = useState<string | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
-  // Active bosses list — falls back to local FALLBACK_BOSSES on any error
-  const { data: activeBosses, isLoading: loadingBosses } = useQuery<RaidBoss[]>({
+  // Listen for server-push raid_boss_update events so the boss bar
+  // refreshes the instant the scraper adds or removes a boss (no polling lag).
+  useEffect(() => {
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+
+    function connect() {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+        wsRef.current = ws;
+
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+            if (msg.type === 'raid_boss_update') {
+              // Server scraped new data — immediately refetch the boss list
+              queryClient.invalidateQueries({ queryKey: ['/api/bosses/active'] });
+            }
+          } catch { /* ignore parse errors */ }
+        };
+
+        ws.onclose = () => {
+          wsRef.current = null;
+          reconnectTimer = setTimeout(connect, 5000);
+        };
+
+        ws.onerror = () => {
+          ws.close();
+        };
+      } catch { /* ignore connection errors in offline/demo mode */ }
+    }
+
+    connect();
+
+    return () => {
+      clearTimeout(reconnectTimer);
+      wsRef.current?.close();
+      wsRef.current = null;
+    };
+  }, [queryClient]);
+
+  // Active bosses list — returns empty while server is unreachable (no stale hardcoded fallback)
+  const { data: activeBosses, isLoading: loadingBosses } = useQuery<CurrentBoss[]>({
     queryKey: ['/api/bosses/active'],
     queryFn: async () => {
       try {
         const r = await fetch(getApiUrl('/api/bosses/active'));
-        if (!r.ok) return FALLBACK_BOSSES;
-        const data: RaidBoss[] = await r.json();
-        return data?.length ? data : FALLBACK_BOSSES;
+        if (!r.ok) return [];
+        const data: CurrentBoss[] = await r.json();
+        return Array.isArray(data) ? data : [];
       } catch {
-        return FALLBACK_BOSSES;
+        return [];
       }
     },
     staleTime: 0,
@@ -182,9 +213,22 @@ export function QueueBossBar({
     );
   }
 
-  // Always have something to show — fall back to the hardcoded list if the query
-  // returned empty (e.g. server cold-start, network blip, etc.)
-  const displayBosses = activeBosses?.length ? activeBosses : FALLBACK_BOSSES;
+  const displayBosses = activeBosses ?? [];
+
+  // Show a "connecting" state when the server hasn't returned any bosses yet
+  if (displayBosses.length === 0) {
+    return (
+      <div className="bg-card border border-card-border rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+          <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Current Raid Bosses</span>
+        </div>
+        <p className="text-xs text-muted-foreground text-center py-2">
+          Fetching live raid rotation…
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-card border border-card-border rounded-2xl overflow-hidden">
@@ -196,11 +240,13 @@ export function QueueBossBar({
             Current Raid Bosses
           </span>
         </div>
-        {isInAnyQueue && (
-          <span className="text-[10px] font-bold text-green-400 uppercase tracking-wide">
-            In Queue
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {isInAnyQueue && (
+            <span className="text-[10px] font-bold text-green-400 uppercase tracking-wide">
+              In Queue
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Boss row */}
@@ -242,7 +288,7 @@ export function QueueBossBar({
                     <Loader2 className="w-6 h-6 text-primary animate-spin" />
                   ) : (
                     <SafeImage
-                      src={boss.image}
+                      src={boss.image ?? ''}
                       alt={boss.name}
                       className="w-12 h-12 object-contain"
                       fallbackChar={boss.name[0]}

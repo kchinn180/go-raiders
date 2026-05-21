@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Header } from "@/components/header";
@@ -27,6 +27,8 @@ import { BOSSES } from "@shared/schema";
 import type { Lobby, Player, FilterType } from "@shared/schema";
 import { isTestRaidsEnabled, generateTestLobbies } from "@/lib/test-raids";
 import { initAdMob, showBannerAd, hideBannerAd } from "@/lib/ad-service";
+import { purchaseSubscription, REMOVE_ADS_PRODUCT } from "@/lib/subscription";
+import { PurchaseThankYouModal } from "@/components/purchase-thank-you-modal";
 
 type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
 type LegalPage = "privacy" | "terms" | "about" | "admin" | null;
@@ -47,11 +49,11 @@ export default function Home() {
   const [showCatchLog, setShowCatchLog] = useState(false);
   const [catchLogLobbyId, setCatchLogLobbyId] = useState<string>("");
   const [catchLogBossId, setCatchLogBossId] = useState<string>("");
+  const [showRemoveAdsThankYou, setShowRemoveAdsThankYou] = useState(false);
 
   // Test raids: re-generate whenever the admin toggles the flag
   // We subscribe to localStorage changes via a version counter
   const [testRaidsVersion, setTestRaidsVersion] = useState(0);
-  const testLobbies: Lobby[] = isTestRaidsEnabled() ? generateTestLobbies() : [];
   
   /**
    * SCROLL RESET BEHAVIOR
@@ -84,6 +86,18 @@ export default function Home() {
     refetchInterval: autoRefresh ? 15000 : false,
   });
 
+  // Auto-show demo raids when the live feed is empty (or still loading) so the app
+  // always looks active immediately at startup — fixes Apple 2.1.0 App Completeness
+  // and prevents a blank/frozen-looking feed during Railway cold starts.
+  // Real raids always take precedence once they load.
+  const isDemoMode = lobbies.length === 0; // true while loading AND after empty result
+  // Memoize so the array reference stays stable between renders — prevents JoinFeed
+  // from re-rendering on every poll when demo mode is active.
+  const testLobbies: Lobby[] = useMemo(
+    () => (isDemoMode || isTestRaidsEnabled()) ? generateTestLobbies() : [],
+    [isDemoMode, testRaidsVersion]
+  );
+
   // Keep active lobby refreshed when user navigates around
   const { data: refreshedLobby, error: refreshedLobbyError } = useQuery<Lobby>({
     queryKey: ["/api/lobbies", activeLobby?.id],
@@ -92,9 +106,19 @@ export default function Home() {
     retry: 1,
   });
 
-  // Update active lobby with refreshed data when navigating
+  // Update active lobby with refreshed data when navigating away from the lobby view.
+  // Guard: only update if the player count or raid status changed, to avoid
+  // triggering re-renders (and cascading WebSocket reconnects) on every 3s poll.
   useEffect(() => {
-    if (refreshedLobby && activeLobby && refreshedLobby.id === activeLobby.id && view !== "lobby") {
+    if (
+      refreshedLobby &&
+      activeLobby &&
+      refreshedLobby.id === activeLobby.id &&
+      view !== "lobby" &&
+      (refreshedLobby.players.length !== activeLobby.players.length ||
+        refreshedLobby.raidStarted !== activeLobby.raidStarted ||
+        refreshedLobby.invitesSent !== activeLobby.invitesSent)
+    ) {
       setActiveLobby(refreshedLobby);
     }
   }, [refreshedLobby, view]);
@@ -130,10 +154,13 @@ export default function Home() {
 
   const pushEnabled = user?.notifications?.pushEnabled !== false;
 
-  // Initialize push notifications
+  // Initialize push notifications.
+  // Only re-run when the user's ID changes (login/logout) or push preference toggles.
+  // Using user.id instead of the full user object prevents re-registration on every
+  // state update (coins, lobby changes, etc.).
   useEffect(() => {
-    if (!user) return;
-    
+    if (!user?.id) return;
+
     const initPushNotifications = async () => {
       if (pushEnabled) {
         await registerForPushNotifications(user.id);
@@ -144,13 +171,13 @@ export default function Home() {
         await unregisterPushNotifications();
       }
     };
-    
+
     initPushNotifications();
-    
+
     const cleanup = setupNotificationListeners((notification) => {
       if (hapticEnabled) triggerImpact('medium');
       showLocalNotification(notification.title, notification.body, notification.data);
-      
+
       if (notification.type === 'raid_starting' && notification.data?.lobbyId) {
         toast({
           title: notification.title,
@@ -158,26 +185,68 @@ export default function Home() {
         });
       }
     });
-    
-    return cleanup;
-  }, [user, pushEnabled]);
 
-  // Boot AdMob and manage banner based on premium status
+    return cleanup;
+  }, [user?.id, pushEnabled]); // ← stable primitives, not the whole user object
+
+  // Boot AdMob and manage banner based on premium/remove-ads status
   useEffect(() => {
     if (!user) return;
+    const hasRemovedAds = (user?.subscription as any)?.hasRemovedAds === true;
     initAdMob().then(() => {
-      if (!user.isPremium) {
+      if (!user.isPremium && !hasRemovedAds) {
         showBannerAd(user.id);
       } else {
-        hideBannerAd(); // remove if user upgrades mid-session
+        hideBannerAd(); // remove if user upgrades or purchases remove-ads mid-session
       }
     });
     return () => { hideBannerAd(); };
-  }, [user?.id, user?.isPremium]);
+  }, [user?.id, user?.isPremium, (user?.subscription as any)?.hasRemovedAds]);
+
+  const handleRemoveAds = useCallback(async () => {
+    if (!user) return;
+    triggerImpact('medium');
+    try {
+      const result = await purchaseSubscription(user.id, REMOVE_ADS_PRODUCT);
+      if (result.success) {
+        // Refresh user data so the shop and ad state update immediately
+        queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+        // Show the verified thank-you popup (only fires on confirmed server verification)
+        setShowRemoveAdsThankYou(true);
+      } else if (result.error && result.error !== 'Purchase cancelled by user') {
+        toast({ title: "Purchase Failed", description: result.error, variant: "destructive" });
+      }
+    } catch (e) {
+      toast({ title: "Purchase Failed", description: "Something went wrong. Please try again.", variant: "destructive" });
+    }
+  }, [user, toast]);
 
   const joinLobbyMutation = useMutation({
     mutationFn: async ({ lobbyId, player }: { lobbyId: string; player: Player }) => {
-      const res = await apiRequest("POST", `/api/lobbies/${lobbyId}/join`, player);
+      const { getApiUrl } = await import("@/lib/queryClient");
+      const { Capacitor } = await import("@capacitor/core");
+      const url = getApiUrl(`/api/lobbies/${lobbyId}/join`);
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(player),
+          credentials: Capacitor.isNativePlatform() ? "omit" : "include",
+        });
+      } catch {
+        throw new Error("Could not reach server — check your internet connection");
+      }
+      if (!res.ok) {
+        let msg = "Couldn't join — lobby may be full";
+        try {
+          const data = await res.json();
+          // 410 Gone = lobby has expired (10-minute server limit)
+          if (res.status === 410) msg = data.message || "This lobby has expired.";
+          else msg = data.message || data.error || msg;
+        } catch {}
+        throw new Error(msg);
+      }
       return res.json();
     },
     onSuccess: async (data) => {
@@ -186,7 +255,7 @@ export default function Home() {
       queryClient.invalidateQueries({ queryKey: ["/api/lobbies"] });
       const boss = BOSSES.find(b => b.id === data.bossId);
       toast({ title: "Joined Lobby!", description: `You joined ${boss?.name || 'the'} raid` });
-      
+
       if (user && data.hostId !== user.id) {
         try {
           await apiRequest("POST", `/api/push/notify/host/${data.hostId}`, {
@@ -200,8 +269,8 @@ export default function Home() {
         }
       }
     },
-    onError: () => {
-      toast({ title: "Couldn't join — lobby may be full", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Couldn't Join", description: error.message, variant: "destructive" });
     },
   });
 
@@ -451,16 +520,20 @@ export default function Home() {
   const handleQueueMatched = useCallback((lobbyId: string) => {
     setShowQueueStatus(false);
     setQueueBossId(null);
-    
-    const lobby = lobbies.find(l => l.id === lobbyId);
-    if (lobby) {
-      handleJoinLobby(lobby);
+
+    const tryJoin = (lobbyList: Lobby[]) => {
+      const lobby = lobbyList.find(l => l.id === lobbyId);
+      if (lobby) handleJoinLobby(lobby);
+    };
+
+    const cached = lobbies.find(l => l.id === lobbyId);
+    if (cached) {
+      handleJoinLobby(cached);
     } else {
+      // Fetch fresh data and read it from the cache — avoids stale-closure on `lobbies`
       refetch().then(() => {
-        const freshLobby = lobbies.find(l => l.id === lobbyId);
-        if (freshLobby) {
-          handleJoinLobby(freshLobby);
-        }
+        const fresh = queryClient.getQueryData<Lobby[]>(["/api/lobbies"]) ?? [];
+        tryJoin(fresh);
       });
     }
   }, [lobbies, handleJoinLobby, refetch]);
@@ -519,10 +592,11 @@ export default function Home() {
             autoRefresh={autoRefresh}
             onToggleAutoRefresh={() => setAutoRefresh(p => !p)}
             onHostClick={() => setView("host")}
+            isDemoMode={isDemoMode}
           />
         )}
         {view === "host" && <HostView onHost={handleHostLobby} isPending={createLobbyMutation.isPending} />}
-        {view === "shop" && <ShopView onUpgrade={() => setShowPremium(true)} />}
+        {view === "shop" && <ShopView onUpgrade={() => setShowPremium(true)} onRemoveAds={handleRemoveAds} />}
         {view === "profile" && (
           <SettingsView 
             onNavigate={handleNavigateLegal} 
@@ -543,6 +617,15 @@ export default function Home() {
       <BottomNav currentView={view} setView={setView} hasActiveLobby={!!activeLobby} />
 
       <PremiumModal isOpen={showPremium} onClose={() => setShowPremium(false)} />
+      <PurchaseThankYouModal
+        isOpen={showRemoveAdsThankYou}
+        variant="remove_ads"
+        onClose={() => {
+          setShowRemoveAdsThankYou(false);
+          // Re-validate entitlements after the user dismisses the thank-you screen
+          queryClient.invalidateQueries({ queryKey: ['/api/user'] });
+        }}
+      />
       {user && (
         <CatchLogModal
           isOpen={showCatchLog}

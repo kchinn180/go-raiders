@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus, Subscription, Report, InsertReport, AdImpression, AdConfig, AdStats, AdPlacement, CatchRecord, CatchStats, RaidGroup } from "@shared/schema";
 import type { Player as PlayerType } from "@shared/schema";
-import { ALL_BOSSES, TEAMS } from "@shared/schema";
+import { TEAMS } from "@shared/schema";
 
 /**
  * Raid Capacity Constants
@@ -23,8 +23,11 @@ export interface IStorage {
   // Raid boss management
   getActiveRaidBosses(): Promise<RaidBoss[]>;
   getAllRaidBosses(): Promise<RaidBoss[]>;
+  getRaidBossById(bossId: string): Promise<RaidBoss | undefined>;
   isRaidBossActive(bossId: string): Promise<boolean>;
   setRaidBossActive(bossId: string, isActive: boolean, startTime?: number, endTime?: number): Promise<RaidBoss | undefined>;
+  addRaidBoss(boss: RaidBoss): Promise<RaidBoss>;
+  updateRaidBoss(bossId: string, updates: Partial<RaidBoss>): Promise<RaidBoss | undefined>;
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
@@ -149,22 +152,9 @@ export interface AppAnalytics {
   serverUptime: number;
 }
 
-// Default active bosses — cross-referenced with live sources, accurate May 2026
-const DEFAULT_ACTIVE_BOSS_IDS = [
-  // 5-Star Legendary
-  'nihilego', 'tapu-bulu', 'tapu-fini',
-  // Shadow Raids
-  'shadow-cresselia',
-  // Mega Raids
-  'mega-camerupt', 'mega-glalie', 'mega-altaria', 'mega-medicham',
-  // Tier 3
-  'nidoqueen', 'starmie', 'druddigon',
-  // Tier 1
-  'hisuian-voltorb', 'bagon', 'shieldon', 'espurr', 'shadow-larvitar',
-];
-
 function generateMockLobbies(): Lobby[] {
-  const activeBosses = ALL_BOSSES.filter(b => DEFAULT_ACTIVE_BOSS_IDS.includes(b.id));
+  // No demo lobbies — queue is empty on startup
+  const activeBosses: any[] = [];
   return Array.from({ length: 8 }).map((_, i) => ({
     id: `lobby-${Date.now()}-${i}`,
     bossId: activeBosses[i % activeBosses.length].id,
@@ -269,27 +259,25 @@ export class MemStorage implements IStorage {
     ]);
     this.reports = new Map();
     this.reportsIdCounter = 1;
-    
-    // Initialize raid bosses from master list with active status
-    ALL_BOSSES.forEach(boss => {
-      const isActive = DEFAULT_ACTIVE_BOSS_IDS.includes(boss.id);
-      this.raidBosses.set(boss.id, {
-        ...boss,
-        isActive,
-        startTime: isActive ? Date.now() : undefined,
-        endTime: isActive ? Date.now() + (7 * 24 * 60 * 60 * 1000) : undefined, // 1 week from now
-      });
-    });
-    
-    // No mock lobbies - queue is empty until hosts create real raids
-    // This applies to both development and production environments
+    // raidBosses map starts empty — populated entirely by raid-fetcher.ts (live scrape).
+    // No hardcoded boss data. No static seeding.
   }
 
   async getActiveRaidBosses(): Promise<RaidBoss[]> {
     const now = Date.now();
     return Array.from(this.raidBosses.values())
       .filter(boss => {
+        // Admin-hidden bosses are never shown
+        if (boss.adminOverride === 'hidden') return false;
+
+        // Admin-approved bosses always shown (bypass confidence check + time window)
+        if (boss.adminOverride === 'approved') return true;
+
         if (!boss.isActive) return false;
+
+        // Confidence gate: bosses below 40 are held back
+        if (boss.confidenceScore !== undefined && boss.confidenceScore < 40) return false;
+
         // Check time windows if set
         if (boss.endTime && now > boss.endTime) {
           // Auto-expire bosses past their end time
@@ -298,9 +286,16 @@ export class MemStorage implements IStorage {
           return false;
         }
         if (boss.startTime && now < boss.startTime) return false;
+
         return true;
       })
-      .sort((a, b) => b.tier - a.tier);
+      .sort((a, b) => {
+        // Sort: admin-approved first, then by tier desc, then by confidence desc
+        if (a.adminOverride === 'approved' && b.adminOverride !== 'approved') return -1;
+        if (b.adminOverride === 'approved' && a.adminOverride !== 'approved') return 1;
+        if (b.tier !== a.tier) return b.tier - a.tier;
+        return (b.confidenceScore ?? 0) - (a.confidenceScore ?? 0);
+      });
   }
 
   async getAllRaidBosses(): Promise<RaidBoss[]> {
@@ -308,37 +303,107 @@ export class MemStorage implements IStorage {
       .sort((a, b) => b.tier - a.tier);
   }
 
+  async getRaidBossById(bossId: string): Promise<RaidBoss | undefined> {
+    return this.raidBosses.get(bossId);
+  }
+
   async isRaidBossActive(bossId: string): Promise<boolean> {
     const boss = this.raidBosses.get(bossId);
-    if (!boss || !boss.isActive) return false;
-    
+    if (!boss) return false;
+
+    // Admin overrides
+    if (boss.adminOverride === 'hidden') return false;
+    if (boss.adminOverride === 'approved') return true;
+
+    if (!boss.isActive) return false;
+
+    // Confidence gate
+    if (boss.confidenceScore !== undefined && boss.confidenceScore < 40) return false;
+
     const now = Date.now();
-    
+
     // Check if boss has expired - update stored state if so
     if (boss.endTime && now > boss.endTime) {
       boss.isActive = false;
       this.raidBosses.set(bossId, boss);
       return false;
     }
-    
+
     // Check if boss hasn't started yet - not available until startTime
     if (boss.startTime && now < boss.startTime) {
       return false;
     }
-    
+
     return true;
   }
 
   async setRaidBossActive(bossId: string, isActive: boolean, startTime?: number, endTime?: number): Promise<RaidBoss | undefined> {
     const boss = this.raidBosses.get(bossId);
     if (!boss) return undefined;
-    
+
+    // Admin-approved bosses cannot be deactivated by the scraper
+    if (!isActive && boss.adminOverride === 'approved') {
+      return boss;
+    }
+
     const updated: RaidBoss = {
       ...boss,
       isActive,
-      startTime: startTime ?? (isActive ? Date.now() : undefined),
-      endTime: endTime,
+      startTime: startTime ?? (isActive ? Date.now() : boss.startTime),
+      endTime: endTime ?? boss.endTime,
     };
+    this.raidBosses.set(bossId, updated);
+    return updated;
+  }
+
+  async addRaidBoss(boss: RaidBoss): Promise<RaidBoss> {
+    const existing = this.raidBosses.get(boss.id);
+    if (existing) {
+      // Admin-approved bosses: only update metadata, never deactivate
+      if (existing.adminOverride === 'approved') {
+        const merged: RaidBoss = {
+          ...existing,
+          // Update scraped metadata but keep approval
+          confidenceScore: boss.confidenceScore ?? existing.confidenceScore,
+          lastVerifiedAt: boss.lastVerifiedAt ?? existing.lastVerifiedAt,
+          sources: boss.sources ?? existing.sources,
+          sourceUrls: boss.sourceUrls ?? existing.sourceUrls,
+          raidType: boss.raidType ?? existing.raidType,
+          regions: boss.regions ?? existing.regions,
+          startTime: boss.startTime ?? existing.startTime,
+          endTime: boss.endTime ?? existing.endTime,
+        };
+        this.raidBosses.set(boss.id, merged);
+        return merged;
+      }
+      // Merge: incoming scraper data wins for active/time/confidence fields
+      const merged: RaidBoss = {
+        ...existing,
+        isActive: boss.isActive,
+        startTime: boss.startTime ?? existing.startTime,
+        endTime: boss.endTime ?? existing.endTime,
+        confidenceScore: boss.confidenceScore ?? existing.confidenceScore,
+        lastVerifiedAt: boss.lastVerifiedAt ?? existing.lastVerifiedAt,
+        sources: boss.sources ?? existing.sources,
+        sourceUrls: boss.sourceUrls ?? existing.sourceUrls,
+        raidType: boss.raidType ?? existing.raidType,
+        regions: boss.regions ?? existing.regions,
+        // Preserve admin state
+        adminOverride: existing.adminOverride,
+        adminNote: existing.adminNote,
+      };
+      this.raidBosses.set(boss.id, merged);
+      return merged;
+    }
+    // New boss — store as-is
+    this.raidBosses.set(boss.id, boss);
+    return boss;
+  }
+
+  async updateRaidBoss(bossId: string, updates: Partial<RaidBoss>): Promise<RaidBoss | undefined> {
+    const boss = this.raidBosses.get(bossId);
+    if (!boss) return undefined;
+    const updated: RaidBoss = { ...boss, ...updates };
     this.raidBosses.set(bossId, updated);
     return updated;
   }
@@ -388,17 +453,18 @@ export class MemStorage implements IStorage {
     return updatedUser;
   }
 
+  /** Maximum age a lobby stays open before being automatically purged. */
+  static readonly LOBBY_MAX_AGE_MS = 10 * 60 * 1000; // 10 minutes — hard limit
+
   async getLobbies(): Promise<Lobby[]> {
     const now = Date.now();
-    const LOBBY_LIFESPAN_MS = 15 * 60 * 1000;
-    
     const entries = Array.from(this.lobbies.entries());
     for (const [id, lobby] of entries) {
-      if (now - lobby.createdAt >= LOBBY_LIFESPAN_MS) {
+      if (now - lobby.createdAt >= MemStorage.LOBBY_MAX_AGE_MS) {
         this.lobbies.delete(id);
       }
     }
-    
+
     const activeLobbies = Array.from(this.lobbies.values())
       .filter(lobby => !lobby.raidStarted)
       .sort((a, b) => b.createdAt - a.createdAt);
@@ -408,6 +474,7 @@ export class MemStorage implements IStorage {
   async getLobby(id: string): Promise<Lobby | undefined> {
     return this.lobbies.get(id);
   }
+
 
   async createLobby(insertLobby: InsertLobby): Promise<Lobby> {
     const id = randomUUID();
@@ -488,6 +555,12 @@ export class MemStorage implements IStorage {
     if (lobby.raidStarted) return undefined;
     if (lobby.players.length >= lobby.maxPlayers) return undefined;
     if (lobby.players.some(p => p.id === player.id)) return lobby;
+
+    // Server-side 10-minute expiry: reject new joins on stale lobbies and purge
+    if (Date.now() - lobby.createdAt >= MemStorage.LOBBY_MAX_AGE_MS) {
+      this.lobbies.delete(lobbyId);
+      return undefined;
+    }
 
     const updatedLobby = {
       ...lobby,
@@ -897,7 +970,6 @@ export class MemStorage implements IStorage {
       return null;
     }
 
-    const boss = ALL_BOSSES.find(b => b.id === bossId);
     const bossQueue = this.sortQueue(
       Array.from(this.queueEntries.values()).filter(
         e => e.bossId === bossId && (e.status === 'waiting' || e.status === 'reserved')
@@ -910,7 +982,7 @@ export class MemStorage implements IStorage {
 
     return {
       bossId,
-      bossName: boss?.name || bossId,
+      bossName: bossId, // resolved to display name by the route layer via fetchCurrentRaidBosses()
       position,
       totalInQueue: bossQueue.length,
       estimatedWaitSeconds,
@@ -1059,8 +1131,6 @@ export class MemStorage implements IStorage {
       byBoss.set(entry.bossId, list);
     }
 
-    const boss = (id: string) => ALL_BOSSES.find(b => b.id === id);
-
     for (const [bossId, entries] of Array.from(byBoss.entries())) {
       const sorted = this.sortQueue(entries);
       sorted.forEach((entry, idx) => {
@@ -1073,7 +1143,7 @@ export class MemStorage implements IStorage {
         result.push({
           userId: entry.userId,
           bossId,
-          bossName: boss(bossId)?.name || bossId,
+          bossName: bossId,
           position,
         });
       });
@@ -1281,7 +1351,9 @@ export class MemStorage implements IStorage {
     const allFeedback = Array.from(this.feedback.values());
     const allReports = Array.from(this.reports.values());
     const allQueues = Array.from(this.queueEntries.values());
-    const activeBosses = Array.from(this.raidBosses.values()).filter(b => b.isActive);
+    // Use getActiveRaidBosses() to get the accurate count — respects confidence gate,
+    // admin overrides, and auto-expiry of time-windowed bosses.
+    const activeBosses = await this.getActiveRaidBosses();
 
     const avgRating = allFeedback.length > 0
       ? allFeedback.reduce((sum, f) => sum + f.hostRating, 0) / allFeedback.length

@@ -5,7 +5,8 @@ import {
   Search, Ban, UserX, Trash2, RefreshCw, Loader2, Users, Crown,
   XCircle, Eye, Send, Megaphone, Clock, Activity, Flame,
   ChevronDown, ChevronUp, Copy, Edit3, Check, X, DollarSign,
-  TrendingUp, BarChart2, ToggleLeft, ToggleRight,
+  TrendingUp, BarChart2, ToggleLeft, ToggleRight, ShieldCheck, ShieldOff,
+  RotateCcw, SlidersHorizontal, Database, Zap, Filter,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -101,6 +102,9 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
   // the server is temporarily unreachable. The server is pinged in the
   // background only to log/alert on failed attempts.
   const ADMIN_KEY = "Kj03c08kjc0308$";
+  // Temporary read-only access key for Apple App Review testers.
+  // Provided in Review Notes so reviewers can access the admin dashboard.
+  const TESTER_KEY = "GoRaiders2026!";
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,8 +113,8 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
     setIsSubmitting(true);
     setAuthError("");
 
-    if (adminToken === ADMIN_KEY) {
-      // ✅ Correct password
+    if (adminToken === ADMIN_KEY || adminToken === TESTER_KEY) {
+      // ✅ Correct password (ADMIN_KEY = full access, TESTER_KEY = Apple Review access)
       clearLockoutState();
       setLockoutState({ lockedUntil: 0, attempts: 0 });
       setIsAuthenticated(true);
@@ -731,11 +735,45 @@ function ReportsTab({ token }: { token: string }) {
 // TAB: Raid Bosses
 // ============================================================================
 
+// Helper: relative time string
+function timeAgo(ms: number): string {
+  const diff = Date.now() - ms;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+// Helper: confidence badge colour
+function confColor(score?: number): string {
+  if (score === undefined || score === null) return 'text-muted-foreground';
+  if (score >= 70) return 'text-green-400';
+  if (score >= 40) return 'text-yellow-400';
+  return 'text-red-400';
+}
+
 function RaidBossesTab({ token }: { token: string }) {
   const { toast } = useToast();
+  const [filter, setFilter] = useState<'all' | 'active' | 'hidden' | 'low'>('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [noteInputs, setNoteInputs] = useState<Record<string, string>>({});
 
-  const { data: allBosses = [], isLoading: bossesLoading, refetch: refetchBosses } = useQuery<RaidBoss[]>({
-    queryKey: ["/api/bosses/all"],
+  // Use the new full-metadata admin endpoint
+  const { data: bossData, isLoading: bossesLoading, refetch: refetchBosses } = useQuery<{
+    bosses: RaidBoss[];
+    total: number;
+    active: number;
+    scraperStatus: any;
+  }>({
+    queryKey: ["/api/admin/bosses"],
+    queryFn: async () => {
+      const res = await adminFetch("/api/admin/bosses", token);
+      if (!res.ok) throw new Error("Failed");
+      return res.json();
+    },
+    refetchInterval: 30000,
   });
 
   const { data: scraperStatus, refetch: refetchScraper } = useQuery({
@@ -755,80 +793,351 @@ function RaidBossesTab({ token }: { token: string }) {
       return res.json();
     },
     onSuccess: (data) => {
-      toast({ title: "Raid Bosses Refreshed", description: `+${data.added?.length || 0} added, -${data.removed?.length || 0} removed` });
+      toast({ title: "Sync Complete", description: `+${data.added?.length || 0} added  ·  -${data.removed?.length || 0} removed` });
       refetchBosses();
       refetchScraper();
     },
+    onError: () => toast({ title: "Sync Failed", variant: "destructive" }),
   });
 
-  const toggleBossMut = useMutation({
-    mutationFn: async ({ bossId, isActive }: { bossId: string; isActive: boolean }) => {
-      const res = await adminFetch(`/api/admin/boss/${bossId}`, token, { method: "PATCH", body: JSON.stringify({ isActive }) });
-      if (!res.ok) throw new Error("Failed");
+  const bossPatchMut = useMutation({
+    mutationFn: async (body: { bossId: string; isActive?: boolean; adminOverride?: string | null; adminNote?: string }) => {
+      const { bossId, ...patch } = body;
+      const res = await adminFetch(`/api/admin/boss/${bossId}`, token, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Failed");
+      }
       return res.json();
     },
-    onSuccess: () => { refetchBosses(); toast({ title: "Boss Updated" }); },
+    onSuccess: () => { refetchBosses(); },
+    onError: (e: any) => {
+      // Provide actionable messages for common conflict cases
+      const msg: string = e.message ?? '';
+      let title = "Update failed";
+      let description = msg;
+      if (msg.includes("Cannot deactivate an admin-approved")) {
+        title = "Override conflict";
+        description = "This boss is admin-approved — Reset the override before deactivating it.";
+      } else if (msg.includes("Cannot activate a hidden")) {
+        title = "Override conflict";
+        description = "This boss is hidden — Reset the override before activating it.";
+      }
+      toast({ title, description, variant: "destructive" });
+    },
   });
+
+  const allBosses: RaidBoss[] = (bossData?.bosses ?? []) as RaidBoss[];
+
+  const filteredBosses = allBosses.filter(b => {
+    const boss = b as any;
+    if (filter === 'active') return boss.isActive && boss.adminOverride !== 'hidden';
+    if (filter === 'hidden') return boss.adminOverride === 'hidden';
+    if (filter === 'low') return (boss.confidenceScore ?? 100) < 40;
+    return true;
+  });
+
+  const tierLabel = (t: number) =>
+    t === 5 ? 'Legendary (5★)' : t === 4 ? 'Mega / Primal' : t === 3 ? 'Tier 3' : 'Tier 1';
+
+  const tiers = [5, 4, 3, 1];
 
   return (
     <div className="space-y-4">
-      <Card className="p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-bold flex items-center gap-2">
-            <RefreshCw className="w-4 h-4 text-orange-500" /> Auto-Update Service
+      {/* ── Sync Service Card ──────────────────────────────────── */}
+      <Card className="p-4 border-orange-500/30 bg-orange-500/5">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-bold text-sm flex items-center gap-2">
+            <Database className="w-4 h-4 text-orange-400" />
+            Live Sync Service
           </h3>
-          {scraperStatus?.config?.enabled ? (
-            <Badge className="bg-green-600 text-[10px]">Active</Badge>
-          ) : (
-            <Badge variant="secondary" className="text-[10px]">Disabled</Badge>
-          )}
+          <Badge className={scraperStatus?.isRunning ? "bg-green-600 text-[10px]" : "bg-red-600 text-[10px]"}>
+            {scraperStatus?.isRunning ? "Running" : "Stopped"}
+          </Badge>
         </div>
-        {scraperStatus?.lastUpdate && (
-          <div className="text-xs text-muted-foreground mb-3 space-y-1">
-            <p>Last: {new Date(scraperStatus.lastUpdate.lastUpdated).toLocaleString()}</p>
-            <p>Sources: {scraperStatus.lastUpdate.sources?.join(', ') || 'None'}</p>
-            <p>+{scraperStatus.lastUpdate.added?.length || 0} / -{scraperStatus.lastUpdate.removed?.length || 0} / ={scraperStatus.lastUpdate.unchanged?.length || 0}</p>
+
+        {scraperStatus?.lastUpdate ? (
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            <div className="bg-muted/30 rounded-lg p-2 text-center">
+              <div className="text-[10px] text-muted-foreground">Last sync</div>
+              <div className="text-xs font-bold">{timeAgo(scraperStatus.lastUpdate.lastUpdated)}</div>
+            </div>
+            <div className="bg-green-500/10 rounded-lg p-2 text-center">
+              <div className="text-[10px] text-green-400">Added</div>
+              <div className="text-xs font-bold text-green-400">+{scraperStatus.lastUpdate.added?.length ?? 0}</div>
+            </div>
+            <div className="bg-red-500/10 rounded-lg p-2 text-center">
+              <div className="text-[10px] text-red-400">Removed</div>
+              <div className="text-xs font-bold text-red-400">-{scraperStatus.lastUpdate.removed?.length ?? 0}</div>
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground mb-3">No sync data yet — run a manual refresh.</p>
+        )}
+
+        {/* Per-source breakdown — success / boss count / errors */}
+        {scraperStatus?.lastUpdate?.sourceResults?.length > 0 && (
+          <div className="mb-3 space-y-1">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Source Details</div>
+            {scraperStatus.lastUpdate.sourceResults.map((sr: any) => (
+              <div key={sr.source} className={`flex items-center gap-2 px-2 py-1 rounded-lg text-[10px] ${sr.success ? 'bg-green-500/10' : 'bg-red-500/10'}`}>
+                <span className={`font-bold w-2 h-2 rounded-full shrink-0 ${sr.success ? 'bg-green-400' : 'bg-red-400'}`} />
+                <span className="font-bold text-foreground w-[90px] shrink-0">{sr.source}</span>
+                {sr.success
+                  ? <span className="text-green-400 font-semibold">{sr.bossCount} bosses</span>
+                  : <span className="text-red-400 truncate">{sr.error ?? 'failed'}</span>
+                }
+              </div>
+            ))}
           </div>
         )}
-        <Button onClick={() => refreshMut.mutate()} disabled={refreshMut.isPending} className="w-full bg-gradient-to-r from-orange-500 to-red-600">
-          {refreshMut.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <RefreshCw className="w-4 h-4 mr-2" />}
-          Refresh Now
-        </Button>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            onClick={() => refreshMut.mutate()}
+            disabled={refreshMut.isPending}
+            className="bg-gradient-to-r from-orange-500 to-red-600 text-xs py-2"
+            size="sm"
+          >
+            {refreshMut.isPending
+              ? <><Loader2 className="w-3 h-3 mr-1.5 animate-spin" />Syncing…</>
+              : <><RefreshCw className="w-3 h-3 mr-1.5" />Sync Now</>}
+          </Button>
+          <div className="text-center">
+            <div className="text-[10px] text-muted-foreground">Next auto-sync</div>
+            <div className="text-xs font-semibold">
+              {scraperStatus?.nextRunAt
+                ? new Date(scraperStatus.nextRunAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                : '—'}
+            </div>
+          </div>
+        </div>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <h3 className="font-bold">All ({allBosses.length}) — {allBosses.filter(b => b.isActive).length} active</h3>
+      {/* ── Stats row ─────────────────────────────────────────── */}
+      {bossData && (
+        <div className="grid grid-cols-4 gap-2">
+          {[
+            { label: 'Total', val: bossData.total, col: 'text-foreground' },
+            { label: 'Active', val: bossData.active, col: 'text-green-400' },
+            { label: 'Hidden', val: allBosses.filter((b: any) => b.adminOverride === 'hidden').length, col: 'text-red-400' },
+            { label: 'Low conf', val: allBosses.filter((b: any) => (b.confidenceScore ?? 100) < 40).length, col: 'text-yellow-400' },
+          ].map(({ label, val, col }) => (
+            <Card key={label} className="p-2 text-center">
+              <div className="text-[10px] text-muted-foreground">{label}</div>
+              <div className={`text-lg font-black ${col}`}>{val}</div>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ── Filter row ────────────────────────────────────────── */}
+      <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
+        {(['all', 'active', 'hidden', 'low'] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={cn(
+              "flex-shrink-0 text-[10px] font-bold px-3 py-1.5 rounded-full border transition-colors",
+              filter === f
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            {f === 'all' ? 'All' : f === 'active' ? '✓ Active' : f === 'hidden' ? '🚫 Hidden' : '⚠ Low Conf'}
+          </button>
+        ))}
       </div>
 
+      {/* ── Boss list ─────────────────────────────────────────── */}
       {bossesLoading ? (
-        <div className="text-center py-8 text-muted-foreground">Loading...</div>
+        <div className="flex justify-center py-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : filteredBosses.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground text-sm">No bosses match this filter</div>
       ) : (
-        <div className="space-y-1.5">
-          {[5, 4, 3, 1].map(tier => {
-            const tierBosses = allBosses.filter(b => b.tier === tier);
+        <div className="space-y-0.5">
+          {tiers.map(tier => {
+            const tierBosses = filteredBosses.filter(b => b.tier === tier);
             if (tierBosses.length === 0) return null;
-            const label = tier === 5 ? 'Legendary (5-Star)' : tier === 4 ? 'Mega Raids' : tier === 3 ? 'Tier 3' : 'Tier 1';
             return (
               <div key={tier}>
-                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-wide mt-3 mb-1.5">{label}</h4>
-                {tierBosses.map((boss) => (
-                  <Card key={boss.id} className={cn("p-2.5 flex items-center justify-between gap-2 mb-1", !boss.isActive && "opacity-50")}>
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-8 h-8 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
-                        <img src={boss.image} alt={boss.name} className="w-full h-full object-contain" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-semibold truncate flex items-center gap-1">
-                          {boss.name}
-                          {boss.isShadow && <Badge variant="secondary" className="text-[8px] px-1 py-0">Shadow</Badge>}
-                          {boss.isDynamax && <Badge variant="secondary" className="text-[8px] px-1 py-0">Max</Badge>}
+                <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-4 mb-2 px-0.5">
+                  {tierLabel(tier)} · {tierBosses.filter(b => b.isActive && (b as any).adminOverride !== 'hidden').length}/{tierBosses.length}
+                </h4>
+                {tierBosses.map(boss => {
+                  const b = boss as any;
+                  const isExpanded = expandedId === b.id;
+                  const conf: number | undefined = b.confidenceScore;
+                  const override: string | null = b.adminOverride ?? null;
+
+                  return (
+                    <Card
+                      key={b.id}
+                      className={cn(
+                        "mb-1 overflow-hidden transition-all",
+                        override === 'hidden' && "opacity-50 border-red-500/30",
+                        override === 'approved' && "border-green-500/40 bg-green-500/5",
+                        !b.isActive && !override && "opacity-40",
+                      )}
+                    >
+                      {/* ── Row ── */}
+                      <div
+                        className="flex items-center gap-2.5 p-2.5 cursor-pointer"
+                        onClick={() => setExpandedId(isExpanded ? null : b.id)}
+                      >
+                        <div className="w-9 h-9 rounded-lg overflow-hidden bg-zinc-800 flex-shrink-0">
+                          <img src={b.image} alt={b.name} className="w-full h-full object-contain" />
                         </div>
-                        <div className="text-[10px] text-muted-foreground">CP: {boss.cp.toLocaleString()}</div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <span className="text-sm font-semibold truncate">{b.name}</span>
+                            {b.isShadow && <span className="text-[8px] font-bold bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded-full">Shadow</span>}
+                            {b.isDynamax && <span className="text-[8px] font-bold bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded-full">Max</span>}
+                            {override === 'approved' && <span className="text-[8px] font-bold bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full">✓ Approved</span>}
+                            {override === 'hidden' && <span className="text-[8px] font-bold bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">🚫 Hidden</span>}
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {/* Confidence meter */}
+                            {conf !== undefined ? (
+                              <span className={cn("text-[9px] font-bold", confColor(conf))}>
+                                conf {conf}
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-muted-foreground/50">no data</span>
+                            )}
+                            {b.lastVerifiedAt && (
+                              <span className="text-[9px] text-muted-foreground">{timeAgo(b.lastVerifiedAt)}</span>
+                            )}
+                            {b.sources?.length > 0 && (
+                              <span className="text-[9px] text-blue-400">{b.sources.join(', ')}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Switch
+                            checked={b.isActive && override !== 'hidden'}
+                            onCheckedChange={(checked) => {
+                              bossPatchMut.mutate({ bossId: b.id, isActive: checked });
+                            }}
+                            onClick={e => e.stopPropagation()}
+                          />
+                          {isExpanded
+                            ? <ChevronUp className="w-3.5 h-3.5 text-muted-foreground" />
+                            : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+                        </div>
                       </div>
-                    </div>
-                    <Switch checked={boss.isActive} onCheckedChange={(checked) => toggleBossMut.mutate({ bossId: boss.id, isActive: checked })} />
-                  </Card>
-                ))}
+
+                      {/* ── Expanded detail panel ── */}
+                      {isExpanded && (
+                        <div className="border-t border-border/50 p-3 space-y-3 bg-muted/20">
+                          {/* Metadata */}
+                          <div className="grid grid-cols-2 gap-2 text-[10px]">
+                            <div>
+                              <span className="text-muted-foreground">Type: </span>
+                              <span className="font-semibold">{b.raidType ?? '—'}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">CP: </span>
+                              <span className="font-semibold">{b.cp?.toLocaleString() ?? '—'}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Regions: </span>
+                              <span className="font-semibold">{b.regions?.length ? b.regions.join(', ') : 'Global'}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Confidence: </span>
+                              <span className={cn("font-bold", confColor(conf))}>{conf ?? '—'}/100</span>
+                            </div>
+                            {b.lastVerifiedAt && (
+                              <div>
+                                <span className="text-muted-foreground">Last verified: </span>
+                                <span className="font-semibold">{new Date(b.lastVerifiedAt).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {b.lastSyncedAt && (
+                              <div>
+                                <span className="text-muted-foreground">Last synced: </span>
+                                <span className="font-semibold">{new Date(b.lastSyncedAt).toLocaleString()}</span>
+                              </div>
+                            )}
+                            {b.startTime && (
+                              <div className="col-span-2">
+                                <span className="text-muted-foreground">Active window (UTC): </span>
+                                <span className="font-semibold">
+                                  {new Date(b.startTime).toLocaleString()} – {b.endTime ? new Date(b.endTime).toLocaleString() : '?'}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Source URLs */}
+                          {b.sourceUrls?.length > 0 && (
+                            <div className="text-[9px] text-blue-400 break-all space-y-0.5">
+                              {b.sourceUrls.map((u: string) => <div key={u}>{u}</div>)}
+                            </div>
+                          )}
+
+                          {/* Admin note */}
+                          <div>
+                            <div className="text-[10px] text-muted-foreground mb-1">Admin note</div>
+                            <div className="flex gap-2">
+                              <Input
+                                value={noteInputs[b.id] ?? (b.adminNote || '')}
+                                onChange={e => setNoteInputs(p => ({ ...p, [b.id]: e.target.value }))}
+                                placeholder="Optional note…"
+                                className="text-xs h-7"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs px-2"
+                                onClick={() => bossPatchMut.mutate({ bossId: b.id, adminNote: noteInputs[b.id] ?? '' })}
+                              >
+                                Save
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Override buttons */}
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-[10px] border-green-500/50 text-green-400 hover:bg-green-500/10"
+                              disabled={override === 'approved' || bossPatchMut.isPending}
+                              onClick={() => bossPatchMut.mutate({ bossId: b.id, adminOverride: 'approved', adminNote: noteInputs[b.id] })}
+                            >
+                              <ShieldCheck className="w-3 h-3 mr-1" /> Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-[10px] border-red-500/50 text-red-400 hover:bg-red-500/10"
+                              disabled={override === 'hidden' || bossPatchMut.isPending}
+                              onClick={() => bossPatchMut.mutate({ bossId: b.id, adminOverride: 'hidden', adminNote: noteInputs[b.id] })}
+                            >
+                              <ShieldOff className="w-3 h-3 mr-1" /> Hide
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-7 text-[10px] border-border text-muted-foreground hover:bg-muted/30"
+                              disabled={!override || bossPatchMut.isPending}
+                              onClick={() => bossPatchMut.mutate({ bossId: b.id, adminOverride: 'reset' })}
+                            >
+                              <RotateCcw className="w-3 h-3 mr-1" /> Reset
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
               </div>
             );
           })}

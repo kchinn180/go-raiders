@@ -1,5 +1,5 @@
 /**
- * Client-side Pokémon Data
+ * Client-side Raid Boss Data
  *
  * All raid boss details, counter recommendations, and calculations run
  * entirely on the client. No server round-trip needed for static game data.

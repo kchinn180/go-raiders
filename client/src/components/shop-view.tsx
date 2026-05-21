@@ -1,11 +1,14 @@
-import { Crown, Zap, Radar, Users, Star, Clock, ShieldCheck } from "lucide-react";
+import { Crown, Zap, Radar, Users, Star, Clock, ShieldCheck, EyeOff, CheckCircle2 } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
+import { loadNativeProductPrices, REMOVE_ADS_PRODUCT } from "@/lib/subscription";
 
 interface ShopViewProps {
   onUpgrade: () => void;
+  onRemoveAds: () => void;
 }
 
 const features = [
@@ -41,8 +44,20 @@ const features = [
   },
 ];
 
-export function ShopView({ onUpgrade }: ShopViewProps) {
+export function ShopView({ onUpgrade, onRemoveAds }: ShopViewProps) {
   const { user } = useUser();
+  const hasRemovedAds = (user?.subscription as any)?.hasRemovedAds === true;
+
+  // Load real prices from native StoreKit / Play Billing
+  const [removeAdsPrice, setRemoveAdsPrice] = useState<string | null>(null);
+  useEffect(() => {
+    loadNativeProductPrices([REMOVE_ADS_PRODUCT.appleProductId])
+      .then((prices) => {
+        const p = prices.get(REMOVE_ADS_PRODUCT.appleProductId);
+        if (p?.price) setRemoveAdsPrice(p.price);
+      })
+      .catch(() => { /* keep fallback */ });
+  }, []);
 
   return (
     <div className="p-4 space-y-6 pb-nav">
@@ -80,6 +95,54 @@ export function ShopView({ onUpgrade }: ShopViewProps) {
           </Button>
         </Card>
       )}
+
+      {/* Remove Ads — One-Time Purchase (always visible so non-Elite users can find it) */}
+      <Card className={cn(
+        "p-4",
+        hasRemovedAds || user?.isPremium
+          ? "border-green-500/50 bg-gradient-to-br from-green-500/10 to-emerald-500/10"
+          : "border-border bg-muted/20"
+      )}>
+        <div className="flex items-center gap-3">
+          <div className={cn(
+            "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+            hasRemovedAds || user?.isPremium ? "bg-green-500/20" : "bg-muted"
+          )}>
+            {hasRemovedAds || user?.isPremium
+              ? <CheckCircle2 className="w-5 h-5 text-green-500" />
+              : <EyeOff className="w-5 h-5 text-muted-foreground" />
+            }
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h3 className="font-bold text-sm">Remove Ads</h3>
+              {(hasRemovedAds || user?.isPremium) && (
+                <span className="text-xs font-bold text-green-500 bg-green-500/15 px-2 py-0.5 rounded-full">
+                  {user?.isPremium && !hasRemovedAds ? "Included with Elite" : "Purchased"}
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {user?.isPremium
+                ? "No ads — included with your Elite subscription"
+                : hasRemovedAds
+                ? "All ads have been permanently removed"
+                : "One-time purchase — permanently remove all ads"}
+            </p>
+          </div>
+          {!hasRemovedAds && !user?.isPremium && (
+            <Button
+              onClick={onRemoveAds}
+              variant="outline"
+              size="sm"
+              className="shrink-0 font-bold border-2 text-sm px-3"
+              data-testid="button-remove-ads"
+            >
+              {removeAdsPrice ?? `$${REMOVE_ADS_PRODUCT.price.toFixed(2)}`}
+            </Button>
+          )}
+        </div>
+      </Card>
 
       <div className="space-y-3">
         <h3 className="font-bold text-sm text-muted-foreground uppercase tracking-wide">

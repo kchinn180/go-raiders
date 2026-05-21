@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SafeImage } from "@/components/safe-image";
 import { cn } from "@/lib/utils";
-import { BOSSES } from "@shared/schema";
-import type { Boss, RaidBoss, QueueStatus } from "@shared/schema";
+import type { CurrentBoss, QueueStatus } from "@shared/schema";
 import { triggerImpact } from "@/lib/haptics";
 import { getApiUrl } from "@/lib/queryClient";
 
@@ -34,10 +33,10 @@ export function AutoJoinModal({
   isPremium,
 }: AutoJoinModalProps) {
   const [search, setSearch] = useState("");
-  const [selectedBoss, setSelectedBoss] = useState<Boss | null>(null);
+  const [selectedBoss, setSelectedBoss] = useState<CurrentBoss | null>(null);
   const queryClient = useQueryClient();
 
-  const { data: activeBosses, isLoading: loadingBosses } = useQuery<RaidBoss[]>({
+  const { data: activeBosses, isLoading: loadingBosses } = useQuery<CurrentBoss[]>({
     queryKey: ['/api/bosses/active'],
     enabled: isOpen,
   });
@@ -87,7 +86,9 @@ export function AutoJoinModal({
 
   if (!isOpen) return null;
 
-  const bossesToShow = activeBosses || BOSSES;
+  // Never fall back to the static BOSSES list — only show confirmed live bosses.
+  // If the server hasn't returned data yet, show empty (loading state handles this).
+  const bossesToShow: CurrentBoss[] = activeBosses ?? [];
   const filteredBosses = bossesToShow.filter((boss) =>
     boss.name.toLowerCase().includes(search.toLowerCase())
   );
@@ -132,7 +133,7 @@ export function AutoJoinModal({
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search Pokémon..."
+            placeholder="Search raid bosses..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -145,16 +146,22 @@ export function AutoJoinModal({
             <div className="flex justify-center py-8">
               <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
             </div>
+          ) : filteredBosses.length === 0 && bossesToShow.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Radar className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p className="font-semibold">No active raids right now</p>
+              <p className="text-xs mt-1">Fetching live raid rotation…</p>
+            </div>
           ) : filteredBosses.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p>No Pokémon found</p>
+              <p>No bosses found</p>
             </div>
           ) : (
             filteredBosses.map((boss) => (
               <button
                 key={boss.id}
-                onClick={() => setSelectedBoss(boss as Boss)}
+                onClick={() => setSelectedBoss(boss)}
                 className={cn(
                   "w-full p-3 rounded-xl flex items-center gap-3 transition-all text-left",
                   selectedBoss?.id === boss.id
@@ -164,7 +171,7 @@ export function AutoJoinModal({
                 data-testid={`auto-join-boss-${boss.id}`}
               >
                 <SafeImage
-                  src={boss.image}
+                  src={boss.image ?? ''}
                   alt={boss.name}
                   className="w-12 h-12 rounded-lg bg-card"
                   fallbackChar={boss.name[0]}
@@ -172,7 +179,7 @@ export function AutoJoinModal({
                 <div className="flex-1">
                   <span className="font-bold block">{boss.name}</span>
                   <span className="text-sm text-muted-foreground">
-                    Tier {boss.tier} • CP {boss.cp.toLocaleString()}
+                    {boss.category}
                   </span>
                 </div>
                 {selectedBoss?.id === boss.id && (
