@@ -39,7 +39,7 @@ export async function fetchCurrentRaidBosses(): Promise<CurrentBoss[]> {
   for (const { label, fn } of sources) {
     try {
       const raw = await fn();
-      const clean = sanitizeBossList(raw);
+      const clean = sortByTier(sanitizeBossList(raw));
       if (clean.length > 0) {
         log(`[${label}] ${clean.length} valid bosses (${raw.length} raw)`, "raid-fetch");
         cache = { bosses: clean, fetchedAt: Date.now() };
@@ -273,6 +273,12 @@ function sanitizeBossList(bosses: CurrentBoss[]): CurrentBoss[] {
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
+/** Sort bosses: Tier 5 → 6 → 4 → 3 → 1 (legendary first, then mega, then lower) */
+function sortByTier(bosses: CurrentBoss[]): CurrentBoss[] {
+  const order: Record<number, number> = { 5: 0, 6: 1, 4: 2, 3: 3, 2: 4, 1: 5 };
+  return [...bosses].sort((a, b) => (order[a.tier] ?? 9) - (order[b.tier] ?? 9));
+}
+
 function inferTierFromName(name: string, fallback: number): number {
   const l = name.toLowerCase();
   if (l.startsWith("mega ") || l.startsWith("primal ")) return 4;
@@ -306,12 +312,32 @@ function makeBoss(name: string, tier: number): CurrentBoss {
   else               { category = `Tier ${tier}`; variant = "Normal"; }
 
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  const baseName = name
+
+  // Strip battle/form prefixes to get the base species name
+  const stripped = name
     .replace(/^(Mega|Shadow|Primal|Dynamax|Gigantamax)\s+/i, "")
-    .replace(/\s+/g, "-").toLowerCase();
+    .trim();
+
+  // pokemondb uses suffix form for regional variants:
+  //   "Alolan Grimer"   → grimer-alola
+  //   "Galarian Weezing" → weezing-galarian
+  //   "Hisuian Voltorb"  → voltorb-hisuian
+  //   "Paldean Wooper"   → wooper-paldea
+  const regionalMatch = stripped.match(/^(Alolan|Galarian|Hisuian|Paldean)\s+(.+)$/i);
+  let spriteSlug: string;
+  if (regionalMatch) {
+    const prefix = regionalMatch[1].toLowerCase();
+    const species = regionalMatch[2].replace(/\s+/g, "-").toLowerCase();
+    const suffix = prefix === "alolan" ? "alola"
+                 : prefix === "paldean" ? "paldea"
+                 : prefix; // galarian, hisuian stay as-is
+    spriteSlug = `${species}-${suffix}`;
+  } else {
+    spriteSlug = stripped.replace(/\s+/g, "-").toLowerCase();
+  }
 
   return {
     id, name, tier, category, variant, isShadow, isDynamax,
-    image: `https://img.pokemondb.net/sprites/home/normal/${baseName}.png`,
+    image: `https://img.pokemondb.net/sprites/home/normal/${spriteSlug}.png`,
   };
 }
