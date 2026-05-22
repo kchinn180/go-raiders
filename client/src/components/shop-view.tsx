@@ -135,7 +135,7 @@ export function ShopView({ onUpgrade, onRemoveAds }: ShopViewProps) {
               onClick={onRemoveAds}
               variant="outline"
               size="sm"
-              className="shrink-0 font-bold border-2 text-sm px-3"
+              className="shrink-0 font-bold border-2 text-sm px-3 border-amber-500 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 hover:text-amber-300"
               data-testid="button-remove-ads"
             >
               {removeAdsPrice ?? `$${REMOVE_ADS_PRODUCT.price.toFixed(2)}`}
