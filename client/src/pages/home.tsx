@@ -86,16 +86,12 @@ export default function Home() {
     refetchInterval: autoRefresh ? 15000 : false,
   });
 
-  // Auto-show demo raids when the live feed is empty (or still loading) so the app
-  // always looks active immediately at startup — fixes Apple 2.1.0 App Completeness
-  // and prevents a blank/frozen-looking feed during Railway cold starts.
-  // Real raids always take precedence once they load.
-  const isDemoMode = lobbies.length === 0; // true while loading AND after empty result
-  // Memoize so the array reference stays stable between renders — prevents JoinFeed
-  // from re-rendering on every poll when demo mode is active.
+  // Test raids: only shown when explicitly enabled from the admin panel toggle.
+  // Demo/auto-fill mode is disabled — the feed shows real lobbies only.
+  const isDemoMode = false;
   const testLobbies: Lobby[] = useMemo(
-    () => (isDemoMode || isTestRaidsEnabled()) ? generateTestLobbies() : [],
-    [isDemoMode, testRaidsVersion]
+    () => isTestRaidsEnabled() ? generateTestLobbies() : [],
+    [testRaidsVersion]
   );
 
   // Keep active lobby refreshed when user navigates around
