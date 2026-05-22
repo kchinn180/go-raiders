@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { Loader2 } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { SplashScreen } from "@/components/splash-screen";
 import { Header } from "@/components/header";
 import { BottomNav } from "@/components/bottom-nav";
 import { Onboarding } from "@/components/onboarding";
@@ -543,11 +543,7 @@ export default function Home() {
   }, []);
 
   if (userLoading) {
-    return (
-      <div className="h-dvh bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!user) {
