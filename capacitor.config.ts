@@ -40,7 +40,7 @@ const config: CapacitorConfig = {
         ios:     "ca-app-pub-5534211525876266~8642493107",
         android: "ca-app-pub-5534211525876266~8642493107",  // update if Android App ID differs
       },
-      requestTrackingAuthorization: true,
+      requestTrackingAuthorization: false, // ATT prompt handled in AppDelegate with proper timing
     },
     SplashScreen: {
       launchShowDuration: 3000,

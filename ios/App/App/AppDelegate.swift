@@ -27,15 +27,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
-
         // Request App Tracking Transparency permission (iOS 14+).
-        // This must be called before AdMob can collect the IDFA for targeted ads.
-        // NSUserTrackingUsageDescription in Info.plist provides the prompt text.
+        // Delayed 1.5 s so the prompt appears after the UI is fully rendered,
+        // not over a black launch screen. The OS only shows the dialog once —
+        // subsequent calls return immediately with the stored status.
         if #available(iOS 14, *) {
-            ATTrackingManager.requestTrackingAuthorization { _ in
-                // AdMob reads the authorization status automatically.
-                // No further action needed here.
+            if ATTrackingManager.trackingAuthorizationStatus == .notDetermined {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    ATTrackingManager.requestTrackingAuthorization { status in
+                        // AdMob reads the IDFA automatically after authorization.
+                        // Authorized  → personalized ads, IDFA available
+                        // Denied/restricted → limited ads, no IDFA
+                        print("[ATT] Authorization status: \(status.rawValue)")
+                    }
+                }
             }
         }
     }
