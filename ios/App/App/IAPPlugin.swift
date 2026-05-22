@@ -34,6 +34,8 @@ public class IAPPlugin: CAPPlugin {
 
                 switch result {
                 case .success(let verification):
+                    // jwsRepresentation is on the VerificationResult, not on Transaction
+                    let jwsToken = verification.jwsRepresentation
                     switch verification {
                     case .verified(let transaction):
                         // Finish the transaction so it doesn't reappear
@@ -45,7 +47,7 @@ public class IAPPlugin: CAPPlugin {
                             "pending": false,
                             "transactionId": String(transaction.id),
                             "productId": transaction.productID,
-                            "jwsRepresentation": transaction.jwsRepresentation
+                            "jwsRepresentation": jwsToken
                         ])
 
                     case .unverified(_, let error):
@@ -89,7 +91,7 @@ public class IAPPlugin: CAPPlugin {
                     jwsTokens.append([
                         "transactionId": String(transaction.id),
                         "productId": transaction.productID,
-                        "jwsRepresentation": transaction.jwsRepresentation
+                        "jwsRepresentation": result.jwsRepresentation
                     ])
                 }
             }
