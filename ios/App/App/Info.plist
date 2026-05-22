@@ -54,7 +54,7 @@
 		<string>remote-notification</string>
 	</array>
 	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<string>ca-app-pub-5534211525876266~8642493107</string>
 	<key>SKAdNetworkItems</key>
 	<array>
 		<dict><key>SKAdNetworkIdentifier</key><string>cstr6suwn9.skadnetwork</string></dict>

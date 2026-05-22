@@ -27,9 +27,9 @@ import type { AdPlacement } from "@shared/schema";
 // Replace with your production IDs (never commit real IDs to version control —
 // put them in .env.production and inject via build config).
 const AD_UNITS = {
-  banner:       process.env.VITE_ADMOB_BANNER_ID       ?? "ca-app-pub-3940256099942544/2934735716",
-  interstitial: process.env.VITE_ADMOB_INTERSTITIAL_ID ?? "ca-app-pub-3940256099942544/4411468910",
-  rewarded:     process.env.VITE_ADMOB_REWARDED_ID     ?? "ca-app-pub-3940256099942544/1712485313",
+  banner:       process.env.VITE_ADMOB_BANNER_ID       ?? "ca-app-pub-5534211525876266/9513178495",
+  interstitial: process.env.VITE_ADMOB_INTERSTITIAL_ID ?? "ca-app-pub-5534211525876266/7179722255",
+  rewarded:     process.env.VITE_ADMOB_REWARDED_ID     ?? "ca-app-pub-5534211525876266/2727821449",
 } as const;
 
 // True when running inside a real Capacitor native container (iOS/Android)
