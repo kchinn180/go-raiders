@@ -238,7 +238,12 @@ async function verifyAppleReceipt(
   const sharedSecret = process.env.APPLE_SHARED_SECRET;
 
   if (!sharedSecret) {
-    console.warn("APPLE_SHARED_SECRET not configured - using development mode");
+    if (process.env.NODE_ENV === 'production') {
+      console.error('[SECURITY] APPLE_SHARED_SECRET is not set in production — subscription verification blocked.');
+      return { success: false, isPremium: false, error: 'Subscription verification unavailable. Please try again later.' };
+    }
+    // Development only: auto-grant for local testing without App Store sandbox
+    console.warn('[DEV] APPLE_SHARED_SECRET not configured — granting access in development mode only.');
     return {
       success: true,
       isPremium: true,

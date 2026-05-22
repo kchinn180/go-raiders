@@ -134,7 +134,7 @@ export async function showBannerAd(userId: string): Promise<void> {
       adSize: BannerAdSize.ADAPTIVE_BANNER,
       position: BannerAdPosition.BOTTOM_CENTER,
       margin: 0,
-      isTesting: AD_UNITS.banner.includes("3940256"),
+      isTesting: false,
     });
     bannerVisible = true;
     reportImpression(userId, "banner", AD_UNITS.banner);
@@ -183,7 +183,7 @@ export async function showRewardedAd(userId: string): Promise<boolean> {
 
       await plugin.prepareRewardVideoAd({
         adId: AD_UNITS.rewarded,
-        isTesting: AD_UNITS.rewarded.includes("3940256"),
+        isTesting: false,
       });
 
       await plugin.showRewardVideoAd();
@@ -211,7 +211,7 @@ export async function prepareInterstitialAd(): Promise<void> {
   try {
     await plugin.prepareInterstitial({
       adId: AD_UNITS.interstitial,
-      isTesting: AD_UNITS.interstitial.includes("3940256"),
+      isTesting: false,
     });
   } catch { /* non-critical */ }
 }
