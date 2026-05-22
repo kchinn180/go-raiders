@@ -601,6 +601,10 @@ function calcDPS(
   return (cycleDmg / cycleTime) * (attack / 200);
 }
 
+export function calcTopCountersFromTypes(bossTypes: PokemonType[], limit = 6): CounterPokemon[] {
+  return calcTopCounters(bossTypes, limit);
+}
+
 function calcTopCounters(bossTypes: PokemonType[], limit = 6): CounterPokemon[] {
   const results: CounterPokemon[] = [];
 
