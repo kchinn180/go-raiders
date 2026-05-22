@@ -19,6 +19,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { X, Swords, Shield, Heart, Clock, Loader2, AlertTriangle, Zap, Target, Info, TrendingUp } from "lucide-react";
 import { getRaidBossDetailsClient, getCounterDetailsClient, calcCatchCPRange, calcTopCountersFromTypes } from "@/lib/pokemon-client-data";
 import { Button } from "@/components/ui/button";
@@ -358,7 +359,9 @@ export function BossDetailsModal({
   const isLoading = loadingApi;
   const isError   = !isLoading && isOpen && !!bossId && !pokemon && (apiError || (!localDetails && !apiDetails && !loadingApi));
 
-  return (
+  // Portal renders directly in <body>, bypassing the app's overflow-hidden
+  // flex container which clips fixed children on iOS WebKit
+  return createPortal(
     <>
       <div className="fixed inset-0 z-[200] bg-background overflow-y-auto" data-testid="modal-boss-details">
         {/* Sticky header — max() ensures text never hides behind the notch/dynamic island */}
@@ -525,7 +528,8 @@ export function BossDetailsModal({
           isCounter={true}
         />
       )}
-    </>
+    </>,
+    document.body
   );
 }
 
