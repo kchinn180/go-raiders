@@ -33,9 +33,19 @@ import { PurchaseThankYouModal } from "@/components/purchase-thank-you-modal";
 type ViewType = "join" | "host" | "shop" | "profile" | "lobby";
 type LegalPage = "privacy" | "terms" | "about" | "admin" | null;
 
+const SPLASH_MIN_MS = 2200; // minimum time the splash shows so animations play
+
 export default function Home() {
   const { user, isLoading: userLoading, addRaidToHistory } = useUser();
   const { toast } = useToast();
+
+  // Show splash for at least SPLASH_MIN_MS even if userLoading resolves instantly
+  const [splashDone, setSplashDone] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSplashDone(true), SPLASH_MIN_MS);
+    return () => clearTimeout(t);
+  }, []);
+
   const [view, setView] = useState<ViewType>("join");
   const [activeLobby, setActiveLobby] = useState<Lobby | null>(null);
   const [filter, setFilter] = useState<FilterType>("all");
@@ -538,7 +548,7 @@ export default function Home() {
     setLegalPage(page);
   }, []);
 
-  if (userLoading) {
+  if (userLoading || !splashDone) {
     return <SplashScreen />;
   }
 
