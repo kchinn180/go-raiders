@@ -361,9 +361,9 @@ export function BossDetailsModal({
   return (
     <>
       <div className="fixed inset-0 z-[200] bg-background overflow-y-auto" data-testid="modal-boss-details">
-        {/* Sticky header */}
-        <div className="sticky top-0 z-10 bg-background border-b border-card-border" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-          <div className="flex items-center justify-between p-4">
+        {/* Sticky header — max() ensures text never hides behind the notch/dynamic island */}
+        <div className="sticky top-0 z-10 bg-background border-b border-card-border" style={{ paddingTop: 'max(env(safe-area-inset-top), 0.75rem)' }}>
+          <div className="flex items-center justify-between px-4 py-3">
             <h2 className="font-bold text-lg">{isCounter ? "Counter Details" : "Raid Boss Details"}</h2>
             <Button size="icon" variant="ghost" onClick={onClose} data-testid="button-close-boss-details">
               <X className="w-5 h-5" />
