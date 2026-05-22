@@ -7,8 +7,8 @@
  * - This ensures compliance with App Store and Play Store billing policies
  * 
  * PRICING:
- * - Monthly: $6.99/month
- * - Annual: $69.90/year (10 months price, 2 months FREE)
+ * - Monthly: $12.99/month
+ * - Annual: $129.99/year (≈$10.83/mo, 2 months FREE)
  * 
  * SECURITY:
  * - Premium status is ONLY granted after server-side receipt verification
@@ -61,7 +61,7 @@ const ELITE_YEARLY: SubscriptionProduct = {
   id: 'elite_yearly',
   name: 'Elite Annual',
   description: 'Best value - 2 months free',
-  price: 129.90,
+  price: 129.99,
   period: 'year',
   appleProductId: 'com.goraiders.elite.yearly',
   googleProductId: 'elite_yearly_subscription',
@@ -93,8 +93,10 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
   if (!isOpen && !showThankYou) return null;
 
   const currentProduct = selectedPlan === 'yearly' ? ELITE_YEARLY : ELITE_MONTHLY;
-  const monthlyEquivalent = selectedPlan === 'yearly' ? (129.90 / 12).toFixed(2) : '12.99';
-  const savings = selectedPlan === 'yearly' ? (12.99 * 12 - 129.90).toFixed(2) : '0';
+  const ANNUAL_PRICE = 129.99;
+  const MONTHLY_PRICE = 12.99;
+  const annualMonthlyRate = (ANNUAL_PRICE / 12).toFixed(2); // "10.83"
+  const annualSavings = (MONTHLY_PRICE * 12 - ANNUAL_PRICE).toFixed(2); // "25.89"
 
   /**
    * Handle subscription purchase
@@ -281,22 +283,20 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
               >
                 {/* Best Value Badge */}
                 <div className="absolute -top-2 -right-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                  SAVE ${savings}
+                  SAVE ${annualSavings}
                 </div>
                 <div className="text-xs text-muted-foreground uppercase font-bold mb-1">Annual</div>
                 <div className="text-2xl font-black">{displayPrice(ELITE_YEARLY)}</div>
-                <div className="text-xs text-muted-foreground">{displayPrice(ELITE_MONTHLY) === `$${ELITE_MONTHLY.price.toFixed(2)}` ? `$${monthlyEquivalent}/mo` : `${displayPrice(ELITE_MONTHLY)}/mo equiv.`}</div>
+                <div className="text-xs text-muted-foreground">${annualMonthlyRate}/mo</div>
               </button>
             </div>
 
-            {/* Savings callout for annual */}
-            {selectedPlan === 'yearly' && (
-              <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 mb-4 text-center">
-                <span className="text-green-500 font-bold text-sm">
-                  2 months FREE with annual plan!
-                </span>
-              </div>
-            )}
+            {/* Savings callout for annual — always visible */}
+            <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-3 mb-4 text-center">
+              <span className="text-green-500 font-bold text-sm">
+                2 months FREE with annual plan!
+              </span>
+            </div>
 
             {/* Purchase Button */}
             <Button
