@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { User, Subscription, NotificationPrefs, DailyChallenge, RaidHistoryEntry } from "@shared/schema";
+import { setErrorReporterUserId } from "@/lib/error-reporter";
 
 interface UserContextType {
   user: User | null;
@@ -30,6 +31,11 @@ const MONTH_IN_MS = 30 * 24 * 60 * 60 * 1000;
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Keep error reporter in sync with the current user so crashes are attributable
+  useEffect(() => {
+    setErrorReporterUserId(user?.id ?? null);
+  }, [user?.id]);
 
   useEffect(() => {
     try {

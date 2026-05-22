@@ -518,7 +518,10 @@ export function QueueStatusModal({
                     try {
                       await fetch(getApiUrl("/api/queue/reward-skip"), {
                         method: "POST",
-                        headers: { "Content-Type": "application/json" },
+                        headers: {
+                          "Content-Type": "application/json",
+                          "x-user-id": userId,
+                        },
                         body: JSON.stringify({ userId, bossId }),
                       });
                       queryClient.invalidateQueries({ queryKey: ["/api/queue/status", userId, bossId] });

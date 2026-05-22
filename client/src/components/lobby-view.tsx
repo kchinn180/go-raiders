@@ -49,8 +49,9 @@ import { playRaidCountdown, playReadySound } from "@/lib/sounds";
 import { useLobbyWebSocket } from "@/lib/use-lobby-websocket";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { BOSSES, TEAMS } from "@shared/schema";
-import type { Lobby, PokemonType } from "@shared/schema";
+import { TEAMS } from "@shared/schema";
+import type { Lobby, PokemonType, CurrentBoss } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 import { useSwipeBack } from "@/hooks/use-swipe-back";
 import { getApiUrl } from "@/lib/queryClient";
 
@@ -131,7 +132,18 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
 
-  const boss = BOSSES.find((b) => b.id === lobby.bossId);
+  // Use live boss feed instead of stale static BOSSES list
+  const { data: activeBosses = [] } = useQuery<CurrentBoss[]>({
+    queryKey: ["/api/bosses/active"],
+    staleTime: 60000,
+  });
+  const boss: CurrentBoss | undefined = activeBosses.find((b) => b.id === lobby.bossId)
+    ?? (lobby.bossId ? {
+        id: lobby.bossId,
+        name: lobby.bossId.replace(/-/g, " ").replace(/\b\w/g, c => c.toUpperCase()),
+        tier: 5, category: "Tier 5", variant: "Normal",
+        isShadow: false, isDynamax: false, image: "",
+      } : undefined);
   const team = TEAMS.find((t) => t.id === lobby.team) || TEAMS[3];
   
   const hapticEnabled = user?.notifications?.hapticFeedback !== false;
@@ -193,7 +205,9 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
     }
   }, [lobby.players, soundEnabled, hapticEnabled]);
 
-  if (!boss || !user) return null;
+  if (!user) return null;
+  // boss is always defined via fallback above — never block render
+  if (!boss) return null; // TypeScript guard — fallback guarantees this never fires
 
   const myPlayer = lobby.players.find((p) => p.id === user.id);
   const hostPlayer = lobby.players.find((p) => p.isHost);
@@ -240,7 +254,7 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
 
         <div className="relative z-10 flex items-end gap-4 pt-4 pb-2">
           <SafeImage
-            src={boss.image}
+            src={boss.image ?? ""}
             alt={boss.name}
             className="w-20 h-20 bg-white/10 rounded-2xl backdrop-blur"
             fallbackChar={boss.name[0]}
@@ -248,11 +262,11 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
           <div className="text-white">
             <h2 className="text-xl font-black">{boss.name}</h2>
             <p className="text-white/80 text-sm">
-              Tier {boss.tier} • CP {boss.cp.toLocaleString()}
+              {boss.category ?? `Tier ${boss.tier}`}
             </p>
-            {'types' in boss && boss.types && (
+            {'types' in boss && (boss as any).types && (
               <div className="flex gap-1 mt-1">
-                {boss.types.map((type: string) => (
+                {((boss as any).types as string[]).map((type: string) => (
                   <TypeBadge key={type} type={type.toLowerCase() as PokemonType} />
                 ))}
               </div>

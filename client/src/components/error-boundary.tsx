@@ -9,6 +9,7 @@
 import { Component, type ReactNode, type ErrorInfo } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { reportError } from "@/lib/error-reporter";
 
 interface Props {
   children: ReactNode;
@@ -34,11 +35,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     this.setState({ errorInfo });
-    // Log to console for debugging; in production you'd send to a crash reporter
+    // Log to console for debugging
     console.error(
       `[ErrorBoundary${this.props.name ? `:${this.props.name}` : ""}] Uncaught error:`,
       error,
       errorInfo.componentStack
+    );
+    // Auto-report to admin error log
+    reportError(
+      error.message,
+      (error.stack ?? "") + "\n\nComponent Stack:" + (errorInfo.componentStack ?? ""),
+      this.props.name ?? "ErrorBoundary",
     );
   }
 

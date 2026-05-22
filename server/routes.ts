@@ -542,6 +542,19 @@ export async function registerRoutes(
 
   app.delete("/api/lobbies/:id", async (req, res) => {
     try {
+      const lobby = await storage.getLobby(req.params.id);
+      if (!lobby) {
+        return res.status(404).json({ error: "Lobby not found" });
+      }
+
+      // Only the host or an admin may delete a lobby
+      const callerUserId = req.headers["x-user-id"] as string | undefined;
+      const token = req.headers.authorization?.replace("Bearer ", "");
+      const isAdmin = token && token === getAdminToken();
+      if (!isAdmin && callerUserId !== lobby.hostId) {
+        return res.status(403).json({ error: "Only the host can delete this lobby" });
+      }
+
       const success = await storage.deleteLobby(req.params.id);
       if (!success) {
         return res.status(404).json({ error: "Lobby not found" });
@@ -1239,6 +1252,54 @@ export async function registerRoutes(
     }
   });
 
+  // ===== Client Error Reporting =====
+  // In-memory ring buffer — last 500 errors, cleared on server restart.
+  // To persist across restarts, move to DB later.
+  const CLIENT_ERROR_LOG: Array<{
+    id: number; ts: number; userId: string | null;
+    message: string; stack: string | null;
+    component: string | null; url: string | null;
+    userAgent: string | null;
+  }> = [];
+  let clientErrorSeq = 0;
+  const MAX_CLIENT_ERRORS = 500;
+
+  // POST /api/errors  — unauthenticated, called by the React error boundary
+  app.post("/api/errors", (req, res) => {
+    try {
+      const { message, stack, component, userId, url } = req.body ?? {};
+      if (!message || typeof message !== "string") return res.status(400).json({ ok: false });
+
+      const entry = {
+        id: ++clientErrorSeq,
+        ts: Date.now(),
+        userId: userId ?? null,
+        message: String(message).slice(0, 500),
+        stack: stack ? String(stack).slice(0, 2000) : null,
+        component: component ? String(component).slice(0, 100) : null,
+        url: url ? String(url).slice(0, 300) : null,
+        userAgent: (req.headers["user-agent"] ?? null) as string | null,
+      };
+      CLIENT_ERROR_LOG.unshift(entry);
+      if (CLIENT_ERROR_LOG.length > MAX_CLIENT_ERRORS) CLIENT_ERROR_LOG.length = MAX_CLIENT_ERRORS;
+      log(`[client-error] ${entry.message} (user=${entry.userId ?? "anon"})`, "errors");
+      return res.json({ ok: true });
+    } catch { return res.status(500).json({ ok: false }); }
+  });
+
+  // GET /api/admin/errors — admin only
+  app.get("/api/admin/errors", (req, res) => {
+    try {
+      const adminToken = getAdminToken();
+      const token = req.headers.authorization?.replace("Bearer ", "");
+      if (!token || token !== adminToken) return res.status(401).json({ error: "Unauthorized" });
+      const since = req.query.since ? Number(req.query.since) : 0;
+      const limit = Math.min(Number(req.query.limit) || 100, 500);
+      const filtered = CLIENT_ERROR_LOG.filter(e => e.ts > since).slice(0, limit);
+      return res.json({ errors: filtered, total: CLIENT_ERROR_LOG.length });
+    } catch { return res.status(500).json({ error: "Failed to fetch errors" }); }
+  });
+
   // ===== Trainer Screenshot OCR =====
 
   /**
@@ -1466,8 +1527,10 @@ export async function registerRoutes(
     }
   });
 
-  // Process queue matches (background — also called by periodic job)
+  // Process queue matches (admin/internal only)
   app.post("/api/queue/process", async (req, res) => {
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    if (!token || token !== getAdminToken()) return res.status(401).json({ error: "Unauthorized" });
     try {
       const result = await storage.processQueueMatches();
 
@@ -1505,6 +1568,10 @@ export async function registerRoutes(
     try {
       const { userId, bossId } = req.body;
       if (!userId || !bossId) return res.status(400).json({ error: "userId and bossId required" });
+      // Require the request to carry the caller's own userId as a header so
+      // anonymous callers cannot skip other users' queue positions
+      const callerUserId = req.headers["x-user-id"] as string | undefined;
+      if (!callerUserId || callerUserId !== userId) return res.status(401).json({ error: "Unauthorized" });
 
       // Verify the user is actually in the queue
       const status = await storage.getQueueStatus(userId, bossId);
@@ -1539,6 +1606,13 @@ export async function registerRoutes(
   // Send a test push notification to a specific user — useful for verifying the
   // full push pipeline (registration → send → receive) during development.
   app.post("/api/push/test/:userId", async (req, res) => {
+    // Only allow a user to test-push themselves, or an admin to push anyone
+    const callerUserId = req.headers["x-user-id"] as string | undefined;
+    const token = req.headers.authorization?.replace("Bearer ", "");
+    const isAdmin = token && token === getAdminToken();
+    if (!isAdmin && callerUserId !== req.params.userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
     try {
       const { userId } = req.params;
       const tokens = await storage.getPushTokensForUser(userId);

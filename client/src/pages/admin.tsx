@@ -6,7 +6,7 @@ import {
   XCircle, Eye, Send, Megaphone, Clock, Activity, Flame,
   ChevronDown, ChevronUp, Copy, Edit3, Check, X, DollarSign,
   TrendingUp, BarChart2, ToggleLeft, ToggleRight, ShieldCheck, ShieldOff,
-  RotateCcw, SlidersHorizontal, Database, Zap, Filter,
+  RotateCcw, SlidersHorizontal, Database, Zap, Filter, Bug,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,53 +98,57 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
 
   const isLockedOut = lockoutState.lockedUntil > Date.now();
 
-  // The password is verified client-side so the dashboard works even when
-  // the server is temporarily unreachable. The server is pinged in the
-  // background only to log/alert on failed attempts.
-  const ADMIN_KEY = "Kj03c08kjc0308$";
-  // Temporary read-only access key for Apple App Review testers.
-  // Provided in Review Notes so reviewers can access the admin dashboard.
-  const TESTER_KEY = "GoRaiders2026!";
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLockedOut || isSubmitting) return;
 
     setIsSubmitting(true);
     setAuthError("");
 
-    if (adminToken === ADMIN_KEY || adminToken === TESTER_KEY) {
-      // ✅ Correct password (ADMIN_KEY = full access, TESTER_KEY = Apple Review access)
-      clearLockoutState();
-      setLockoutState({ lockedUntil: 0, attempts: 0 });
-      setIsAuthenticated(true);
+    try {
+      const res = await fetch(getApiUrl("/api/admin/verify"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: adminToken }),
+      });
+      const data = await res.json();
+
+      if (res.status === 429 || data.locked) {
+        const newState = { attempts: 3, lockedUntil: data.lockedUntil ?? Date.now() + 60 * 60 * 1000 };
+        saveLockoutState(newState);
+        setLockoutState(newState);
+        setAuthError(data.error ?? "Too many attempts. Try again later.");
+        setAdminToken("");
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (data.valid) {
+        clearLockoutState();
+        setLockoutState({ lockedUntil: 0, attempts: 0 });
+        setIsAuthenticated(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Wrong password
+      const newAttempts = lockoutState.attempts + 1;
+      const willLock = newAttempts >= 3;
+      const lockedUntil = willLock ? Date.now() + 60 * 60 * 1000 : 0;
+      const newState = { attempts: newAttempts, lockedUntil };
+      saveLockoutState(newState);
+      setLockoutState(newState);
+      setAuthError(
+        willLock
+          ? "Too many incorrect attempts. Access locked for 1 hour."
+          : `Incorrect password — ${3 - newAttempts} attempt${3 - newAttempts !== 1 ? "s" : ""} remaining`
+      );
+      setAdminToken("");
+    } catch {
+      setAuthError("Could not reach server. Check your connection.");
+    } finally {
       setIsSubmitting(false);
-      return;
     }
-
-    // ❌ Wrong password — update lockout counter
-    const newAttempts = lockoutState.attempts + 1;
-    const willLock = newAttempts >= 3;
-    const lockedUntil = willLock ? Date.now() + 60 * 60 * 1000 : 0;
-    const newState = { attempts: newAttempts, lockedUntil };
-    saveLockoutState(newState);
-    setLockoutState(newState);
-
-    setAuthError(
-      willLock
-        ? "Too many incorrect attempts. Access locked for 1 hour."
-        : `Incorrect password — ${3 - newAttempts} attempt${3 - newAttempts !== 1 ? "s" : ""} remaining`
-    );
-    setAdminToken("");
-    setIsSubmitting(false);
-
-    // Fire-and-forget: alert the server (for push notification logging)
-    // This runs in the background and never blocks the UI or shows errors
-    fetch(getApiUrl("/api/admin/verify"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ token: adminToken }),
-    }).catch(() => {/* server unreachable — that's fine, local lockout is already applied */});
   };
 
   if (!isAuthenticated) {
@@ -277,6 +281,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
               <TabsTrigger value="bans">Bans</TabsTrigger>
               <TabsTrigger value="ads">💰 Ads</TabsTrigger>
               <TabsTrigger value="testing">🧪 Testing</TabsTrigger>
+              <TabsTrigger value="errors">🐛 Errors</TabsTrigger>
             </TabsList>
           </div>
 
@@ -290,6 +295,7 @@ export function AdminPage({ onBack }: { onBack: () => void }) {
           <TabsContent value="bans"><BansTab token={adminToken} /></TabsContent>
           <TabsContent value="ads"><AdsTab token={adminToken} /></TabsContent>
           <TabsContent value="testing"><TestingTab /></TabsContent>
+          <TabsContent value="errors"><ErrorsTab token={adminToken} /></TabsContent>
         </Tabs>
       </div>{/* end max-w-5xl */}
       </div>{/* end flex-1 scrollable */}
@@ -1584,6 +1590,144 @@ function AdsTab({ token }: { token: string }) {
 
       <p className="text-[10px] text-muted-foreground text-center px-2">
         Revenue figures are estimated from AdMob's paid impression callback. Actual payouts appear in your AdMob dashboard after Google's 30-day verification period.
+      </p>
+    </div>
+  );
+}
+
+// ============================================================================
+// TAB: Errors — client-side crash & error log
+// ============================================================================
+
+interface ClientError {
+  id: number;
+  message: string;
+  stack: string | null;
+  component: string | null;
+  userId: string | null;
+  url: string | null;
+  receivedAt: string;
+}
+
+function ErrorsTab({ token }: { token: string }) {
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  const { data, isLoading, refetch, dataUpdatedAt } = useQuery<{ errors: ClientError[]; total: number }>({
+    queryKey: ["/api/admin/errors"],
+    queryFn: async () => {
+      const res = await adminFetch("/api/admin/errors", token);
+      if (!res.ok) throw new Error("Failed to load errors");
+      return res.json();
+    },
+    refetchInterval: 15000,
+  });
+
+  const errors: ClientError[] = data?.errors ?? [];
+
+  const levelColor = (msg: string) => {
+    const m = msg.toLowerCase();
+    if (m.includes("uncaught") || m.includes("fatal") || m.includes("cannot read")) return "text-red-400";
+    if (m.includes("warn") || m.includes("undefined") || m.includes("null")) return "text-yellow-400";
+    return "text-orange-300";
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold flex items-center gap-2">
+          <Bug className="w-4 h-4 text-red-400" /> Client Error Log
+        </h3>
+        <div className="flex items-center gap-2">
+          {dataUpdatedAt > 0 && (
+            <span className="text-[10px] text-muted-foreground">
+              {new Date(dataUpdatedAt).toLocaleTimeString()}
+            </span>
+          )}
+          <Button size="sm" variant="outline" className="text-xs h-7" onClick={() => refetch()}>
+            <RefreshCw className="w-3 h-3 mr-1" /> Refresh
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Card className="p-3 text-center">
+          <div className="text-2xl font-black text-red-400">{data?.total ?? 0}</div>
+          <div className="text-[10px] text-muted-foreground">Total (ring buffer)</div>
+        </Card>
+        <Card className="p-3 text-center">
+          <div className="text-2xl font-black text-orange-400">{errors.length}</div>
+          <div className="text-[10px] text-muted-foreground">Shown (latest first)</div>
+        </Card>
+      </div>
+
+      {isLoading ? (
+        <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+      ) : errors.length === 0 ? (
+        <div className="text-center py-10 text-muted-foreground">
+          <Bug className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No errors recorded — all clear!</p>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {errors.map((err) => {
+            const isExpanded = expandedId === err.id;
+            return (
+              <Card key={err.id} className="overflow-hidden">
+                <div
+                  className="p-3 cursor-pointer hover:bg-muted/30 flex items-start gap-2.5"
+                  onClick={() => setExpandedId(isExpanded ? null : err.id)}
+                >
+                  <AlertCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${levelColor(err.message)}`} />
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-xs font-semibold truncate ${levelColor(err.message)}`}>{err.message}</p>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-0.5">
+                      {err.component && (
+                        <span className="text-[10px] text-muted-foreground">
+                          <span className="font-semibold text-foreground">{err.component}</span>
+                        </span>
+                      )}
+                      {err.userId && (
+                        <span className="text-[10px] text-muted-foreground">
+                          user: <span className="font-mono">{err.userId.slice(0, 8)}</span>
+                        </span>
+                      )}
+                      <span className="text-[10px] text-muted-foreground">
+                        {new Date(err.receivedAt).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-muted-foreground flex-shrink-0">
+                    {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </div>
+                </div>
+
+                {isExpanded && (
+                  <div className="border-t px-3 py-3 space-y-2 bg-muted/10">
+                    {err.url && (
+                      <div className="text-[10px]">
+                        <span className="text-muted-foreground">URL: </span>
+                        <span className="font-mono break-all">{err.url}</span>
+                      </div>
+                    )}
+                    {err.stack && (
+                      <div>
+                        <p className="text-[10px] text-muted-foreground font-semibold mb-1">Stack trace</p>
+                        <pre className="text-[9px] bg-muted rounded-lg p-2.5 overflow-x-auto max-h-48 text-red-400 whitespace-pre-wrap break-words">
+                          {err.stack}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="text-[10px] text-muted-foreground text-center px-2">
+        Errors are stored in memory (last 500). They reset on server restart.
+        Auto-refreshes every 15 s.
       </p>
     </div>
   );
