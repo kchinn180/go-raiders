@@ -2675,5 +2675,65 @@ export async function registerRoutes(
     } catch { /* swallow — non-critical housekeeping */ }
   }, 30_000);
 
+  // ── Re-engagement push notifications — gentle, twice a week ─────────────────
+  // Fires Fri & Sat at 6 pm local server time (UTC hour 22 ≈ 5–7 pm US Eastern).
+  // Messages rotate to stay fresh. Max 1 notification per 60-hour window to avoid
+  // ever feeling spammy even if the server restarts.
+
+  const RE_ENGAGE_MESSAGES = [
+    {
+      title: "Raids are happening now! ⚔️",
+      body: "Trainers are grouping up. Jump in and take down a legendary boss.",
+    },
+    {
+      title: "New bosses just dropped 🔥",
+      body: "The raid rotation updated. Check which bosses are live and start a lobby.",
+    },
+    {
+      title: "Your crew is waiting 🎯",
+      body: "Open GO Raiders and host a raid — fill your lobby in seconds.",
+    },
+    {
+      title: "Weekend raid time! 🏆",
+      body: "It's the perfect time to farm some legendaries. Ready up and go!",
+    },
+    {
+      title: "Catch them before they rotate out 🌀",
+      body: "Some bosses won't be around forever. Host a raid before the window closes.",
+    },
+  ];
+
+  let lastEngagementSentAt = 0;
+  const ENGAGEMENT_COOLDOWN_MS = 60 * 60 * 1000 * 60; // 60 hours
+
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const hour = now.getUTCHours();
+      const day = now.getUTCDay(); // 0=Sun … 5=Fri … 6=Sat
+
+      // Fire on Fri (5) or Sat (6) between UTC 21–22 (≈ 5–6 pm US Eastern)
+      const isEngagementWindow = (day === 5 || day === 6) && hour === 21;
+      if (!isEngagementWindow) return;
+      if (Date.now() - lastEngagementSentAt < ENGAGEMENT_COOLDOWN_MS) return;
+
+      const tokens = await storage.getAllPushTokens();
+      if (tokens.length === 0) return;
+
+      const idx = Math.floor(Math.random() * RE_ENGAGE_MESSAGES.length);
+      const msg = RE_ENGAGE_MESSAGES[idx];
+      await sendPushNotification(tokens, {
+        type: 'event_announcement',
+        title: msg.title,
+        body: msg.body,
+        data: { action: 'open_join' },
+      });
+      lastEngagementSentAt = Date.now();
+      console.log(`[ReEngage] Sent "${msg.title}" to ${tokens.length} token(s)`);
+    } catch (e) {
+      console.error('[ReEngage] Failed to send re-engagement push:', e);
+    }
+  }, 60 * 60 * 1000); // check every hour
+
   return httpServer;
 }

@@ -27,7 +27,6 @@ import {
   Rocket,
   ExternalLink,
   Train,
-  Bell,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -120,6 +119,25 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
   // OPTIMISTIC STATE: Track local ready state for instant button feedback
   const [optimisticReady, setOptimisticReady] = useState<boolean | null>(null);
   const [raidTrainLoading, setRaidTrainLoading] = useState(false);
+
+  // Live countdown: compute remaining seconds from createdAt (server hard-cap is 10 min)
+  const LOBBY_DURATION_SECS = 10 * 60; // must match server LOBBY_MAX_AGE_MS
+  const [secsLeft, setSecsLeft] = useState<number>(() =>
+    Math.max(0, LOBBY_DURATION_SECS - Math.floor((Date.now() - lobby.createdAt) / 1000))
+  );
+  useEffect(() => {
+    const tick = () => {
+      setSecsLeft(Math.max(0, LOBBY_DURATION_SECS - Math.floor((Date.now() - lobby.createdAt) / 1000)));
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [lobby.createdAt]);
+  const formatTimeLeft = (s: number) => {
+    const m = Math.floor(s / 60);
+    const ss = s % 60;
+    return `${m}:${ss.toString().padStart(2, '0')}`;
+  };
 
   // Swipe-from-left-edge to open the leave confirmation dialog
   useSwipeBack({
@@ -277,9 +295,14 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
 
       {/* Time remaining bar */}
       <div className="flex items-center justify-between px-4 py-2 bg-card/80 border-b border-card-border">
-        <div className="flex items-center gap-1.5 text-muted-foreground">
+        <div className={cn(
+          "flex items-center gap-1.5",
+          secsLeft <= 60 ? "text-red-400" : secsLeft <= 180 ? "text-yellow-400" : "text-muted-foreground"
+        )}>
           <Timer className="w-4 h-4" />
-          <span className="font-bold text-sm">{lobby.timeLeft}m remaining</span>
+          <span className="font-bold text-sm tabular-nums">
+            {formatTimeLeft(secsLeft)} remaining
+          </span>
         </div>
         <div className={cn(
           "px-2.5 py-0.5 rounded-full font-bold text-xs",
@@ -656,34 +679,6 @@ export function LobbyView({ lobby, isHost, onLeave, onUpdateLobby, onStartRaid }
           <ExternalLink className="w-4 h-4 mr-2" />
           Open Pokémon GO
         </Button>
-
-        {/* Test push notification button — visible when in a test lobby */}
-        {lobby.id.startsWith('test-') && user && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full rounded-xl text-muted-foreground border-dashed"
-            data-testid="button-test-push"
-            onClick={async () => {
-              try {
-                const res = await fetch(getApiUrl(`/api/push/test/${user.id}`), { method: 'POST' });
-                const data = await res.json() as { sent?: number; failed?: number; error?: string; tokenCount?: number };
-                if (!res.ok || data.error) {
-                  toast({ title: data.error || "Push test failed", variant: "destructive" });
-                } else if ((data.tokenCount ?? 0) === 0) {
-                  toast({ title: "No push token registered yet", description: "Enable notifications in Settings first" });
-                } else {
-                  toast({ title: `🔔 Test sent to ${data.sent ?? 0} device(s)`, description: "Background notification should appear now" });
-                }
-              } catch {
-                toast({ title: "Couldn't reach server", variant: "destructive" });
-              }
-            }}
-          >
-            <Bell className="w-3 h-3 mr-2" />
-            Test Push Notification
-          </Button>
-        )}
 
         {/* Leave lobby */}
         <AlertDialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>

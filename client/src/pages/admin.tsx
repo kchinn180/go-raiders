@@ -1241,6 +1241,33 @@ function BroadcastTab({ token }: { token: string }) {
           ))}
         </div>
       </Card>
+
+      <Card className="p-3 border-orange-500/20 bg-orange-500/5">
+        <h4 className="text-xs font-bold text-orange-400 mb-1 flex items-center gap-1">
+          <Zap className="w-3 h-3" /> Re-Engagement Templates
+        </h4>
+        <p className="text-[10px] text-muted-foreground mb-2">
+          Gentle nudges to bring users back. The server also auto-sends one of these every Friday & Saturday at ~6 pm.
+        </p>
+        <div className="space-y-1.5">
+          {[
+            { title: "Raids are happening now! ⚔️", body: "Trainers are grouping up. Jump in and take down a legendary boss." },
+            { title: "New bosses just dropped 🔥", body: "The raid rotation updated. Check which bosses are live and start a lobby." },
+            { title: "Your crew is waiting 🎯", body: "Open GO Raiders and host a raid — fill your lobby in seconds." },
+            { title: "Weekend raid time! 🏆", body: "It's the perfect time to farm some legendaries. Ready up and go!" },
+            { title: "Catch them before they rotate out 🌀", body: "Some bosses won't be around forever. Host a raid before the window closes." },
+          ].map((template, i) => (
+            <button
+              key={i}
+              className="w-full text-left p-2 rounded-lg hover:bg-orange-500/10 transition-colors"
+              onClick={() => { setTitle(template.title); setBody(template.body); }}
+            >
+              <div className="text-xs font-semibold">{template.title}</div>
+              <div className="text-[10px] text-muted-foreground">{template.body}</div>
+            </button>
+          ))}
+        </div>
+      </Card>
     </div>
   );
 }
