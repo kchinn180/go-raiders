@@ -31,8 +31,8 @@ const getAdminToken = () => {
 
 // Track failed admin login attempts { ip -> { count, firstAttempt, lockedUntil } }
 const failedAdminAttempts = new Map<string, { count: number; firstAttempt: number; lockedUntil: number }>();
-const ADMIN_MAX_ATTEMPTS = 3;
-const ADMIN_LOCKOUT_MS = 60 * 60 * 1000; // 1 hour
+const ADMIN_MAX_ATTEMPTS = 5;
+const ADMIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
 
 /**
  * After each queue-match cycle:
@@ -763,6 +763,22 @@ export async function registerRoutes(
     } catch (error) {
       res.status(500).json({ error: "Verification failed" });
     }
+  });
+
+  // Emergency unlock — clears IP lockout when correct token is supplied via query param.
+  // Usage: POST /api/admin/unlock?token=YOUR_ADMIN_TOKEN
+  app.post("/api/admin/unlock", (req, res) => {
+    const adminToken = getAdminToken();
+    const token = (req.query.token as string) || req.body?.token;
+    if (!token || token !== adminToken) {
+      return res.status(401).json({ error: "Invalid token" });
+    }
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
+    failedAdminAttempts.delete(ip);
+    // Also clear all IPs so any device can get in after a correct unlock
+    failedAdminAttempts.clear();
+    console.log(`[Admin] Lockout cleared via unlock endpoint from ${ip}`);
+    return res.json({ success: true, message: "All lockouts cleared" });
   });
 
   app.post("/api/admin/ban", async (req, res) => {
