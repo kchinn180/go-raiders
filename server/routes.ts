@@ -2704,7 +2704,7 @@ export async function registerRoutes(
   ];
 
   let lastEngagementSentAt = 0;
-  const ENGAGEMENT_COOLDOWN_MS = 60 * 60 * 1000 * 60; // 60 hours
+  const ENGAGEMENT_COOLDOWN_MS = 60 * 60 * 1000 * 30; // 30 hours
 
   setInterval(async () => {
     try {
