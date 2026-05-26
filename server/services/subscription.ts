@@ -149,13 +149,13 @@ async function verifyStoreKit2JWS(
  */
 export const ELITE_PRODUCTS = {
   MONTHLY: {
-    apple: 'com.goraiders.elite.monthly',
+    apple: 'com.kyree.goraidcoordinator.elite.monthly',
     google: 'elite_monthly_subscription',
     price: 12.99,
     period: 'month',
   },
   YEARLY: {
-    apple: 'com.goraiders.elite.yearly',
+    apple: 'com.kyree.goraidcoordinator.elite.yearly',
     google: 'elite_yearly_subscription',
     price: 129.90,
     period: 'year',

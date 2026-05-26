@@ -282,7 +282,7 @@ export interface NativeProductPrice {
  * currency. On web / Android, returns an empty map so callers fall back to
  * their hardcoded display prices.
  *
- * @param productIds  Apple product IDs (e.g. ["com.goraiders.elite.monthly"])
+ * @param productIds  Apple product IDs (e.g. ["com.kyree.goraidcoordinator.elite.monthly"])
  * @returns Map of productId → NativeProductPrice (only includes successful lookups)
  */
 export async function loadNativeProductPrices(

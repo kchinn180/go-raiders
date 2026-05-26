@@ -177,8 +177,8 @@ Both stores require screenshots. Capture these screens:
 ### Apple:
 1. In App Store Connect > In-App Purchases
 2. Create subscription products:
-   - `com.goraiders.elite.monthly` (Elite Monthly)
-   - `com.goraiders.elite.yearly` (Elite Yearly)
+   - `com.kyree.goraidcoordinator.elite.monthly` (Elite Monthly)
+   - `com.kyree.goraidcoordinator.elite.yearly` (Elite Yearly)
 3. Set pricing and description
 
 ### Google:

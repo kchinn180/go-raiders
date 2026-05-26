@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from "react";
 import { CloudLightning, Plus, Sparkles, Lock, Flame, Shield, Zap, Users, Loader2, Info, ShieldCheck } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -34,6 +35,7 @@ const teamIcons = {
 
 export function HostView({ onHost, isPending = false }: HostViewProps) {
   const { user } = useUser();
+  const { t } = useTranslation();
   const [selectedBoss, setSelectedBoss] = useState<string>("");
   const [selectedGymTeam, setSelectedGymTeam] = useState<TeamId>("valor");
   const [minLevel, setMinLevel] = useState(1);
@@ -117,7 +119,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
     return (
       <div className="p-4 flex flex-col items-center justify-center min-h-[400px] gap-4">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="text-muted-foreground">Loading available raid bosses...</p>
+        <p className="text-muted-foreground">{t("host.loading")}</p>
       </div>
     );
   }
@@ -130,16 +132,16 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
           <CloudLightning className="w-8 h-8 text-muted-foreground" />
         </div>
         <div>
-          <h3 className="font-bold text-lg mb-1">No Active Raids Right Now</h3>
+          <h3 className="font-bold text-lg mb-1">{t("host.noRaids")}</h3>
           <p className="text-muted-foreground text-sm max-w-xs">
-            The raid rotation is being synced from live sources. Check back shortly.
+            {t("host.noRaidsDesc")}
           </p>
         </div>
         <button
           onClick={() => refetch()}
           className="text-sm font-semibold text-primary underline"
         >
-          Refresh
+          {t("host.refresh")}
         </button>
       </div>
     );
@@ -148,15 +150,15 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
   return (
     <div className="p-4 space-y-6 pb-nav">
       <div className="text-center">
-        <h2 className="text-2xl font-black">Host a Raid</h2>
+        <h2 className="text-2xl font-black">{t("host.title")}</h2>
         <p className="text-muted-foreground text-sm">
-          {activeBosses.length} boss{activeBosses.length !== 1 ? 'es' : ''} in current rotation
+          {t("host.activeBoss", { count: activeBosses.length })}
         </p>
       </div>
 
       <div className="space-y-4">
         <label className="text-xs font-bold text-muted-foreground uppercase block">
-          Current Rotation — {activeBosses.length} Active Boss{activeBosses.length !== 1 ? 'es' : ''}
+          {t("host.rotation")} — {t("host.activeBoss", { count: activeBosses.length })}
         </label>
         {/* 3-column scrollable grid of active raid bosses */}
         <div className="grid grid-cols-3 gap-2 max-h-[320px] overflow-y-auto overflow-x-visible p-1">
@@ -244,7 +246,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
       {/* Gym Team Selection */}
       <div className="space-y-3">
         <label className="text-xs font-bold text-muted-foreground uppercase block">
-          Gym Controlled By
+          {t("host.gymTeam")}
         </label>
         <div className="grid grid-cols-4 gap-2">
           {TEAMS.map((team) => {
@@ -277,7 +279,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
         )}>
           <div>
             <label className="font-semibold block flex items-center gap-2">
-              Minimum Level
+              {t("host.minLevel")}
               {user.isPremium ? (
                 <Sparkles className="w-4 h-4 text-yellow-400" />
               ) : (
@@ -285,7 +287,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
               )}
             </label>
             <span className="text-sm text-muted-foreground">
-              {user.isPremium ? "Set level requirement for raiders" : "Elite feature"}
+              {user.isPremium ? t("host.minLevelDesc") : t("host.eliteFeature")}
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -309,10 +311,10 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
           <div>
             <label className="font-semibold block flex items-center gap-2">
               <CloudLightning className="w-4 h-4 text-yellow-500" />
-              Weather Boosted
+              {t("host.weatherBoosted")}
             </label>
             <span className="text-sm text-muted-foreground">
-              Boss is weather boosted
+              {t("host.weatherDesc")}
             </span>
           </div>
           <Switch
@@ -328,7 +330,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
             <div>
               <label className="font-semibold block flex items-center gap-2">
                 <Users className="w-4 h-4 text-primary" />
-                Raid Capacity
+                {t("host.maxRaiders")}
               </label>
               <span className="text-sm text-muted-foreground">
                 Maximum players in lobby
@@ -355,7 +357,7 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
           <div className="space-y-2 pt-2 border-t border-card-border">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-purple-400" />
-              <label className="font-semibold text-sm">Private Group</label>
+              <label className="font-semibold text-sm">{t("host.privateGroup")}</label>
             </div>
             <p className="text-xs text-muted-foreground">Restrict this lobby to your group members</p>
             <div className="flex flex-col gap-1.5">
@@ -396,9 +398,9 @@ export function HostView({ onHost, isPending = false }: HostViewProps) {
         data-testid="button-create-lobby"
       >
         {isPending ? (
-          <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Creating Lobby…</>
+          <><Loader2 className="w-5 h-5 mr-2 animate-spin" />{t("host.createLobby")}…</>
         ) : (
-          <><Plus className="w-5 h-5 mr-2" />CREATE LOBBY</>
+          <><Plus className="w-5 h-5 mr-2" />{t("host.createLobby").toUpperCase()}</>
         )}
       </Button>
 

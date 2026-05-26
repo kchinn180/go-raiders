@@ -30,7 +30,7 @@ import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { TEAMS, BOSSES } from "@shared/schema";
-import { languages } from "@/i18n";
+import { languages, resetToPhoneLanguage } from "@/i18n";
 import { SafeImage } from "@/components/safe-image";
 import { CatchHistoryView } from "@/components/catch-history-view";
 import type { TeamId } from "@shared/schema";
@@ -155,14 +155,14 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
 
   return (
     <div className="p-4 space-y-6 pb-nav">
-      <h2 className="text-2xl font-black">Settings</h2>
+      <h2 className="text-2xl font-black">{t("settings.title")}</h2>
 
       {/* Profile Section */}
       <Card className="p-4">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold flex items-center gap-2">
             <User className="w-4 h-4" />
-            Account
+            {t("settings.account")}
           </h3>
           <Button
             variant="ghost"
@@ -181,7 +181,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
             }}
             data-testid="button-edit-profile"
           >
-            {isEditing ? <Check className="w-4 h-4" /> : "Edit"}
+            {isEditing ? <Check className="w-4 h-4" /> : t("settings.edit")}
           </Button>
         </div>
 
@@ -208,7 +208,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-muted-foreground uppercase">Level</label>
+              <label className="text-xs text-muted-foreground uppercase">{t("settings.level")}</label>
               {isEditing ? (
                 <Input
                   type="number"
@@ -224,7 +224,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
               )}
             </div>
             <div>
-              <label className="text-xs text-muted-foreground uppercase">Friend Code</label>
+              <label className="text-xs text-muted-foreground uppercase">{t("settings.friendCode")}</label>
               {isEditing ? (
                 <Input
                   value={editForm.code}
@@ -250,7 +250,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
               onClick={() => setIsEditing(false)}
             >
               <X className="w-4 h-4 mr-2" />
-              Cancel
+              {t("common.cancel")}
             </Button>
           )}
         </div>
@@ -261,7 +261,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-yellow-400" />
-            Subscription
+            {t("settings.subscription")}
           </h3>
           {user.isPremium && (
             <span className="text-xs font-bold text-amber-500 bg-amber-500/10 px-2 py-1 rounded-full">
@@ -274,7 +274,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           <div className="space-y-4">
             <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-semibold">Elite Monthly</span>
+                <span className="font-semibold">{t("settings.eliteMonthly")}</span>
                 <span className="font-bold text-lg">${subscription.price}/mo</span>
               </div>
               
@@ -282,7 +282,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    Started
+                    {t("settings.started")}
                   </span>
                   <span>{formatDate(subscription.startDate)}</span>
                 </div>
@@ -290,7 +290,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span className="flex items-center gap-2">
                     <CreditCard className="w-4 h-4" />
-                    {subscription.status === 'canceled' ? 'Expires' : 'Renews'}
+                    {subscription.status === 'canceled' ? t("settings.expires") : t("settings.renews")}
                   </span>
                   <span>{formatDate(subscription.renewalDate)}</span>
                 </div>
@@ -299,23 +299,23 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground font-semibold uppercase">Benefits</p>
+              <p className="text-xs text-muted-foreground font-semibold uppercase">{t("settings.benefits")}</p>
               <ul className="text-sm space-y-1 text-muted-foreground">
-                <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> Auto Join feature</li>
-                <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> Priority queue access</li>
-                <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> Set minimum level requirements</li>
-                <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> No wait time between raids</li>
+                <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> {t("settings.benefit1")}</li>
+                <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> {t("settings.benefit2")}</li>
+                <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> {t("settings.benefit3")}</li>
+                <li className="flex items-center gap-2"><Check className="w-3 h-3 text-green-500" /> {t("settings.benefit4")}</li>
               </ul>
             </div>
 
             <p className="text-xs text-muted-foreground text-center pt-2">
-              To manage or cancel your subscription, go to your App Store or Play Store account settings.
+              {t("settings.manageSub")}
             </p>
           </div>
         ) : (
           <div className="space-y-4">
             <p className="text-muted-foreground text-sm">
-              Upgrade to Elite for premium features and priority access.
+              {t("settings.upgradePitch")}
             </p>
             <Button
               className="w-full bg-gradient-to-r from-amber-500 to-orange-600"
@@ -323,10 +323,10 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
               data-testid="button-upgrade"
             >
               <Sparkles className="w-4 h-4 mr-2" />
-              Upgrade to Elite - $12.99/mo
+              {t("settings.upgradeButton")}
             </Button>
             <p className="text-xs text-muted-foreground text-center">
-              In-app purchase via App Store or Play Store
+              {t("settings.inAppPurchase")}
             </p>
           </div>
         )}
@@ -336,7 +336,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
       <Card className="p-4">
         <h3 className="font-bold flex items-center gap-2 mb-4">
           <History className="w-4 h-4" />
-          Raid History
+          {t("settings.raidHistory")}
         </h3>
         {user.raidHistory && user.raidHistory.length > 0 ? (
           <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -373,7 +373,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           </div>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-4">
-            No raids completed yet. Join a raid to start your history!
+            {t("settings.noRaidsYet")}
           </p>
         )}
       </Card>
@@ -382,7 +382,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
       <Card className="overflow-hidden p-0">
         <div className="px-4 pt-4 pb-2 flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-amber-400" />
-          <h3 className="font-bold">Raid Log</h3>
+          <h3 className="font-bold">{t("settings.raidLog")}</h3>
           {!user.isPremium && (
             <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/30">
               Elite
@@ -400,13 +400,13 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
       <Card className="p-4">
         <h3 className="font-bold flex items-center gap-2 mb-4">
           <Bell className="w-4 h-4" />
-          Notifications
+          {t("settings.notifications")}
         </h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Push Notifications</p>
-              <p className="text-xs text-muted-foreground">Receive notifications on your device</p>
+              <p className="font-medium">{t("settings.pushNotifications")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.pushNotificationsDesc")}</p>
             </div>
             <Switch
               checked={notifications.pushEnabled}
@@ -416,8 +416,8 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Lobby Alerts</p>
-              <p className="text-xs text-muted-foreground">Get notified when lobbies need players</p>
+              <p className="font-medium">{t("settings.lobbyAlerts")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.lobbyAlertsDesc")}</p>
             </div>
             <Switch
               checked={notifications.lobbyAlerts}
@@ -427,8 +427,8 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Friend Requests</p>
-              <p className="text-xs text-muted-foreground">Notifications for friend requests</p>
+              <p className="font-medium">{t("settings.friendRequests")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.friendRequestsDesc")}</p>
             </div>
             <Switch
               checked={notifications.friendRequests}
@@ -438,8 +438,8 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Raid Reminders</p>
-              <p className="text-xs text-muted-foreground">Reminders for upcoming raids</p>
+              <p className="font-medium">{t("settings.raidReminders")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.raidRemindersDesc")}</p>
             </div>
             <Switch
               checked={notifications.raidReminders}
@@ -449,8 +449,8 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
           </div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="font-medium">Marketing</p>
-              <p className="text-xs text-muted-foreground">News and special offers</p>
+              <p className="font-medium">{t("settings.marketing")}</p>
+              <p className="text-xs text-muted-foreground">{t("settings.marketingDesc")}</p>
             </div>
             <Switch
               checked={notifications.marketing}
@@ -465,13 +465,13 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
       <Card className="p-4">
         <h3 className="font-bold flex items-center gap-2 mb-4">
           {theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-          Appearance
+          {t("settings.appearance")}
         </h3>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium">Dark Mode</p>
+            <p className="font-medium">{t("settings.darkMode")}</p>
             <p className="text-xs text-muted-foreground">
-              {theme === 'dark' ? 'Currently enabled' : 'Currently disabled'}
+              {theme === 'dark' ? t("settings.darkModeOn") : t("settings.darkModeOff")}
             </p>
           </div>
           <Switch
@@ -517,6 +517,18 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
             ))}
           </div>
         )}
+
+        <button
+          onClick={() => {
+            resetToPhoneLanguage();
+            toast({ title: t("settings.phoneLanguage") });
+          }}
+          className="mt-3 w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-muted text-sm font-medium hover:bg-muted/80 transition-all"
+          data-testid="button-phone-language"
+        >
+          <Globe className="w-4 h-4" />
+          {t("settings.phoneLanguage")}
+        </button>
       </Card>
 
       {/* Legal Section */}
@@ -528,7 +540,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         >
           <div className="flex items-center gap-3">
             <Shield className="w-5 h-5 text-muted-foreground" />
-            <span className="font-medium">Privacy Policy</span>
+            <span className="font-medium">{t("settings.privacyPolicy")}</span>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </button>
@@ -539,7 +551,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         >
           <div className="flex items-center gap-3">
             <FileText className="w-5 h-5 text-muted-foreground" />
-            <span className="font-medium">Terms of Service</span>
+            <span className="font-medium">{t("settings.termsOfService")}</span>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </button>
@@ -550,7 +562,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         >
           <div className="flex items-center gap-3">
             <Info className="w-5 h-5 text-muted-foreground" />
-            <span className="font-medium">About GO Raiders</span>
+            <span className="font-medium">{t("settings.about")}</span>
           </div>
           <ChevronRight className="w-4 h-4 text-muted-foreground" />
         </button>
@@ -564,7 +576,7 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         data-testid="button-logout"
       >
         <LogOut className="w-4 h-4 mr-2" />
-        Sign Out
+        {t("settings.signOut")}
       </Button>
 
       {/* App Version — tap 5× to access admin */}

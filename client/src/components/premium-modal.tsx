@@ -52,7 +52,7 @@ const ELITE_MONTHLY: SubscriptionProduct = {
   description: 'Premium raid features',
   price: 12.99,
   period: 'month',
-  appleProductId: 'com.goraiders.elite.monthly',
+  appleProductId: 'com.kyree.goraidcoordinator.elite.monthly',
   googleProductId: 'elite_monthly_subscription',
   features: ['Priority Queue', 'No Wait Time', 'Elite Badge']
 };
@@ -63,7 +63,7 @@ const ELITE_YEARLY: SubscriptionProduct = {
   description: 'Best value - 2 months free',
   price: 129.99,
   period: 'year',
-  appleProductId: 'com.goraiders.elite.yearly',
+  appleProductId: 'com.kyree.goraidcoordinator.elite.yearly',
   googleProductId: 'elite_yearly_subscription',
   features: ['Priority Queue', 'No Wait Time', 'Elite Badge', '2 Months Free']
 };

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronRight, Flame, Shield, Zap } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/user-context";
@@ -15,6 +16,7 @@ const teams = [
 
 export function Onboarding() {
   const { setUser } = useUser();
+  const { t } = useTranslation();
   const [step, setStep] = useState<"landing" | "terms" | "profile">("landing");
   const [formData, setFormData] = useState({
     name: "",
@@ -29,11 +31,11 @@ export function Onboarding() {
   const handleComplete = () => {
     setError("");
     if (!formData.name.trim()) {
-      setError("Please enter your Trainer Name");
+      setError(t("onboarding.nameError"));
       return;
     }
     if (formData.code.replace(/\D/g, "").length < 12) {
-      setError("Please enter a valid 12-digit Friend Code");
+      setError(t("onboarding.codeError"));
       return;
     }
 
@@ -160,7 +162,7 @@ export function Onboarding() {
               GO Raiders
             </h1>
             <p className="text-zinc-400 text-lg">
-              The #1 Raid Coordination Tool
+              {t("onboarding.tagline")}
             </p>
           </div>
           <div className="space-y-4 pt-8">
@@ -169,11 +171,11 @@ export function Onboarding() {
               className="w-full py-6 text-lg font-black rounded-2xl bg-gradient-to-r from-orange-600 to-red-700 text-white hover:from-orange-500 hover:to-red-600"
               data-testid="button-get-started"
             >
-              GET STARTED
+              {t("onboarding.getStarted")}
               <ChevronRight className="ml-1 w-5 h-5" />
             </Button>
             <p className="text-[11px] text-zinc-500">
-              By continuing, you agree to our Terms & Privacy Policy.
+              {t("onboarding.agreeText")}
             </p>
           </div>
         </div>
@@ -188,7 +190,7 @@ export function Onboarding() {
         style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))', paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
       >
         <div className="bg-zinc-900 w-full max-w-sm rounded-3xl p-6 border border-zinc-800 max-h-[80vh] flex flex-col">
-          <h2 className="text-xl font-black text-white mb-4">Terms of Service</h2>
+          <h2 className="text-xl font-black text-white mb-4">{t("onboarding.termsTitle")}</h2>
           <div className="flex-1 overflow-y-auto text-left space-y-4 text-xs text-zinc-400 mb-6 pr-2">
             <p>
               <strong className="text-white">1. Independent App:</strong> GO Raiders is
@@ -220,14 +222,14 @@ export function Onboarding() {
               className="flex-1 rounded-xl border-zinc-700 text-white"
               data-testid="button-decline"
             >
-              Decline
+              {t("onboarding.decline")}
             </Button>
             <Button
               onClick={() => setStep("profile")}
               className="flex-1 rounded-xl bg-gradient-to-r from-orange-600 to-red-700 text-white"
               data-testid="button-accept"
             >
-              I Accept
+              {t("onboarding.accept")}
             </Button>
           </div>
         </div>
@@ -246,8 +248,8 @@ export function Onboarding() {
           <div className="w-20 h-20 rounded-2xl mx-auto mb-4 overflow-hidden ring-2 ring-orange-600/50">
             <img src={logoImage} alt="GO Raiders Logo" className="w-full h-full object-cover" />
           </div>
-          <h2 className="text-2xl font-black text-white">Create Profile</h2>
-          <p className="text-zinc-500 text-sm mt-1">Set up your trainer profile</p>
+          <h2 className="text-2xl font-black text-white">{t("onboarding.createProfile")}</h2>
+          <p className="text-zinc-500 text-sm mt-1">{t("onboarding.setupProfile")}</p>
         </div>
 
         {error && (
@@ -259,12 +261,12 @@ export function Onboarding() {
         <div className="space-y-4">
           <div>
             <label className="text-xs text-zinc-400 font-semibold uppercase tracking-wide block mb-2">
-              Trainer Name
+              {t("onboarding.trainerNameLabel")}
             </label>
             <Input
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="Your in-game name"
+              placeholder={t("onboarding.trainerNamePlaceholder")}
               className="bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 h-12 rounded-xl"
               data-testid="input-trainer-name"
             />
@@ -272,7 +274,7 @@ export function Onboarding() {
 
           <div>
             <label className="text-xs text-zinc-400 font-semibold uppercase tracking-wide block mb-2">
-              Team
+              {t("onboarding.teamLabel")}
             </label>
             <div className="grid grid-cols-3 gap-2">
               {teams.map((team) => {
@@ -300,7 +302,7 @@ export function Onboarding() {
 
           <div>
             <label className="text-xs text-zinc-400 font-semibold uppercase tracking-wide block mb-2">
-              Level: {formData.level}
+              {`${t("onboarding.levelLabel")}: ${formData.level}`}
             </label>
             <input
               type="range"
@@ -329,7 +331,7 @@ export function Onboarding() {
 
           <div>
             <label className="text-xs text-zinc-400 font-semibold uppercase tracking-wide block mb-2">
-              Friend Code
+              {t("onboarding.friendCodeLabel")}
             </label>
             <Input
               value={formData.code}
@@ -350,7 +352,7 @@ export function Onboarding() {
           className="w-full py-6 text-lg font-black rounded-2xl bg-gradient-to-r from-orange-600 to-red-700 text-white mt-6"
           data-testid="button-complete"
         >
-          Complete Setup
+          {t("onboarding.completeSetup")}
           <ChevronRight className="ml-1 w-5 h-5" />
         </Button>
       </div>

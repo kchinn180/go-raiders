@@ -26,6 +26,49 @@ export const languages = [
   { code: 'ar', name: 'Arabic', nativeName: 'العربية', rtl: true },
 ];
 
+const SUPPORTED_CODES = languages.map(l => l.code);
+const I18N_LS_KEY = 'i18nextLng';
+
+/**
+ * Map any BCP-47 locale string to one of our supported language codes.
+ * e.g. "en-US" -> "en", "zh-Hans-CN" -> "zh-CN", "pt-BR" stays "pt-BR"
+ */
+function mapLocaleToSupported(locale: string): string | null {
+  if (!locale) return null;
+  // Exact match
+  if (SUPPORTED_CODES.includes(locale)) return locale;
+  // Normalise: zh-Hans → zh-CN, zh-Hant → zh-TW
+  if (/^zh[-_]han[st]/i.test(locale)) {
+    return /hant/i.test(locale) ? 'zh-TW' : 'zh-CN';
+  }
+  // pt-BR exact (already handled above, but also match "pt_BR")
+  if (/^pt[-_]br/i.test(locale)) return 'pt-BR';
+  // Strip region: "en-US" → "en", "fr-CA" → "fr"
+  const base = locale.split(/[-_]/)[0].toLowerCase();
+  return SUPPORTED_CODES.find(c => c.toLowerCase().startsWith(base)) ?? null;
+}
+
+/** Detect the device/browser preferred language and return our best match. */
+export function detectDeviceLanguage(): string {
+  const navLangs = [
+    navigator.language,
+    ...(navigator.languages || []),
+  ].filter(Boolean);
+
+  for (const lang of navLangs) {
+    const matched = mapLocaleToSupported(lang);
+    if (matched) return matched;
+  }
+  return 'en';
+}
+
+/** Call this to forget the user's explicit language choice and follow the phone. */
+export function resetToPhoneLanguage(): void {
+  try { localStorage.removeItem(I18N_LS_KEY); } catch {}
+  const lang = detectDeviceLanguage();
+  i18n.changeLanguage(lang);
+}
+
 const resources = {
   en: { translation: en },
   es: { translation: es },
@@ -45,12 +88,12 @@ i18n
   .init({
     resources,
     fallbackLng: 'en',
-    interpolation: {
-      escapeValue: false,
-    },
+    interpolation: { escapeValue: false },
     detection: {
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
+      lookupLocalStorage: I18N_LS_KEY,
+      convertDetectedLanguage: (lng: string) => mapLocaleToSupported(lng) ?? 'en',
     },
   });
 
