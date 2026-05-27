@@ -1,4 +1,5 @@
 import webPush from "web-push";
+import { storage } from "./storage";
 import type { PushToken, NotificationType } from "@shared/schema";
 
 // ── VAPID Web Push setup ───────────────────────────────────────────────────────
@@ -69,9 +70,18 @@ export async function sendPushNotification(
         await sendWebPush(tokenInfo.token, payload);
         success++;
       }
-    } catch (e) {
+    } catch (e: any) {
       console.log(`Failed to send notification to ${tokenInfo.platform}:`, e);
       failed++;
+      // Reap stale subscriptions. web-push throws WebPushError with
+      // statusCode 410 (Gone) or 404 (NotFound) once a subscription is
+      // permanently unreachable — keeping these tokens means we burn work
+      // and inflate the failed counter on every queue cycle.
+      const status = e?.statusCode;
+      if (status === 410 || status === 404) {
+        console.log(`[Push] Removing stale ${tokenInfo.platform} token (status=${status})`);
+        await storage.removePushToken(tokenInfo.token).catch(() => {});
+      }
     }
   }
 

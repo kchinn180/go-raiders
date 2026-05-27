@@ -244,10 +244,12 @@ export async function registerRoutes(
       // double-taps; the server just needs to unblock legitimate re-hosts.
       const allLobbies = await storage.getLobbies();
 
-      // Close user's own host lobby if present
+      // Close user's own host lobby if present. Tell any joiners over WS so
+      // they're not stranded staring at a lobby that has been deleted.
       const existingHostLobby = allLobbies.find(l => l.hostId === validated.hostId);
       if (existingHostLobby) {
         await storage.deleteLobby(existingHostLobby.id).catch(() => {});
+        lobbyWSManager.broadcastLobbyClosed(existingHostLobby.id, "Host started a new raid");
       }
 
       // Only block if the user is currently sitting in SOMEONE ELSE's lobby
