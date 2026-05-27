@@ -21,6 +21,67 @@ import * as crypto from "crypto";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Verify the signature on an Apple-signed JWS and return the decoded payload.
+ * Used both for receipt verification (purchase flow) and App Store Server
+ * Notifications (webhook).
+ *
+ * Apple's JWS uses ES256 (ECDSA P-256 + SHA-256) with the cert chain in
+ * `x5c`. The raw JWS signature is in IEEE P1363 (r||s) format, NOT DER,
+ * which is why we pass `dsaEncoding: 'ieee-p1363'` to `verify.verify`.
+ *
+ * NOTE: This verifies the JWS was signed by the cert in x5c[0], but does
+ * NOT validate the cert chain back to Apple's WWDR root. A sophisticated
+ * attacker could embed their own self-signed cert in x5c and sign with
+ * its private key. Full chain validation requires bundling Apple's root
+ * cert and is a follow-up.
+ */
+export function verifyAppleJWS(jws: string): { payload: any } | null {
+  const parts = jws.split('.');
+  if (parts.length !== 3) return null;
+  const [headerB64, payloadB64, signatureB64] = parts;
+
+  let header: any;
+  let payload: any;
+  try {
+    header = JSON.parse(Buffer.from(headerB64, 'base64url').toString());
+    payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString());
+  } catch {
+    return null;
+  }
+
+  if (!header.x5c || !Array.isArray(header.x5c) || header.x5c.length === 0) {
+    return null;
+  }
+
+  try {
+    const leafCertDer = Buffer.from(header.x5c[0], 'base64');
+    const leafCertPem = [
+      '-----BEGIN CERTIFICATE-----',
+      leafCertDer.toString('base64').match(/.{1,64}/g)!.join('\n'),
+      '-----END CERTIFICATE-----',
+    ].join('\n');
+
+    const signingInput = `${headerB64}.${payloadB64}`;
+    const signature = Buffer.from(signatureB64, 'base64url');
+
+    const verify = crypto.createVerify('SHA256');
+    verify.update(signingInput);
+    const valid = verify.verify(
+      { key: leafCertPem, format: 'pem', type: 'spki', dsaEncoding: 'ieee-p1363' } as any,
+      signature
+    );
+    if (!valid) {
+      console.warn('[JWS] Apple signature did not verify');
+      return null;
+    }
+    return { payload };
+  } catch (err) {
+    console.error('[JWS] Apple signature verification threw:', err);
+    return null;
+  }
+}
+
+/**
  * Returns true when the receipt is a StoreKit 2 JWS token (3-part dot-separated).
  * Old StoreKit 1 receipts are base64-encoded blobs with no dots.
  */
@@ -63,34 +124,44 @@ async function verifyStoreKit2JWS(
       return { success: false, isPremium: false, error: 'Invalid JWS payload' };
     }
 
-    // Verify signature using the leaf certificate from x5c chain
-    if (header.x5c && Array.isArray(header.x5c) && header.x5c.length > 0) {
-      try {
-        const leafCertDer = Buffer.from(header.x5c[0], 'base64');
-        const leafCertPem = [
-          '-----BEGIN CERTIFICATE-----',
-          leafCertDer.toString('base64').match(/.{1,64}/g)!.join('\n'),
-          '-----END CERTIFICATE-----',
-        ].join('\n');
+    // Verify signature using the leaf certificate from x5c chain.
+    // Without an x5c chain, the token cannot be verified — reject.
+    if (!header.x5c || !Array.isArray(header.x5c) || header.x5c.length === 0) {
+      console.warn('[SUBSCRIPTION] JWS missing x5c chain — rejecting');
+      return { success: false, isPremium: false, error: 'Missing certificate chain' };
+    }
+    try {
+      const leafCertDer = Buffer.from(header.x5c[0], 'base64');
+      const leafCertPem = [
+        '-----BEGIN CERTIFICATE-----',
+        leafCertDer.toString('base64').match(/.{1,64}/g)!.join('\n'),
+        '-----END CERTIFICATE-----',
+      ].join('\n');
 
-        const signingInput = `${headerB64}.${payloadB64}`;
-        const signature = Buffer.from(signatureB64, 'base64url');
+      const signingInput = `${headerB64}.${payloadB64}`;
+      const signature = Buffer.from(signatureB64, 'base64url');
 
-        const verify = crypto.createVerify('SHA256');
-        verify.update(signingInput);
-        const valid = verify.verify(
-          { key: leafCertPem, format: 'pem', type: 'spki' } as any,
-          signature
-        );
+      // Apple's JWS uses ES256 (ECDSA P-256). The raw signature is in
+      // IEEE P1363 (r||s) format; without dsaEncoding Node defaults to
+      // DER and throws on the 64-byte raw buffer — silently accepting
+      // every forged token before this fix.
+      const verify = crypto.createVerify('SHA256');
+      verify.update(signingInput);
+      const valid = verify.verify(
+        { key: leafCertPem, format: 'pem', type: 'spki', dsaEncoding: 'ieee-p1363' } as any,
+        signature
+      );
 
-        if (!valid) {
-          console.warn('[SUBSCRIPTION] JWS signature verification failed - rejecting');
-          return { success: false, isPremium: false, error: 'Invalid transaction signature' };
-        }
-      } catch (sigErr) {
-        // If certificate parsing fails, log but continue (sandbox may differ)
-        console.warn('[SUBSCRIPTION] JWS signature check error (non-fatal in sandbox):', sigErr);
+      if (!valid) {
+        console.warn('[SUBSCRIPTION] JWS signature verification failed — rejecting');
+        return { success: false, isPremium: false, error: 'Invalid transaction signature' };
       }
+    } catch (sigErr) {
+      // Any error during verification means we cannot trust the token.
+      // Reject rather than continue — the previous "non-fatal in sandbox"
+      // catch was the security hole that let forged JWS through.
+      console.error('[SUBSCRIPTION] JWS signature check error — rejecting:', sigErr);
+      return { success: false, isPremium: false, error: 'Signature verification failed' };
     }
 
     // Extract transaction details from payload

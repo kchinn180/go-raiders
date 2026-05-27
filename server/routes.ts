@@ -9,7 +9,7 @@ import type { InsertQueueEntry, Subscription, PushToken } from "@shared/schema";
 import { z } from "zod";
 import { sendPushNotification, getVapidPublicKey, type NotificationPayload, createQueuePromotionNotification, createQueueAlmostUpNotification } from "./push-service";
 import { getRaidBossDetails, getCounterPokemonDetails } from "./pokemon-data";
-import { verifyPurchaseReceipt, ELITE_PRODUCTS, ONE_TIME_PRODUCTS, isRemoveAdsProduct } from "./services/subscription";
+import { verifyPurchaseReceipt, ELITE_PRODUCTS, ONE_TIME_PRODUCTS, isRemoveAdsProduct, verifyAppleJWS } from "./services/subscription";
 import { requirePremium } from "./middleware/require-premium";
 import { fetchCurrentRaidBosses, getBossCacheInfo, invalidateBossCache } from "./services/raid-fetcher";
 import { parseTrainerScreenshot } from "./services/trainer-ocr";
@@ -2131,32 +2131,31 @@ export async function registerRoutes(
 
       console.log("[WEBHOOK:APPLE] Received notification - verifying...");
 
-      // Decode the JWS payload (base64 parts separated by dots)
-      const parts = signedPayload.split('.');
-      if (parts.length !== 3) {
-        console.warn("[WEBHOOK:APPLE] Invalid JWS format");
-        return res.status(400).json({ error: "Invalid payload format" });
+      // Verify the outer JWS signature. Without this, anyone can POST a
+      // forged base64 payload here and toggle premium for arbitrary users.
+      const outer = verifyAppleJWS(signedPayload);
+      if (!outer) {
+        console.warn("[WEBHOOK:APPLE] Outer JWS signature failed verification — rejecting");
+        return res.status(401).json({ error: "Invalid signature" });
       }
-
-      let payload;
-      try {
-        payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-      } catch {
-        console.warn("[WEBHOOK:APPLE] Failed to decode payload");
-        return res.status(400).json({ error: "Invalid payload encoding" });
-      }
+      const payload = outer.payload;
 
       const notificationType = payload.notificationType;
       const data = payload.data;
-      
+
       console.log(`[WEBHOOK:APPLE] Notification type: ${notificationType}`);
 
-      // Extract transaction info
+      // Extract transaction info — separately signed, so verify again before
+      // trusting originalTransactionId.
       const signedTransactionInfo = data?.signedTransactionInfo;
       if (signedTransactionInfo) {
-        const txnParts = signedTransactionInfo.split('.');
-        if (txnParts.length === 3) {
-          const txnInfo = JSON.parse(Buffer.from(txnParts[1], 'base64').toString());
+        const innerVerified = verifyAppleJWS(signedTransactionInfo);
+        if (!innerVerified) {
+          console.warn("[WEBHOOK:APPLE] Inner signedTransactionInfo failed verification — dropping event");
+          return res.status(200).json({ received: true, ignored: "bad_inner_signature" });
+        }
+        {
+          const txnInfo = innerVerified.payload;
           const originalTransactionId = txnInfo.originalTransactionId;
           
           // Find user by original transaction ID
