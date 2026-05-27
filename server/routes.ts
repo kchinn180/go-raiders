@@ -13,17 +13,20 @@ import { verifyPurchaseReceipt, ELITE_PRODUCTS, ONE_TIME_PRODUCTS, isRemoveAdsPr
 import { requirePremium } from "./middleware/require-premium";
 import { fetchCurrentRaidBosses, getBossCacheInfo, invalidateBossCache } from "./services/raid-fetcher";
 import { parseTrainerScreenshot } from "./services/trainer-ocr";
+import { authRateLimiter } from "./middleware/security";
 
-const getAdminToken = () => {
+const getAdminToken = (): string | undefined => {
   const token = process.env.ADMIN_TOKEN;
   if (!token) {
-    // SECURITY: Set ADMIN_TOKEN env var in production to replace this default.
-    // The fallback value matches the client-bundle default so the admin panel
-    // still works in dev, but leaving this unset in production is a HIGH-severity
-    // security risk — anyone who extracts the JS bundle gets full admin access.
+    // Fail closed in production: refuse all admin operations rather than
+    // accepting a hardcoded fallback that anyone could extract from logs or
+    // the bundled JS. Every admin route already handles the undefined case
+    // with a 503 "Admin access not configured".
     if (process.env.NODE_ENV === 'production') {
-      console.error('[SECURITY] ADMIN_TOKEN env var is not set in production! Admin access is using the insecure default token. Set ADMIN_TOKEN immediately.');
+      console.error('[SECURITY] ADMIN_TOKEN is not set in production — admin endpoints DISABLED. Set ADMIN_TOKEN in your Railway environment variables to enable.');
+      return undefined;
     }
+    // Dev-only stable fallback so the admin panel works locally without setup.
     return "Kj03c08kjc0308$";
   }
   return token;
@@ -681,7 +684,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/verify", async (req, res) => {
+  app.post("/api/admin/verify", authRateLimiter, async (req, res) => {
     try {
       const adminToken = getAdminToken();
       if (!adminToken) {
@@ -766,12 +769,19 @@ export async function registerRoutes(
     }
   });
 
-  // Emergency unlock — clears IP lockout when correct token is supplied via query param.
-  // Usage: POST /api/admin/unlock?token=YOUR_ADMIN_TOKEN
-  app.post("/api/admin/unlock", (req, res) => {
+  // Emergency unlock — clears IP lockout when correct token is supplied.
+  // Usage: POST /api/admin/unlock with JSON body { "token": "..." }
+  // Rate-limited (authRateLimiter) so this endpoint can't be used to brute-force
+  // the admin token after the verify endpoint locks out the caller's IP.
+  app.post("/api/admin/unlock", authRateLimiter, (req, res) => {
     const adminToken = getAdminToken();
-    const token = (req.query.token as string) || req.body?.token;
-    if (!token || token !== adminToken) {
+    if (!adminToken) {
+      return res.status(503).json({ error: "Admin access not configured" });
+    }
+    // Body only — query-string tokens leak into access logs, proxies, and
+    // browser history.
+    const token = req.body?.token;
+    if (!token || typeof token !== "string" || token !== adminToken) {
       return res.status(401).json({ error: "Invalid token" });
     }
     const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
