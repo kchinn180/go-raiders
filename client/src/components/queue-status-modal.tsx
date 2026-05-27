@@ -8,6 +8,7 @@ import { BOSSES } from "@shared/schema";
 import type { QueueStatus } from "@shared/schema";
 import { triggerNotification, triggerImpact } from "@/lib/haptics";
 import { playRewardSound } from "@/lib/sounds";
+import { useToast } from "@/hooks/use-toast";
 import { useUser } from "@/lib/user-context";
 import { purchaseSubscription, fetchProducts } from "@/lib/subscription";
 import { BossDetailsModal } from "@/components/pokemon-details-modal";
@@ -31,6 +32,7 @@ export function QueueStatusModal({
   onMatched,
 }: QueueStatusModalProps) {
   const { user } = useUser();
+  const { toast } = useToast();
   const queryClient = useQueryClient();
   const [hasNotifiedMatch, setHasNotifiedMatch] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
@@ -202,7 +204,10 @@ export function QueueStatusModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, bossId }),
       });
-      if (!response.ok) throw new Error("Reservation expired");
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "Reservation expired");
+      }
       return response.json() as Promise<{ lobbyId: string }>;
     },
     onSuccess: (data) => {
@@ -214,10 +219,10 @@ export function QueueStatusModal({
       }
       onClose();
     },
-    onError: () => {
-      // Reservation expired — refresh status
+    onError: (err: Error) => {
       queryClient.invalidateQueries({ queryKey: ["/api/queue/status", userId, bossId] });
       triggerNotification("error");
+      toast({ title: err.message, variant: "destructive" });
     },
   });
 

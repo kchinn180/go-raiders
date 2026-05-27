@@ -83,13 +83,29 @@ class LobbyWebSocketManager {
     }
   }
 
+  /**
+   * Send a message to a single client, swallowing errors from half-open sockets.
+   * The readyState check has a TOCTOU race with disconnects, so `send()` can
+   * still throw — without this, a single dead socket would propagate up and
+   * silently drop the rest of the broadcast.
+   */
+  private safeSend(client: WSClient, message: string): boolean {
+    if (client.ws.readyState !== WebSocket.OPEN) return false;
+    try {
+      client.ws.send(message);
+      return true;
+    } catch (err) {
+      log(`safeSend failed: ${err instanceof Error ? err.message : err}`, "ws");
+      return false;
+    }
+  }
+
   broadcastToLobby(lobbyId: string, eventType: string, data: unknown) {
     const message = JSON.stringify({ type: eventType, data });
     let count = 0;
 
     this.clients.forEach((client) => {
-      if (client.lobbyId === lobbyId && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(message);
+      if (client.lobbyId === lobbyId && this.safeSend(client, message)) {
         count++;
       }
     });
@@ -107,8 +123,7 @@ class LobbyWebSocketManager {
     let count = 0;
 
     this.clients.forEach((client) => {
-      if (client.watchingBossId === bossId && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(message);
+      if (client.watchingBossId === bossId && this.safeSend(client, message)) {
         count++;
       }
     });
@@ -127,8 +142,7 @@ class LobbyWebSocketManager {
     let count = 0;
 
     this.clients.forEach((client) => {
-      if (client.userId === userId && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(message);
+      if (client.userId === userId && this.safeSend(client, message)) {
         count++;
       }
     });
@@ -177,8 +191,7 @@ class LobbyWebSocketManager {
     let count = 0;
 
     this.clients.forEach((client) => {
-      if (client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(message);
+      if (this.safeSend(client, message)) {
         count++;
       }
     });
@@ -187,8 +200,6 @@ class LobbyWebSocketManager {
       log(`Broadcast ${eventType} to all ${count} connected clients`, "ws");
     }
   }
-
-  private lobbies: Map<string, Set<WebSocket>> = new Map();
 }
 
 export const lobbyWSManager = new LobbyWebSocketManager();

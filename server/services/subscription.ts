@@ -138,11 +138,16 @@ async function verifyStoreKit2JWS(
 
 /**
  * Elite Subscription Products
- * 
+ *
  * PRICING STRUCTURE:
- * - Monthly: $6.99/month
- * - Annual: $69.90/year (equivalent to 10 months - 2 months FREE)
- * 
+ * - Monthly: $12.99/month
+ * - Annual: $129.90/year (≈$10.83/mo, ~2 months FREE)
+ *
+ * NOTE: The client-side premium-modal.tsx displays $129.99 for the yearly
+ * plan — a $0.09 discrepancy with the value below. Reconcile against the
+ * authoritative price in App Store Connect / Google Play Console before
+ * relying on the `price` field for analytics or receipts.
+ *
  * Product IDs MUST match exactly in:
  * - Apple App Store Connect (In-App Purchases)
  * - Google Play Console (Subscriptions)

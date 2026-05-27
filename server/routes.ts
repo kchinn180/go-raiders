@@ -606,6 +606,7 @@ export async function registerRoutes(
       if (!lobby) {
         return res.status(404).json({ error: "Lobby not found or not host" });
       }
+      lobbyWSManager.broadcastLobbyClosed(req.params.id, "Host closed the lobby");
       res.json(lobby);
     } catch (error) {
       res.status(500).json({ error: "Failed to close lobby" });
@@ -1463,6 +1464,9 @@ export async function registerRoutes(
       const result = await storage.acceptReservation(userId, bossId);
       if (!result) {
         return res.status(409).json({ error: "Reservation expired or lobby unavailable" });
+      }
+      if ('putBackInQueue' in result) {
+        return res.status(409).json({ error: "Slot just filled by another player — you're back in queue", putBackInQueue: true });
       }
 
       // Broadcast queue update after slot filled

@@ -85,17 +85,19 @@ app.use((req, res, next) => {
 });
 
 // ── Process-level crash guards ─────────────────────────────────────────────
-// Prevents the server from dying on unhandled async rejections or uncaught
-// exceptions that escape all route try-catch blocks.
+// Log anything that escaped route try/catch blocks so it shows up in Railway
+// logs instead of vanishing. Note the two handlers have *different* exit
+// behavior: rejections stay alive (often safe), but uncaught exceptions drain
+// for 2s then exit so the process manager can restart cleanly.
 process.on('unhandledRejection', (reason, promise) => {
   console.error('[UnhandledRejection]', reason, 'at:', promise);
-  // Don't exit — Railway will restart us automatically if we do crash,
-  // but staying alive is better for active connections.
+  // Intentionally not exiting — the process is usually still consistent
+  // after a rejection, and surviving keeps active WebSocket connections alive.
 });
 
 process.on('uncaughtException', (err) => {
   console.error('[UncaughtException]', err);
-  // Give active connections 2s to drain, then exit so the process manager restarts
+  // Process state is unknown — drain briefly then exit so Railway restarts us.
   setTimeout(() => process.exit(1), 2000);
 });
 

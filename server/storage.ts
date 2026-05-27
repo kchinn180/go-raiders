@@ -79,7 +79,7 @@ export interface IStorage {
   joinQueue(entry: InsertQueueEntry): Promise<{ entry: QueueEntry; cooldownMs?: number }>;
   leaveQueue(userId: string, bossId?: string): Promise<boolean>;
   heartbeatQueue(userId: string, bossId: string): Promise<boolean>;
-  acceptReservation(userId: string, bossId: string): Promise<{ lobbyId: string } | null>;
+  acceptReservation(userId: string, bossId: string): Promise<{ lobbyId: string } | { putBackInQueue: true } | null>;
   rejectReservation(userId: string, bossId: string): Promise<boolean>;
   getQueueStatus(userId: string, bossId: string): Promise<QueueStatus | null>;
   getUserQueues(userId: string): Promise<QueueStatus[]>;
@@ -636,13 +636,24 @@ export class MemStorage implements IStorage {
     if (!lobby) return undefined;
     if (lobby.hostId !== hostId) return undefined;
 
-    const updatedLobby = {
-      ...lobby,
-      raidStarted: true,
-      invitesSent: true,
-    };
-    this.lobbies.set(lobbyId, updatedLobby);
-    return updatedLobby;
+    // Close = lobby is gone. Delete it so it doesn't linger in memory and
+    // doesn't block the host's "one raid at a time" rule until the 10-min purge.
+    this.lobbies.delete(lobbyId);
+
+    // Any reservations pointing at this lobby are now invalid — bump those
+    // users back to waiting so the next match cycle can promote them again
+    // instead of waiting 20s for the reservation to time out.
+    for (const [key, entry] of Array.from(this.queueEntries.entries())) {
+      if (entry.matchedLobbyId === lobbyId && entry.status === 'reserved') {
+        entry.status = 'waiting';
+        entry.reserved = false;
+        entry.reservedAt = null;
+        entry.matchedLobbyId = undefined;
+        this.queueEntries.set(key, entry);
+      }
+    }
+
+    return lobby;
   }
 
   async createFeedback(insertFeedback: InsertFeedback): Promise<Feedback> {
@@ -901,7 +912,7 @@ export class MemStorage implements IStorage {
     return true;
   }
 
-  async acceptReservation(userId: string, bossId: string): Promise<{ lobbyId: string } | null> {
+  async acceptReservation(userId: string, bossId: string): Promise<{ lobbyId: string } | { putBackInQueue: true } | null> {
     const key = `${userId}-${bossId}`;
     const entry = this.queueEntries.get(key);
     if (!entry || entry.status !== 'reserved' || !entry.matchedLobbyId) return null;
@@ -916,13 +927,14 @@ export class MemStorage implements IStorage {
 
     const lobby = this.lobbies.get(entry.matchedLobbyId);
     if (!lobby || lobby.raidStarted || lobby.players.length >= lobby.maxPlayers) {
-      // Lobby gone or full — put user back in queue
+      // Lobby gone or full — put user back in queue and tell the route so it
+      // can surface a clear error instead of a silent 409.
       entry.status = 'waiting';
       entry.reserved = false;
       entry.reservedAt = null;
       entry.matchedLobbyId = undefined;
       this.queueEntries.set(key, entry);
-      return null;
+      return { putBackInQueue: true };
     }
 
     // Commit: add player to lobby and remove from queue
@@ -1042,8 +1054,17 @@ export class MemStorage implements IStorage {
     for (const lobby of lobbiesWithSpace) {
       const queue = await this.getQueueForBoss(lobby.bossId);
 
+      // Count already-pending reservations for this lobby so we never over-reserve.
+      // Without this, every user in queue gets a simultaneous "You're up!" for a
+      // single open slot — the first to accept wins and the rest get silently
+      // bounced back to waiting with no explanation.
+      const pendingReservations = Array.from(this.queueEntries.values())
+        .filter(e => e.status === 'reserved' && e.matchedLobbyId === lobby.id)
+        .length;
+      let availableSlots = lobby.maxPlayers - lobby.players.length - pendingReservations;
+
       for (const entry of queue) {
-        if (lobby.players.length >= lobby.maxPlayers) break;
+        if (availableSlots <= 0) break;
 
         // Skip already reserved entries
         if (entry.reserved) continue;
@@ -1065,6 +1086,7 @@ export class MemStorage implements IStorage {
         this.queueEntries.set(`${entry.userId}-${entry.bossId}`, entry);
 
         matchedEntries.push(entry);
+        availableSlots--;
         if (!affectedLobbies.includes(lobby)) affectedLobbies.push(lobby);
       }
     }
