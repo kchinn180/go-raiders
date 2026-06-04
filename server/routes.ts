@@ -572,14 +572,32 @@ export async function registerRoutes(
 
   app.post("/api/users", async (req, res) => {
     try {
-      const validated = insertUserSchema.parse(req.body);
-      
+      // Pull the optional client-supplied id off the body before zod validates
+      // (insertUserSchema omits id). The id is a UUID generated client-side
+      // during onboarding so IAP receipts can be tied back to the same user
+      // record server-side.
+      const { id: clientId, ...bodyWithoutId } = req.body ?? {};
+      const validated = insertUserSchema.parse(bodyWithoutId);
+
       const isBanned = await storage.isBanned(validated.code);
       if (isBanned) {
         return res.status(403).json({ error: "This friend code has been banned" });
       }
-      
-      const user = await storage.createUser(validated);
+
+      // If the client sent an id and that user already exists, return the
+      // existing record instead of creating a duplicate. This makes the call
+      // idempotent — safe to retry from the client.
+      if (typeof clientId === "string" && clientId.length > 0) {
+        const existing = await storage.getUser(clientId);
+        if (existing) {
+          return res.status(200).json(existing);
+        }
+      }
+
+      const user = await storage.createUser({
+        ...validated,
+        ...(typeof clientId === "string" && clientId.length > 0 ? { id: clientId } : {}),
+      });
       res.status(201).json(user);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -977,7 +995,39 @@ export async function registerRoutes(
     }
   });
 
-  // Delete user account
+  /**
+   * Self-service account deletion — Apple Guideline 5.1.1(v) requires this
+   * for any app that supports account creation. Owner-only by design: the
+   * client must hold the user.id (UUID) which is treated as a bearer token
+   * for this single destructive op. (Same trust model as the rest of the
+   * IAP/profile endpoints in this app.)
+   *
+   * On success the server removes the user, their lobbies, queue entries,
+   * push tokens, and subscription record. The client must clear localStorage
+   * separately.
+   */
+  app.delete("/api/users/:id", async (req, res) => {
+    try {
+      const userId = req.params.id;
+      if (!userId || typeof userId !== "string") {
+        return res.status(400).json({ error: "Missing user id" });
+      }
+      const success = await storage.deleteUser(userId);
+      if (!success) {
+        // 200 anyway — a fresh install with localStorage state but no
+        // server record should still be treated as "successfully deleted"
+        // by the client, so it can clear local state.
+        return res.json({ success: true, alreadyDeleted: true });
+      }
+      console.log(`[ACCOUNT] User self-deleted: ${userId}`);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("[ACCOUNT] Self-delete failed:", error);
+      res.status(500).json({ error: "Failed to delete account" });
+    }
+  });
+
+  // Delete user account (ADMIN — kept for moderation tooling)
   app.delete("/api/admin/users/:id", async (req, res) => {
     try {
       const adminToken = getAdminToken();
@@ -1898,15 +1948,13 @@ export async function registerRoutes(
         });
       }
 
-      // Get user to verify they exist
-      const user = await storage.getUser(userId);
-      if (!user) {
-        console.warn(`[SUBSCRIPTION] Verification for unknown user: ${userId}`);
-        return res.status(404).json({
-          error: "User not found",
-          code: "USER_NOT_FOUND"
-        });
-      }
+      // Get user — see receipt verification below for the auto-create
+      // fallback. We attempt to load the user now, but if they don't exist
+      // we defer creation until AFTER receipt verification succeeds —
+      // refusing here was the bug Apple flagged (Guideline 2.1(b):
+      // "user not found error when tried to purchase"), but creating
+      // before verification would let an attacker fill the DB with garbage.
+      let user = await storage.getUser(userId);
 
       // Verify the receipt with Apple/Google servers
       const result = await verifyPurchaseReceipt({
@@ -1923,6 +1971,35 @@ export async function registerRoutes(
           code: "VERIFICATION_FAILED",
           isPremium: false
         });
+      }
+
+      // Receipt verified — only NOW provision the user record if missing.
+      // Doing this post-verification avoids letting an unauthenticated
+      // attacker fill the DB with garbage userIds.
+      if (!user) {
+        console.warn(`[SUBSCRIPTION] Auto-creating verified user for IAP: ${userId}`);
+        try {
+          // Unique placeholder code derived from the UUID so each
+          // auto-created user is distinct — sentinel values like
+          // "0000 0000 0000" cause ban-by-code to affect everyone at once.
+          const placeholderCode = `AUTO ${userId.replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+          user = await storage.createUser({
+            id: userId,
+            name: "Trainer",
+            level: 1,
+            team: "neutral",
+            code: placeholderCode,
+            isPremium: false,
+            isVerified: true,
+            coins: 0,
+          });
+        } catch (createErr) {
+          console.error(`[SUBSCRIPTION] Auto-create failed for ${userId}:`, createErr);
+          return res.status(500).json({
+            error: "Failed to provision user for purchase",
+            code: "USER_PROVISION_FAILED"
+          });
+        }
       }
 
       // SUCCESS: Update user based on product type
@@ -2038,7 +2115,9 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Missing required fields" });
       }
 
-      // Use the same verification logic as new purchases
+      // Verify the receipt FIRST. Only after a valid Apple/Google receipt do
+      // we trust the request enough to provision a user record — this avoids
+      // an unauthenticated client populating the DB with garbage userIds.
       const result = await verifyPurchaseReceipt({
         storeType,
         receipt,
@@ -2046,12 +2125,40 @@ export async function registerRoutes(
         userId
       });
 
-      if (result.success && result.isPremium && result.subscription) {
+      // If receipt is valid but the user doesn't exist server-side, auto-create
+      // them. Same scenario as /verify: older builds only stored users in
+      // localStorage, so a reinstall produces a local user with no server
+      // record. Without this, restore silently returns isPremium=false even
+      // though Apple confirmed the user has an entitlement.
+      let user = await storage.getUser(userId);
+      if (!user && result.success) {
+        console.warn(`[SUBSCRIPTION] Auto-creating unknown user for restore: ${userId}`);
+        try {
+          // Use a UUID-derived placeholder for the friend code so each
+          // auto-created user is unique — sentinel values like
+          // "0000 0000 0000" cause ban-by-code to affect everyone at once.
+          const placeholderCode = `AUTO ${userId.replace(/-/g, "").slice(0, 12).toUpperCase()}`;
+          user = await storage.createUser({
+            id: userId,
+            name: "Trainer",
+            level: 1,
+            team: "neutral",
+            code: placeholderCode,
+            isPremium: false,
+            isVerified: true,
+            coins: 0,
+          });
+        } catch (createErr) {
+          console.error(`[SUBSCRIPTION] Restore auto-create failed for ${userId}:`, createErr);
+          // Continue — we still want to return a coherent response below
+        }
+      }
+
+      if (result.success && result.isPremium && result.subscription && user) {
         await storage.updateUserSubscription(userId, {
           isPremium: true,
           subscription: result.subscription as Subscription
         });
-
         console.log(`[SUBSCRIPTION] Purchases restored for user: ${userId}`);
       }
 

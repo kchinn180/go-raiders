@@ -17,7 +17,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { X, Sparkles, Zap, Radar, Users, Star, Clock, ShieldCheck, Check, Loader2, RotateCcw } from "lucide-react";
+import { X, Sparkles, Zap, Radar, Users, Star, Clock, ShieldCheck, Check, Loader2, RotateCcw, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUser } from "@/lib/user-context";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +28,8 @@ import { cn } from "@/lib/utils";
 interface PremiumModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenTerms?: () => void;
+  onOpenPrivacy?: () => void;
 }
 
 const features = [
@@ -68,13 +70,14 @@ const ELITE_YEARLY: SubscriptionProduct = {
   features: ['Priority Queue', 'No Wait Time', 'Elite Badge', '2 Months Free']
 };
 
-export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
+export function PremiumModal({ isOpen, onClose, onOpenTerms, onOpenPrivacy }: PremiumModalProps) {
   const { user, syncPremiumFromServer } = useUser();
   const { toast } = useToast();
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'yearly'>('yearly');
   const [showThankYou, setShowThankYou] = useState(false);
+  const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
   // Load real prices from native StoreKit 2 / Play Billing
   const [nativePrices, setNativePrices] = useState<Map<string, { price: string }>>(new Map());
@@ -110,11 +113,12 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
    */
   const handleUpgrade = async () => {
     if (!user) return;
-    
+
+    setPurchaseError(null);
     setIsPurchasing(true);
     try {
       const result = await purchaseSubscription(user.id, currentProduct);
-      
+
       if (result.success && result.isPremium) {
         const renewalMs = selectedPlan === 'yearly'
           ? 365 * 24 * 60 * 60 * 1000
@@ -134,18 +138,12 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
         onClose();
         setShowThankYou(true);
       } else {
-        toast({ 
-          title: "Purchase failed", 
-          description: result.error || "Could not complete purchase. Please try again.", 
-          variant: "destructive" 
-        });
+        const errMsg = result.error || "Could not complete purchase. Please try again.";
+        // Show persistent inline error so the user can retry without reopening the modal
+        setPurchaseError(errMsg);
       }
     } catch (error) {
-      toast({ 
-        title: "Purchase error", 
-        description: "Please try again later", 
-        variant: "destructive" 
-      });
+      setPurchaseError("Purchase failed. Please check your connection and try again.");
     } finally {
       setIsPurchasing(false);
     }
@@ -241,13 +239,37 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
         </div>
 
         {user?.isPremium ? (
-          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-2xl text-center">
-            <div className="flex items-center justify-center gap-2">
-              <Check className="w-5 h-5 text-green-500" />
+          <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-2xl">
+            <div className="flex items-center gap-2 mb-1">
+              <Check className="w-5 h-5 text-green-500 shrink-0" />
               <span className="font-bold text-green-500">You're already Elite!</span>
             </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              Manage your subscription in App Store or Play Store settings
+            <p className="text-xs text-muted-foreground mb-3">
+              You have access to all premium features.
+            </p>
+            {user.subscription?.renewalDate && (
+              <div className="flex items-center justify-between pt-2 border-t border-green-500/20">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-bold">
+                    {user.subscription.status === 'canceled' ? 'Access until' : 'Next renewal'}
+                  </p>
+                  <p className="text-xs font-semibold text-foreground mt-0.5">
+                    {new Date(user.subscription.renewalDate).toLocaleDateString(undefined, {
+                      month: 'short', day: 'numeric', year: 'numeric'
+                    })}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">
+                    {user.subscription.plan === 'elite_yearly' ? '$129.99/yr' :
+                     user.subscription.plan === 'elite_monthly' ? '$12.99/mo' : ''}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">via App Store</p>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-3 text-center">
+              Manage in App Store or Play Store settings
             </p>
           </div>
         ) : (
@@ -298,6 +320,24 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
               </span>
             </div>
 
+            {/* Inline error — stays visible until user retries or dismisses */}
+            {purchaseError && (
+              <div className="flex items-start gap-2 p-3 mb-3 bg-destructive/10 border border-destructive/30 rounded-xl">
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-destructive mb-0.5">Purchase failed</p>
+                  <p className="text-xs text-muted-foreground leading-relaxed">{purchaseError}</p>
+                </div>
+                <button
+                  onClick={() => setPurchaseError(null)}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Dismiss error"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Purchase Button */}
             <Button
               onClick={handleUpgrade}
@@ -339,9 +379,60 @@ export function PremiumModal({ isOpen, onClose }: PremiumModalProps) {
               )}
             </Button>
 
-            <p className="text-center text-xs text-muted-foreground mt-3">
-              Subscription renews automatically. Cancel anytime in App Store or Play Store settings.
-              Payment will be charged to your Apple ID or Google Play account.
+            {/* Manage Subscription — required by Guideline 3.1.2(b).
+                Opens Apple's subscription management page. */}
+            <button
+              onClick={() => {
+                const url = "https://apps.apple.com/account/subscriptions";
+                if (typeof window !== "undefined") window.open(url, "_blank");
+              }}
+              className="mx-auto block text-center text-xs underline text-muted-foreground hover:text-foreground mt-3"
+              data-testid="link-manage-subscription"
+            >
+              Manage Subscription
+            </button>
+
+            {/* Subscription disclosure — required by Apple Guideline 3.1.2(a).
+                Must include: length of each subscription, price per period,
+                that it auto-renews unless turned off 24h before period end,
+                that the account is charged 24h before renewal, and how to
+                manage/cancel. */}
+            <p className="text-center text-xs text-muted-foreground mt-3 leading-relaxed">
+              <strong>Elite Monthly:</strong> $12.99/month, auto-renewable.<br />
+              <strong>Elite Annual:</strong> $129.99/year, auto-renewable.<br />
+              Your subscription automatically renews unless auto-renew is turned off
+              at least 24 hours before the end of the current period. Your iTunes account
+              will be charged for renewal within 24 hours prior to the end of the current
+              period at the rate above. You can manage your subscription and turn off
+              auto-renewal in your Apple ID account settings after purchase.
+              {" "}
+              By subscribing, you agree to our{" "}
+              <button
+                onClick={onOpenTerms}
+                className="underline text-muted-foreground hover:text-foreground"
+                data-testid="link-terms-of-use"
+              >
+                Terms of Use
+              </button>
+              {" "}·{" "}
+              <button
+                onClick={onOpenPrivacy}
+                className="underline text-muted-foreground hover:text-foreground"
+                data-testid="link-privacy-policy"
+              >
+                Privacy Policy
+              </button>
+              {" "}·{" "}
+              <a
+                href="https://www.apple.com/legal/internet-services/itunes/dev/stdeula/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline text-muted-foreground hover:text-foreground"
+                data-testid="link-apple-eula"
+              >
+                Apple EULA
+              </a>
+              .
             </p>
           </>
         )}

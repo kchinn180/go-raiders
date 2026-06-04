@@ -28,6 +28,21 @@ const config: CapacitorConfig = {
       cleartext: true,  // allow http:// on iOS (dev only)
     } : {}),
   },
+  // Capacitor 8 reads `packageClassList` from the synced capacitor.config.json
+  // at runtime to decide which native plugin classes to instantiate. Standard
+  // Capacitor npm plugins (AdMob, StatusBar, etc.) are auto-added by
+  // `npx cap sync` based on what's in node_modules — but custom native
+  // plugins added directly to the iOS project (like our IAPPlugin) are NOT
+  // discoverable that way. Listing IAPPlugin here makes it survive every
+  // `cap sync`. Missing this was what caused the "'IAP' plugin is not
+  // implemented on ios" error in builds 7 and 8.
+  // NOTE: Capacitor 8 reads `packageClassList` from the TOP LEVEL of the
+  // synced capacitor.config.json — `ios.packageClassList` is NOT honored
+  // by the bridge. Because `npx cap sync ios` regenerates that top-level
+  // list from node_modules every time and would strip out custom native
+  // plugins like IAPPlugin, we run a post-sync patcher script that re-adds
+  // it. Use `npm run cap:sync` (defined in package.json) instead of raw
+  // `npx cap sync ios` so the patcher always runs.
   plugins: {
     /**
      * AdMob — replace test IDs with your production IDs from the AdMob console.

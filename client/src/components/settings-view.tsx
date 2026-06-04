@@ -19,16 +19,28 @@ import {
   Globe,
   History,
   Crown,
+  Trash2,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useUser } from "@/lib/user-context";
 import { useTheme } from "@/lib/theme-context";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { getApiUrl } from "@/lib/queryClient";
 import { TEAMS, BOSSES } from "@shared/schema";
 import { languages, resetToPhoneLanguage } from "@/i18n";
 import { SafeImage } from "@/components/safe-image";
@@ -147,6 +159,52 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
 
   const handleLogout = () => {
     setUser(null);
+  };
+
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  /**
+   * Permanent account deletion — required by Apple Guideline 5.1.1(v).
+   * Calls the server to remove the user record, then clears all local state
+   * so the app returns to the onboarding flow.
+   */
+  const handleDeleteAccount = async () => {
+    if (!user) return;
+    setIsDeleting(true);
+    try {
+      const res = await fetch(getApiUrl(`/api/users/${user.id}`), {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const body = await res.text();
+        console.error("[ACCOUNT] Delete failed:", res.status, body);
+        toast({
+          title: "Couldn't delete account",
+          description: "Please try again. If this keeps happening, contact support.",
+          variant: "destructive",
+        });
+        setIsDeleting(false);
+        return;
+      }
+      // Best-effort: wipe any local caches we know about. The user.id-keyed
+      // "synced" flag goes too so any future install isn't mistaken for a
+      // returning user.
+      try {
+        localStorage.removeItem("go-raiders-user-v3");
+        localStorage.removeItem("go-raiders-user-server-synced-v1");
+      } catch {}
+      toast({ title: "Account deleted." });
+      setUser(null);
+    } catch (err) {
+      console.error("[ACCOUNT] Delete network error:", err);
+      toast({
+        title: "Couldn't reach the server",
+        description: "Check your connection and try again.",
+        variant: "destructive",
+      });
+      setIsDeleting(false);
+    }
   };
 
   const handleNotificationChange = (key: keyof typeof notifications, value: boolean) => {
@@ -578,6 +636,47 @@ export function SettingsView({ onNavigate, onPremiumClick }: SettingsViewProps) 
         <LogOut className="w-4 h-4 mr-2" />
         {t("settings.signOut")}
       </Button>
+
+      {/* Delete Account — Apple Guideline 5.1.1(v) requires this for any app
+          with account creation. Permanent and removes server-side data. */}
+      <Button
+        variant="outline"
+        className="w-full text-destructive border-destructive/30 hover:bg-destructive/10"
+        onClick={() => setIsDeleteOpen(true)}
+        data-testid="button-delete-account"
+      >
+        <Trash2 className="w-4 h-4 mr-2" />
+        Delete Account
+      </Button>
+
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete your profile, friend code, raid history,
+              and any saved preferences from the GO Raiders servers. This action
+              cannot be undone.
+              <br /><br />
+              <strong>Active subscriptions:</strong> deleting your account here
+              does NOT cancel an Apple subscription. To cancel an active
+              subscription, open Settings → Apple ID → Subscriptions, or
+              tap "Manage Subscription" below.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteAccount}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-account"
+            >
+              {isDeleting ? "Deleting…" : "Delete Account"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* App Version — tap 5× to access admin */}
       <p

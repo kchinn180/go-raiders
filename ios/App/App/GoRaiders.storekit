@@ -1,0 +1,138 @@
+{
+  "identifier" : "F8A2B6E0-9D4C-4A5E-B6C8-3E7F5A9D2C4B",
+  "nonRenewingSubscriptions" : [],
+  "products" : [
+    {
+      "displayPrice" : "4.99",
+      "familyShareable" : false,
+      "internalID" : "C1A2B3D4",
+      "localizations" : [
+        {
+          "description" : "Permanently remove all ads — one-time purchase",
+          "displayName" : "Remove Ads",
+          "locale" : "en_US"
+        }
+      ],
+      "productID" : "com.kyree.goraiders.removeads",
+      "referenceName" : "Remove Ads",
+      "type" : "NonConsumable"
+    }
+  ],
+  "settings" : {
+    "_applicationInternalID" : "1234567890",
+    "_developerTeamID" : "TEAM12345",
+    "_disableDialogs" : false,
+    "_failTransactionsEnabled" : false,
+    "_lastSynchronizedDate" : 738900000,
+    "_locale" : "en_US",
+    "_storefront" : "USA",
+    "_storeKitErrors" : [
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Load Products"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Purchase"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Verification"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Store Sync"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Subscription Status"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "App Transaction"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Manage Subscriptions Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Refund Request Sheet"
+      },
+      {
+        "current" : null,
+        "enabled" : false,
+        "name" : "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups" : [
+    {
+      "id" : "21567890",
+      "localizations" : [
+        {
+          "description" : "GO Raiders Elite — auto-renewable subscription tier",
+          "displayName" : "GO Raiders Elite",
+          "locale" : "en_US"
+        }
+      ],
+      "name" : "GO Raiders Elite",
+      "subscriptions" : [
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "12.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "S1MONTHLY",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "GO Raiders Elite — billed monthly",
+              "displayName" : "Elite Monthly",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.kyree.goraidcoordinator.elite.monthly",
+          "recurringSubscriptionPeriod" : "P1M",
+          "referenceName" : "Elite Monthly",
+          "subscriptionGroupID" : "21567890",
+          "type" : "RecurringSubscription"
+        },
+        {
+          "adHocOffers" : [],
+          "codeOffers" : [],
+          "displayPrice" : "129.99",
+          "familyShareable" : false,
+          "groupNumber" : 1,
+          "internalID" : "S2YEARLY",
+          "introductoryOffer" : null,
+          "localizations" : [
+            {
+              "description" : "GO Raiders Elite — billed yearly (2 months free vs monthly)",
+              "displayName" : "Elite Annual",
+              "locale" : "en_US"
+            }
+          ],
+          "productID" : "com.kyree.goraidcoordinator.elite.yearly",
+          "recurringSubscriptionPeriod" : "P1Y",
+          "referenceName" : "Elite Annual",
+          "subscriptionGroupID" : "21567890",
+          "type" : "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version" : {
+    "major" : 4,
+    "minor" : 0
+  }
+}

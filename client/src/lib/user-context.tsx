@@ -1,6 +1,38 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { User, Subscription, NotificationPrefs, DailyChallenge, RaidHistoryEntry } from "@shared/schema";
 import { setErrorReporterUserId } from "@/lib/error-reporter";
+import { getApiUrl } from "@/lib/queryClient";
+
+const SERVER_SYNC_KEY = "go-raiders-user-server-synced-v1";
+
+/**
+ * Best-effort one-shot sync: ensures the locally stored user also exists on
+ * the server. Older builds only stored users in localStorage, so the server
+ * had no record — which caused /api/subscription/verify to 404 with
+ * "User not found" (Apple Guideline 2.1(b) rejection on build 8).
+ *
+ * Idempotent: /api/users returns the existing record if the client id is
+ * already known. Localstorage flag prevents re-POSTing on every launch.
+ */
+async function ensureUserOnServer(user: User): Promise<void> {
+  try {
+    if (localStorage.getItem(SERVER_SYNC_KEY) === user.id) return;
+    const response = await fetch(getApiUrl("/api/users"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(user),
+    });
+    if (response.ok) {
+      localStorage.setItem(SERVER_SYNC_KEY, user.id);
+    } else {
+      console.warn("[USER_SYNC] Server sync returned", response.status);
+    }
+  } catch (e) {
+    // Non-fatal: app works offline, and the verify endpoint also auto-creates
+    // the user if a valid receipt comes in for an unknown id.
+    console.warn("[USER_SYNC] Failed to sync local user to server:", e);
+  }
+}
 
 interface UserContextType {
   user: User | null;
@@ -47,6 +79,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
         if (JSON.stringify(checkedUser) !== JSON.stringify(parsedUser)) {
           localStorage.setItem(STORAGE_KEY, JSON.stringify(checkedUser));
         }
+        // Background-sync this user to the server. Existing installs (App
+        // Store reviewer included) only have the user in localStorage; this
+        // makes sure the server has a record before any IAP /verify call.
+        void ensureUserOnServer(checkedUser);
       }
     } catch (e) {
       console.error("Storage error", e);

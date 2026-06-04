@@ -8,8 +8,28 @@
  * - The frontend NEVER sets isPremium directly
  */
 
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { getApiUrl } from './queryClient';
+
+// ─── Native IAP Plugin (Capacitor 6+ pattern) ─────────────────────────────────
+// registerPlugin creates a bridge proxy to IAPPlugin.swift / IAPPlugin.m.
+// The CAP_PLUGIN macro on the native side registers the methods; this JS call
+// creates the proxy that routes calls through the Capacitor bridge.
+// Using Capacitor.Plugins.IAP (old pattern) no longer works in Capacitor 6+.
+interface NativeIAPPlugin {
+  purchaseProduct(options: { productId: string }): Promise<{
+    success: boolean;
+    cancelled?: boolean;
+    pending?: boolean;
+    transactionId?: string;
+    productId?: string;
+    jwsRepresentation?: string;
+  }>;
+  getProducts(options: { productIds: string[] }): Promise<{ products: Array<any> }>;
+  restorePurchases(): Promise<{ success: boolean; transactions?: Array<any> }>;
+}
+
+const NativeIAP = registerPlugin<NativeIAPPlugin>('IAP');
 
 export interface SubscriptionProduct {
   id: string;
@@ -37,7 +57,7 @@ export const REMOVE_ADS_PRODUCT: SubscriptionProduct = {
   description: 'Permanently remove all ads — one-time purchase',
   price: 4.99,
   period: 'one_time',
-  appleProductId: 'com.kyree.goraidcoordinator.removeads',
+  appleProductId: 'com.kyree.goraiders.removeads',
   googleProductId: 'remove_ads',
   features: [
     'Remove all banner ads',
@@ -113,22 +133,29 @@ export async function purchaseSubscription(
       // Production iOS: Use native StoreKit 2 plugin (IAPPlugin.swift)
       console.log('[SUBSCRIPTION] Initiating native StoreKit 2 purchase');
 
-      const { IAP } = (Capacitor as any).Plugins;
-      if (!IAP) {
-        console.error('[SUBSCRIPTION] IAP plugin not available');
-        return { success: false, isPremium: false, error: 'Purchase not available on this device.' };
+      let nativeResult: any;
+      try {
+        nativeResult = await NativeIAP.purchaseProduct({ productId });
+      } catch (pluginError: any) {
+        // StoreKit throws here when the product ID is not found in App Store Connect,
+        // or when the Paid Apps Agreement has not been signed.
+        const detail = pluginError?.message || String(pluginError);
+        console.error('[SUBSCRIPTION] Native purchase threw:', detail);
+        return {
+          success: false,
+          isPremium: false,
+          error: `Purchase failed: ${detail}. If you are a reviewer, please ensure the Paid Apps Agreement is signed in App Store Connect.`
+        };
       }
-
-      const nativeResult = await IAP.purchaseProduct({ productId });
 
       if (!nativeResult.success) {
         if (nativeResult.cancelled) {
-          return { success: false, isPremium: false, error: 'Purchase cancelled by user' };
+          return { success: false, isPremium: false, error: 'Purchase cancelled.' };
         }
         if (nativeResult.pending) {
-          return { success: false, isPremium: false, error: 'Purchase is pending approval.' };
+          return { success: false, isPremium: false, error: 'Purchase is pending approval (Ask to Buy).' };
         }
-        return { success: false, isPremium: false, error: 'Purchase did not complete.' };
+        return { success: false, isPremium: false, error: 'Purchase did not complete. Please try again.' };
       }
 
       // JWS token from StoreKit 2 - verified server-side with Apple's public keys
@@ -211,12 +238,12 @@ export async function restorePurchases(userId: string): Promise<PurchaseResult> 
   try {
     // On native iOS, restore via StoreKit 2 current entitlements
     if (isNative && Capacitor.getPlatform() === 'ios') {
-      const { IAP } = (Capacitor as any).Plugins;
-      if (IAP) {
-        const nativeResult = await IAP.restorePurchases();
-        if (nativeResult.success && nativeResult.transactions?.length > 0) {
+      try {
+        const nativeResult = await NativeIAP.restorePurchases();
+        const txns = nativeResult.transactions ?? [];
+        if (nativeResult.success && txns.length > 0) {
           // Send the most recent JWS token to verify
-          const latest = nativeResult.transactions[nativeResult.transactions.length - 1];
+          const latest = txns[txns.length - 1];
           const response = await fetch(getApiUrl('/api/subscription/restore'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -230,6 +257,9 @@ export async function restorePurchases(userId: string): Promise<PurchaseResult> 
           };
         }
         return { success: true, isPremium: false, message: 'No purchases to restore' };
+      } catch (restoreError: any) {
+        console.error('[SUBSCRIPTION] Native restore error:', restoreError?.message || restoreError);
+        return { success: false, isPremium: false, error: 'Failed to restore purchases from StoreKit.' };
       }
     }
 
@@ -296,14 +326,8 @@ export async function loadNativeProductPrices(
   }
 
   try {
-    const { IAP } = (Capacitor as any).Plugins;
-    if (!IAP) {
-      console.warn('[SUBSCRIPTION] IAP plugin unavailable — cannot load native prices');
-      return result;
-    }
-
     console.log(`[SUBSCRIPTION] Loading native prices for: ${productIds.join(', ')}`);
-    const response = await IAP.getProducts({ productIds });
+    const response = await NativeIAP.getProducts({ productIds });
     const products: any[] = response?.products ?? response ?? [];
 
     if (!Array.isArray(products)) {

@@ -8,7 +8,10 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
-    "db:push": "drizzle-kit push"
+    "db:push": "drizzle-kit push",
+    "cap:sync": "npx cap sync ios && node script/patch-ios-iap-plugin.mjs",
+    "cap:open": "open ios/App/App.xcworkspace",
+    "ios:rebuild": "npm run build && npm run cap:sync && npm run cap:open"
   },
   "dependencies": {
     "@capacitor-community/admob": "^8.0.0",

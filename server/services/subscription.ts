@@ -248,7 +248,9 @@ export const ELITE_PRODUCTS = {
  */
 export const ONE_TIME_PRODUCTS = {
   REMOVE_ADS: {
-    apple: 'com.kyree.goraidcoordinator.removeads',
+    // NOTE: This product ID uses 'goraiders' (NOT 'goraidcoordinator') — must
+    // match exactly what is configured in App Store Connect / Play Console.
+    apple: 'com.kyree.goraiders.removeads',
     google: 'remove_ads',
     price: 4.99,
   }

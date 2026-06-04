@@ -2,6 +2,9 @@ import { randomUUID } from "crypto";
 import type { User, InsertUser, Lobby, InsertLobby, Player, Feedback, InsertFeedback, BannedUser, PushToken, InsertPushToken, RaidBoss, QueueEntry, InsertQueueEntry, QueueStatus, Subscription, Report, InsertReport, AdImpression, AdConfig, AdStats, AdPlacement, CatchRecord, CatchStats, RaidGroup } from "@shared/schema";
 import type { Player as PlayerType } from "@shared/schema";
 import { TEAMS } from "@shared/schema";
+import { db } from "./db";
+import { users as usersTable } from "./db/schema";
+import { eq } from "drizzle-orm";
 
 /**
  * Raid Capacity Constants
@@ -409,7 +412,38 @@ export class MemStorage implements IStorage {
   }
 
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    // Check in-memory cache first (fast path)
+    const cached = this.users.get(id);
+    if (cached) return cached;
+
+    // Fall back to database so premium status survives server restarts
+    try {
+      const rows = await db.select().from(usersTable).where(eq(usersTable.id, id)).limit(1);
+      if (rows.length > 0) {
+        const dbRow = rows[0];
+        // Reconstruct a User object from the persisted row and cache it
+        const user: User = {
+          id: dbRow.id,
+          name: dbRow.name,
+          level: dbRow.level,
+          team: dbRow.team as any,
+          code: dbRow.code,
+          isPremium: dbRow.isPremium,
+          isVerified: dbRow.isVerified,
+          coins: dbRow.coins,
+          subscription: (dbRow.subscription as any) ?? undefined,
+          notifications: (dbRow.notifications as any) ?? undefined,
+          dailyChallenge: (dbRow.dailyChallenge as any) ?? undefined,
+          raidHistory: (dbRow.raidHistory as any) ?? undefined,
+        };
+        this.users.set(id, user);
+        return user;
+      }
+    } catch (err) {
+      console.error(`[STORAGE] DB getUser fallback failed for ${id}:`, err);
+    }
+
+    return undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
@@ -418,10 +452,38 @@ export class MemStorage implements IStorage {
     );
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
+  async createUser(insertUser: InsertUser & { id?: string }): Promise<User> {
+    // Accept a client-provided UUID so the client and server share the same
+    // identity. Required for IAP receipt verification — the client sends its
+    // local user.id to /api/subscription/verify, and the server must have a
+    // user record under that same id. Falls back to a server-generated UUID
+    // if the client doesn't provide one.
+    const id = insertUser.id ?? randomUUID();
+    const { id: _ignored, ...userFields } = insertUser as InsertUser & { id?: string };
+    const user: User = { ...userFields, id } as User;
     this.users.set(id, user);
+
+    // Persist to database so the user survives server restarts
+    try {
+      await db.insert(usersTable).values({
+        id,
+        name: user.name,
+        level: user.level ?? 1,
+        team: user.team ?? 'neutral',
+        code: user.code ?? '',
+        isPremium: user.isPremium ?? false,
+        isVerified: user.isVerified ?? false,
+        coins: user.coins ?? 0,
+        subscription: (user.subscription as any) ?? null,
+        notifications: (user.notifications as any) ?? null,
+        dailyChallenge: (user.dailyChallenge as any) ?? null,
+        raidHistory: (user.raidHistory as any) ?? null,
+      }).onConflictDoNothing();
+    } catch (err) {
+      console.error(`[STORAGE] DB createUser failed for ${id}:`, err);
+      // Non-fatal: in-memory record still works for this session
+    }
+
     return user;
   }
 
@@ -436,10 +498,10 @@ export class MemStorage implements IStorage {
    * The frontend CANNOT call this directly.
    */
   async updateUserSubscription(
-    userId: string, 
+    userId: string,
     updates: { isPremium: boolean; subscription: Subscription }
   ): Promise<User | undefined> {
-    const user = this.users.get(userId);
+    const user = await this.getUser(userId);
     if (!user) return undefined;
 
     const updatedUser: User = {
@@ -447,9 +509,23 @@ export class MemStorage implements IStorage {
       isPremium: updates.isPremium,
       subscription: updates.subscription as any,
     };
-    
+
     this.users.set(userId, updatedUser);
-    console.log(`[STORAGE] Updated subscription for user ${userId}: isPremium=${updates.isPremium}`);
+
+    // Persist to database so premium status survives server restarts
+    try {
+      await db.update(usersTable)
+        .set({
+          isPremium: updates.isPremium,
+          subscription: updates.subscription as any,
+        })
+        .where(eq(usersTable.id, userId));
+      console.log(`[STORAGE] Persisted subscription to DB for user ${userId}: isPremium=${updates.isPremium}`);
+    } catch (err) {
+      console.error(`[STORAGE] DB updateUserSubscription failed for ${userId}:`, err);
+      // Non-fatal: in-memory record still grants premium for this session
+    }
+
     return updatedUser;
   }
 
@@ -1240,10 +1316,24 @@ export class MemStorage implements IStorage {
   // =============================================
 
   async updateUser(userId: string, updates: Partial<User>): Promise<User | undefined> {
-    const user = this.users.get(userId);
+    const user = await this.getUser(userId);
     if (!user) return undefined;
     const updated: User = { ...user, ...updates, id: userId };
     this.users.set(userId, updated);
+
+    // If subscription-related fields changed, persist to database
+    if ('subscription' in updates || 'isPremium' in updates) {
+      try {
+        const dbUpdates: Record<string, any> = {};
+        if ('subscription' in updates) dbUpdates.subscription = updates.subscription as any ?? null;
+        if ('isPremium' in updates) dbUpdates.isPremium = updates.isPremium ?? false;
+        await db.update(usersTable).set(dbUpdates).where(eq(usersTable.id, userId));
+        console.log(`[STORAGE] Persisted user update to DB for ${userId}`);
+      } catch (err) {
+        console.error(`[STORAGE] DB updateUser failed for ${userId}:`, err);
+      }
+    }
+
     return updated;
   }
 

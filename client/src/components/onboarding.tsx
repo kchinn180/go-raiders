@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useUser } from "@/lib/user-context";
 import { cn } from "@/lib/utils";
+import { getApiUrl } from "@/lib/queryClient";
 import type { TeamId, User } from "@shared/schema";
 import logoImage from "@assets/IMG_0027_1768190905765.png";
 
@@ -28,7 +29,7 @@ export function Onboarding() {
 
   const selectedTeam = teams.find((t) => t.id === formData.team) || teams[0];
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     setError("");
     if (!formData.name.trim()) {
       setError(t("onboarding.nameError"));
@@ -54,6 +55,31 @@ export function Onboarding() {
       isVerified: true,
       coins: 0,
     };
+
+    // Register the user on the server so subsequent calls (especially
+    // /api/subscription/verify after an IAP purchase) can find this user by
+    // id. Without this, App Review hits "User not found" on the verify call
+    // even though the StoreKit purchase succeeded. Failures here are
+    // non-fatal: the local user is still created and a later sync (in
+    // user-context) will retry. The endpoint is idempotent on the id field.
+    try {
+      const response = await fetch(getApiUrl("/api/users"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newUser),
+      });
+      if (!response.ok) {
+        const body = await response.text();
+        console.warn("[ONBOARDING] Server registration failed:", response.status, body);
+        // Special case: friend code banned — block the local user as well
+        if (response.status === 403) {
+          setError("This friend code has been banned.");
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("[ONBOARDING] Server registration failed (offline?). Local user created anyway:", err);
+    }
 
     setUser(newUser);
   };

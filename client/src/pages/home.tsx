@@ -618,7 +618,12 @@ export default function Home() {
 
       <BottomNav currentView={view} setView={setView} hasActiveLobby={!!activeLobby} />
 
-      <PremiumModal isOpen={showPremium} onClose={() => setShowPremium(false)} />
+      <PremiumModal
+        isOpen={showPremium}
+        onClose={() => setShowPremium(false)}
+        onOpenTerms={() => { setShowPremium(false); setLegalPage("terms"); }}
+        onOpenPrivacy={() => { setShowPremium(false); setLegalPage("privacy"); }}
+      />
       <PurchaseThankYouModal
         isOpen={showRemoveAdsThankYou}
         variant="remove_ads"
